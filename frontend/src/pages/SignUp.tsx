@@ -1,10 +1,266 @@
-import { SignUp } from '@clerk/clerk-react';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom';
+import { useSignUp } from '@clerk/clerk-react';
+import { 
+  Brain, 
+  Mail, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ArrowLeft,
+  Sparkles,
+  AlertCircle,
+  User
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-export default function SignUpPage() {
-  console.log("CLERK KEY:", import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const SignUp = () => {
+  const navigate = useNavigate();
+  const { signUp, setActive, isLoaded } = useSignUp();
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const result = await signUp.create({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        emailAddress: formData.email,
+        password: formData.password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        navigate('/chat');
+      } else {
+        // Handle email verification if needed
+        setError('Please check your email for verification.');
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isFormValid = formData.firstName && formData.lastName && formData.email && formData.password;
+
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <SignUp />
+    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
+      {/* Background decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute top-20 left-10 w-20 h-20 bg-gradient-secondary rounded-full opacity-20"
+          animate={{ 
+            y: [0, -20, 0],
+            rotate: [0, 360]
+          }}
+          transition={{ 
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute bottom-20 right-20 w-16 h-16 bg-gradient-accent rounded-full opacity-20"
+          animate={{ 
+            y: [0, 20, 0],
+            x: [0, -10, 0]
+          }}
+          transition={{ 
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Back button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-6"
+        >
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            className="text-white hover:bg-white/10 p-2"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+        </motion.div>
+
+        {/* Sign Up Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <Card className="bg-black/20 backdrop-blur-lg border-white/10">
+            <CardHeader className="text-center pb-6">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                  <Brain className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-handwriting text-white mb-2">
+                Join Kuro AI
+              </CardTitle>
+              <p className="text-white/70 text-sm">
+                Create your account and start your AI journey
+              </p>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {error && (
+                <Alert className="bg-red-500/10 border-red-500/20">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-400">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Name Fields */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-white/90">
+                      First Name
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <Input
+                        type="text"
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        placeholder="First name"
+                        className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-white/90">
+                      Last Name
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      placeholder="Last name"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white/90">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      placeholder="Enter your email"
+                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white/90">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      placeholder="Create a password"
+                      className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/70"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sign Up Button */}
+                <Button
+                  type="submit"
+                  disabled={isLoading || !isFormValid}
+                  className="w-full bg-gradient-primary hover:opacity-90 text-white font-medium py-3"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Creating Account...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Create Account
+                    </div>
+                  )}
+                </Button>
+              </form>
+
+              {/* Sign In Link */}
+              <div className="text-center pt-4 border-t border-white/10">
+                <p className="text-white/70 text-sm">
+                  Already have an account?{' '}
+                  <Link 
+                    to="/auth/signin" 
+                    className="text-primary hover:text-primary-glow font-medium"
+                  >
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
-}
+};
+
+export default SignUp;

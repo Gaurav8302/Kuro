@@ -197,7 +197,7 @@ const Landing = () => {
                 className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-white mb-6"
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="text-sm font-medium">Powered by Advanced AI</span>
+                <span className="text-sm font-medium">Powered by Gemini Free Version</span>
                 <Star className="w-4 h-4" />
               </motion.div>
 

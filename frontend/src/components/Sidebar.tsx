@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SidebarProps {
   sessions: ChatSession[];
@@ -34,6 +35,7 @@ interface SidebarProps {
   onRenameSession: (sessionId: string, newTitle: string) => void;
   onDeleteSession: (sessionId: string) => void;
   onSignOut: () => void;
+  onClose?: () => void; // New prop for closing sidebar
   className?: string;
 }
 
@@ -46,11 +48,13 @@ export const Sidebar = ({
   onRenameSession,
   onDeleteSession,
   onSignOut,
+  onClose,
   className
 }: SidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const isMobile = useIsMobile();
 
   const handleRename = (sessionId: string, currentTitle: string) => {
     setEditingSessionId(sessionId);
@@ -68,6 +72,16 @@ export const Sidebar = ({
   const handleCancelRename = () => {
     setEditingSessionId(null);
     setEditTitle('');
+  };
+
+  const handleCloseClick = () => {
+    if (isMobile && onClose) {
+      // On mobile, close the entire sidebar
+      onClose();
+    } else {
+      // On desktop, just collapse/expand
+      setIsCollapsed(!isCollapsed);
+    }
   };
 
   return (
@@ -101,7 +115,7 @@ export const Sidebar = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={handleCloseClick}
             className="hover:bg-accent/20"
           >
             {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}

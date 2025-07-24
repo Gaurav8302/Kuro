@@ -7,24 +7,13 @@ import { ChatInput } from '@/components/ChatInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
-  Settings, 
-  Download, 
-  Share2, 
-  MoreVertical,
   Edit3,
   Check,
   X,
-  FileText,
   AlertTriangle,
   Loader2,
   Menu
 } from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
 import { Message, ChatSession } from '@/types';
 // import { mockSessions, mockApiCalls } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
@@ -58,8 +47,6 @@ const Chat = () => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [summarizing, setSummarizing] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Always start closed
   const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
 
@@ -351,81 +338,6 @@ const Chat = () => {
     }
   };
 
-  const handleSummarizeSession = async () => {
-    if (!user || !currentSession) return;
-    
-    setSummarizing(true);
-    try {
-      const result = await clerkApiRequest<{ summary: string }>(
-        `/session/summarize/${currentSession.session_id}`,
-        'post',
-        { user_id: user.id }
-      );
-      
-      toast({
-        title: "Session Summarized",
-        description: "Chat history has been summarized for better memory management.",
-      });
-      
-      // Refresh chat history
-      await loadSession(currentSession.session_id);
-    } catch (err: any) {
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to summarize session: ' + err.message, 
-        variant: 'destructive' 
-      });
-    } finally {
-      setSummarizing(false);
-    }
-  };
-
-  const handleExportChat = async () => {
-    if (!currentSession) return;
-    
-    setExporting(true);
-    try {
-      const history = await clerkApiRequest<{ history: any[] }>(
-        `/chat/${currentSession.session_id}`,
-        'get'
-      );
-
-      // Format chat history for export
-      const formattedHistory = history.history.map(msg => ({
-        timestamp: new Date(msg.timestamp).toLocaleString(),
-        user: msg.user,
-        assistant: msg.assistant
-      }));
-
-      // Create and download file
-      const blob = new Blob(
-        [JSON.stringify(formattedHistory, null, 2)], 
-        { type: 'application/json' }
-      );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chat-${currentSession.title.toLowerCase().replace(/\s+/g, '-')}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Chat Exported",
-        description: "Chat history has been downloaded successfully.",
-      });
-    } catch (err: any) {
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to export chat: ' + err.message, 
-        variant: 'destructive' 
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
-
   // Show loading screen while checking authentication
   if (!isLoaded) {
     return (
@@ -524,6 +436,7 @@ const Chat = () => {
               onRenameSession={handleRenameSession}
               onDeleteSession={handleDeleteSession}
               onSignOut={handleSignOut}
+              onClose={() => setIsSidebarOpen(false)}
             />
           </motion.div>
         )}
@@ -589,61 +502,6 @@ const Chat = () => {
                   </Button>
                 </div>
               )}
-            </div>
-
-            {/* Chat Actions */}
-            <div className="flex items-center gap-2">
-              {/* Share Button */}
-              <Button 
-                variant="ghost" 
-                size="icon"
-                disabled={!currentSession}
-              >
-                <Share2 className="w-4 h-4" />
-              </Button>
-              
-              {/* Action Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    disabled={!currentSession}
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={handleExportChat}
-                    disabled={exporting}
-                  >
-                    {exporting ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4 mr-2" />
-                    )}
-                    Export Chat
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem
-                    onClick={handleSummarizeSession}
-                    disabled={summarizing}
-                  >
-                    {summarizing ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="w-4 h-4 mr-2" />
-                    )}
-                    Summarize Chat
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </motion.header>
