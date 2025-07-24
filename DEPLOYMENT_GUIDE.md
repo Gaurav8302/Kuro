@@ -32,7 +32,7 @@ Before deploying, ensure you have:
    - **Region**: Choose closest to your users
    - **Branch**: `main`
    - **Root Directory**: `backend`
-   - **Runtime**: `Python 3`
+   - **Runtime**: `Python 3` (will use Python 3.11.9 from runtime.txt)
    - **Build Command**: `./build.sh`
    - **Start Command**: `gunicorn chatbot:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
 
@@ -70,9 +70,10 @@ Should return: `{"status": "healthy", "components": {...}}`
    - Click "New Project"
    - Import your GitHub repository: `your-username/Kuro`
    - **Root Directory**: `frontend`
-   - **Framework Preset**: Vite
-   - **Build Command**: `npm run build:prod`
-   - **Output Directory**: `dist`
+   - **Framework Preset**: Vite (auto-detected)
+   - **Build Command**: `npm run build` (auto-detected)
+   - **Output Directory**: `dist` (auto-detected)
+   - **Node.js Version**: 18.x (from .node-version file)
 
 2. **Environment Variables**
    Add these in Project Settings → Environment Variables:
@@ -148,6 +149,8 @@ Should return: `{"status": "healthy", "components": {...}}`
    - Verify `build.sh` has execute permissions
    - Check Python requirements compatibility
    - Monitor build logs in Render
+   - **PyTorch Issues**: Ensure runtime.txt specifies Python 3.11.9
+   - **Missing Dependencies**: Check requirements.txt versions
 
 4. **Authentication Issues**
    - Verify Clerk publishable key matches
