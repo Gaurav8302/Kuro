@@ -28,11 +28,11 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize Google Gemini
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GOOGLE_API_KEY:
-    raise ValueError("GOOGLE_API_KEY environment variable is required")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY environment variable is required")
 
-genai.configure(api_key=GOOGLE_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY)
 
 class SessionCleanupManager:
     """
