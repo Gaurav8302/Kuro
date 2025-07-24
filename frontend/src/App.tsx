@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import Chat from "./pages/Chat";
 import SignInPage from "./pages/SignIn";
 import SignUpPage from "./pages/SignUp";
+import SSOCallback from "./pages/SSOCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/chat/:sessionId" element={<Chat />} />
           <Route path="/auth/signin" element={<SignInPage />} />
           <Route path="/auth/signup" element={<SignUpPage />} />
+          <Route path="/sso-callback" element={<SSOCallback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
