@@ -3,11 +3,29 @@
 
 set -o errexit  # Exit on error
 
-echo "🔧 Installing Python dependencies..."
+echo "� Python version: $(python --version)"
+echo "📦 Pip version: $(pip --version)"
+
+echo "�🔧 Installing Python dependencies..."
 pip install --upgrade pip setuptools wheel
+
+# Install with no-deps first to avoid conflicts, then install with deps
+echo "🎯 Installing core dependencies..."
 pip install --no-cache-dir -r requirements.txt
 
-echo "🧪 Testing imports..."
-python -c "import fastapi, uvicorn, pymongo, google.generativeai, pinecone; print('✅ Core imports successful')"
+echo "🧪 Testing critical imports..."
+python -c "
+try:
+    import fastapi, uvicorn, pymongo, pinecone
+    print('✅ Core framework imports successful')
+    import torch, transformers, sentence_transformers
+    print('✅ AI/ML imports successful')
+    import google.generativeai
+    print('✅ Gemini API import successful')
+    print('🎉 All critical imports working!')
+except ImportError as e:
+    print(f'❌ Import error: {e}')
+    exit(1)
+"
 
 echo "✅ Build completed successfully!"

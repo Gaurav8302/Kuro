@@ -151,6 +151,7 @@ Should return: `{"status": "healthy", "components": {...}}`
    - Monitor build logs in Render
    - **PyTorch Issues**: Ensure runtime.txt specifies Python 3.11.9
    - **Missing Dependencies**: Check requirements.txt versions
+   - **Dependency Conflicts**: Use requirements-minimal.txt for emergency deployment
 
 4. **Authentication Issues**
    - Verify Clerk publishable key matches
@@ -164,6 +165,9 @@ curl https://your-backend-url.onrender.com/health
 
 # Check API endpoints
 curl https://your-backend-url.onrender.com/docs
+
+# Alternative build command for dependency conflicts
+pip install --no-cache-dir -r requirements-minimal.txt
 ```
 
 ---
