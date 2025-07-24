@@ -1,7 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* Kuro AI Dark Purple Theme 🟣 */
 
@@ -136,11 +133,13 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
 
   body {
-    @apply bg-background text-foreground font-inter;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', sans-serif;
   }
 
   /* Custom font classes */
