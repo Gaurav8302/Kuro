@@ -8,12 +8,14 @@ import Chat from "./pages/Chat";
 import SignInPage from "./pages/SignIn";
 import SignUpPage from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
+import Debug from "./components/Debug";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <Debug />
       <Toaster />
       <Sonner />
       <BrowserRouter>
