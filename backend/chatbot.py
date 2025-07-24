@@ -24,7 +24,7 @@ import logging
 import os
 
 # Import our custom modules
-from memory.memory_manager import store_memory, get_relevant_memories_detailed, memory_manager
+from memory.lightweight_memory import store_memory, get_relevant_memories_detailed, lightweight_memory_manager as memory_manager
 from memory.chat_manager import chat_with_memory
 from memory.chat_database import (
     get_sessions_by_user, 

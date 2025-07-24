@@ -34,7 +34,7 @@ Before deploying, ensure you have:
    - **Root Directory**: `backend`
    - **Runtime**: `Python 3` (will use Python 3.11.9 from runtime.txt)
    - **Build Command**: `./build.sh`
-   - **Start Command**: `gunicorn chatbot:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
+   - **Start Command**: `gunicorn chatbot:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT`
 
 3. **Environment Variables**
    Add these in the Environment section:
