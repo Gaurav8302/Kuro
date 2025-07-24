@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # Environment configuration
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-IS_REPLIT = os.getenv("REPL_ID") is not None
+IS_PRODUCTION = ENVIRONMENT == "production"
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -57,9 +57,9 @@ app = FastAPI(
 )
 
 # CORS middleware configuration
-replit_url = f"https://{os.getenv('REPL_SLUG')}.{os.getenv('REPL_OWNER')}.repl.co" if IS_REPLIT else None
-
-allowed_origins = [
+# Frontend URLs for production and development
+frontend_urls = [
+    # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8080", 
@@ -70,14 +70,17 @@ allowed_origins = [
     "http://127.0.0.1:4173"
 ]
 
-# Add Replit URL if running on Replit
-if replit_url:
-    allowed_origins.append(replit_url)
-    allowed_origins.append(replit_url.replace("https://", "http://"))
+# Add production frontend URL if specified
+frontend_prod_url = os.getenv("FRONTEND_URL")
+if frontend_prod_url:
+    frontend_urls.extend([
+        frontend_prod_url,
+        frontend_prod_url.replace("https://", "http://")
+    ])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=frontend_urls,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -428,16 +431,15 @@ if __name__ == "__main__":
     # Environment-based configuration
     host = "0.0.0.0"
     port = int(os.getenv("PORT", 8000))
-    is_production = os.getenv("REPL_ID") is not None  # Replit environment detection
     
     print(f"🚀 Starting AI Chatbot API on {host}:{port}")
-    print(f"📝 Environment: {'Production (Replit)' if is_production else 'Development'}")
+    print(f"📝 Environment: {'Production' if IS_PRODUCTION else 'Development'}")
     
     uvicorn.run(
         app, 
         host=host, 
         port=port, 
-        reload=not is_production,  # Disable reload in production
+        reload=not IS_PRODUCTION,  # Disable reload in production
         access_log=True,
         log_level="info"
     )

@@ -1,4 +1,9 @@
-# Dependencies
+# Dependencies - Update for new structure
+frontend/node_modules/
+backend/__pycache__/
+frontend/dist/
+frontend/build/
+frontend/.next/
 /node_modules
 /.pnp
 .pnp.js
