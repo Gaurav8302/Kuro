@@ -12,7 +12,6 @@ import math
 
 # Google Gemini imports
 import google.generativeai as genai
-from google.generativeai.types import EmbedTaskType
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -58,7 +57,7 @@ class UltraLightweightMemoryManager:
             result = genai.embed_content(
                 model=self.embedding_model,
                 content=text,
-                task_type=EmbedTaskType.SEMANTIC_SIMILARITY
+                task_type="retrieval_document"
             )
             return result['embedding']
         except Exception as e:
