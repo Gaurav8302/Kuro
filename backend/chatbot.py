@@ -24,7 +24,7 @@ import logging
 import os
 
 # Import our custom modules
-from memory.lightweight_memory import store_memory, get_relevant_memories_detailed, lightweight_memory_manager as memory_manager
+from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
 from memory.chat_manager import chat_with_memory
 from memory.chat_database import (
     get_sessions_by_user, 
@@ -33,7 +33,8 @@ from memory.chat_database import (
     delete_session_by_id,
     rename_session_title
 )
-from memory.user_profile_api import router as user_profile_router
+# Temporarily disabled for memory optimization
+# from memory.user_profile_api import router as user_profile_router
 
 # Configure logging
 logging.basicConfig(
@@ -100,8 +101,8 @@ async def add_security_headers(request: Request, call_next):
     
     return response
 
-# Register user profile endpoints
-app.include_router(user_profile_router)
+# Register user profile endpoints - temporarily disabled for memory optimization
+# app.include_router(user_profile_router)
 
 # Session creation endpoint for new chat
 from fastapi import Query

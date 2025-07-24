@@ -1,16 +1,28 @@
 #!/bin/bash
-# Memory-optimized start script for Render free tier
 
-# Use only 1 worker to reduce memory usage
-# Disable preloading to reduce startup memory
-# Use basic uvicorn worker instead of heavy gunicorn
+# Ultra-lightweight start script for Render free tier
+# Optimized for 512MB memory limit
 
+echo "🚀 Starting AI Chatbot API (Ultra-Lightweight Mode)"
+echo "📊 Memory optimization: Enabled"
+echo "🔧 Python version: $(python --version)"
+
+# Set memory-optimized environment variables
+export PYTHONUNBUFFERED=1
+export PYTHONDONTWRITEBYTECODE=1
+export MALLOC_TRIM_THRESHOLD_=100000
+export MALLOC_MMAP_THRESHOLD_=100000
+
+# Ultra-minimal gunicorn configuration
 exec gunicorn chatbot:app \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --workers 1 \
-  --bind 0.0.0.0:$PORT \
-  --max-requests 1000 \
-  --max-requests-jitter 100 \
-  --timeout 60 \
-  --keep-alive 30 \
-  --worker-tmp-dir /dev/shm
+    --bind 0.0.0.0:$PORT \
+    --workers 1 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --timeout 60 \
+    --keep-alive 30 \
+    --worker-tmp-dir /dev/shm \
+    --log-level info \
+    --access-logfile - \
+    --error-logfile -
