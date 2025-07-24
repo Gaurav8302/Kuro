@@ -132,23 +132,25 @@ const Landing = () => {
 
             {/* Auth buttons or Go to Chat based on Clerk state */}
             {isLoaded && !isSignedIn && (
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <div className="flex gap-2 sm:gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                    onClick={() => navigate('/auth/signin')}
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    onClick={() => navigate('/auth/signup')}
+                  >
+                    Sign Up
+                  </Button>
+                </div>
                 <Button 
                   variant="outline" 
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  onClick={() => navigate('/auth/signin')}
-                >
-                  Sign In
-                </Button>
-                <Button 
-                  variant="secondary"
-                  onClick={() => navigate('/auth/signup')}
-                >
-                  Sign Up
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-full sm:w-auto"
                   onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
                 >
                   <Heart className="w-4 h-4 mr-2" />
@@ -157,16 +159,17 @@ const Landing = () => {
               </div>
             )}
             {isLoaded && isSignedIn && (
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button 
                   variant="secondary"
                   onClick={() => navigate('/chat')}
+                  className="w-full sm:w-auto"
                 >
                   Go to Chat
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20 w-full sm:w-auto"
                   onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
                 >
                   <Heart className="w-4 h-4 mr-2" />
