@@ -1,3 +1,4 @@
+// Canvas Chat AI - Main entry point
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { ClerkProvider } from '@clerk/clerk-react';

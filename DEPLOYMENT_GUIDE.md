@@ -158,6 +158,12 @@ Should return: `{"status": "healthy", "components": {...}}`
    - Check CORS settings in Clerk dashboard
    - Ensure JWT secrets are consistent
 
+5. **Vercel Frontend Issues**
+   - **Missing API Files**: Ensure `frontend/src/lib/api.ts` is committed to git
+   - **Build Command**: Use `npm run build` (not `npm run build:prod`)
+   - **Node Version**: Ensure `.node-version` file specifies Node 18.x
+   - **Import Errors**: Check all import paths use correct aliases (@/)
+
 ### Debug Commands:
 ```bash
 # Test backend health
