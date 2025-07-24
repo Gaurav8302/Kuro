@@ -16,7 +16,8 @@ import {
   X,
   FileText,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Menu
 } from 'lucide-react';
 import { 
   DropdownMenu, 
@@ -30,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useClerkApi } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Chat = () => {
   const { sessionId } = useParams();
@@ -38,6 +40,8 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const clerkApiRequest = useClerkApi();
   const { user } = useUser();
+  const { signOut } = useAuth();
+  const isMobile = useIsMobile();
   
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
@@ -49,6 +53,8 @@ const Chat = () => {
   const [error, setError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile); // Close sidebar on mobile by default
+  const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -65,7 +71,15 @@ const Chat = () => {
     try {
       const data = await clerkApiRequest<{ sessions: ChatSession[] }>(`/sessions/${user.id}`, 'get');
       setSessions(data.sessions);
-      // FIX: If sessionId exists, load that session after sessions are set
+      
+      // Auto-create new session if none exist and user hasn't already done this
+      if (data.sessions.length === 0 && !sessionId && !hasAutoCreatedSession) {
+        setHasAutoCreatedSession(true);
+        await handleNewChat();
+        return;
+      }
+      
+      // If sessionId exists, load that session after sessions are set
       if (sessionId && data.sessions.length > 0) {
         loadSession(sessionId);
       }
@@ -130,6 +144,11 @@ const Chat = () => {
       // After navigating, clear messages and set current session
       setMessages([]);
       setCurrentSession({ session_id: data.session_id, title: 'New Chat' });
+      
+      // Close sidebar on mobile after creating new chat
+      if (isMobile) {
+        setIsSidebarOpen(false);
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -201,6 +220,27 @@ const Chat = () => {
         }
       });
       setMessages(mappedMessages);
+
+      // Auto-name session after 3-4 messages if still "New Chat"
+      if (mappedMessages.length >= 6 && currentSession.title === 'New Chat') { // 6 messages = 3 exchanges
+        try {
+          // Generate title from first user message
+          const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
+          const generatedTitle = firstUserMessage.length > 50 
+            ? firstUserMessage.substring(0, 47) + '...' 
+            : firstUserMessage;
+          
+          await handleRenameSession(currentSession.session_id, generatedTitle);
+        } catch (err) {
+          // Ignore auto-naming errors, not critical
+          console.log('Auto-naming failed:', err);
+        }
+      }
+
+      // Close sidebar on mobile after sending message
+      if (isMobile) {
+        setIsSidebarOpen(false);
+      }
     } catch (err: any) {
       setIsTyping(false); // <-- Also stop typing on error
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -273,7 +313,6 @@ const Chat = () => {
     }
   };
 
-  const { signOut } = useAuth();
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -281,6 +320,19 @@ const Chat = () => {
       title: "Signed out",
       description: "Come back soon!"
     });
+  };
+
+  // Toggle sidebar visibility
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  // Handle session selection and close sidebar on mobile
+  const handleSelectSession = (id: string) => {
+    navigate(`/chat/${id}`);
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
   };
 
   const handleSummarizeSession = async () => {
@@ -384,22 +436,50 @@ const Chat = () => {
         )}
       </AnimatePresence>
 
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobile && isSidebarOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <Sidebar
-        sessions={sessions}
-        currentSessionId={currentSession?.session_id}
-        user={user ? {
-          id: user.id,
-          name: user.fullName || user.username || user.emailAddresses?.[0]?.emailAddress || 'User',
-          email: user.emailAddresses?.[0]?.emailAddress || '',
-          avatar: user.imageUrl
-        } : undefined}
-        onNewChat={handleNewChat}
-        onSelectSession={(id) => navigate(`/chat/${id}`)}
-        onRenameSession={handleRenameSession}
-        onDeleteSession={handleDeleteSession}
-        onSignOut={handleSignOut}
-      />
+      <AnimatePresence mode="wait">
+        {(isSidebarOpen || !isMobile) && (
+          <motion.div
+            className={cn(
+              "relative z-50",
+              isMobile && "fixed left-0 top-0 h-full"
+            )}
+            initial={isMobile ? { x: -300, opacity: 0 } : {}}
+            animate={isMobile ? { x: 0, opacity: 1 } : {}}
+            exit={isMobile ? { x: -300, opacity: 0 } : {}}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <Sidebar
+              sessions={sessions}
+              currentSessionId={currentSession?.session_id}
+              user={user ? {
+                id: user.id,
+                name: user.fullName || user.username || user.emailAddresses?.[0]?.emailAddress || 'User',
+                email: user.emailAddresses?.[0]?.emailAddress || '',
+                avatar: user.imageUrl
+              } : undefined}
+              onNewChat={handleNewChat}
+              onSelectSession={handleSelectSession}
+              onRenameSession={handleRenameSession}
+              onDeleteSession={handleDeleteSession}
+              onSignOut={handleSignOut}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
@@ -412,6 +492,18 @@ const Chat = () => {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  className="shrink-0"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
+              
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
                   <Input
