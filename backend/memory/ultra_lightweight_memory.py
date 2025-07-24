@@ -34,11 +34,15 @@ class UltraLightweightMemoryManager:
         if not pc_api_key:
             raise ValueError("PINECONE_API_KEY environment variable is required")
         
-        self.pc = Pinecone(api_key=pc_api_key)
-        index_name = os.getenv("PINECONE_INDEX", "ai-memory")
-        self.index = self.pc.Index(index_name)
-        
-        logger.info("Ultra-lightweight memory manager initialized")
+        try:
+            self.pc = Pinecone(api_key=pc_api_key)
+            index_name = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
+            logger.info(f"Connecting to Pinecone index: {index_name}")
+            self.index = self.pc.Index(index_name)
+            logger.info("Ultra-lightweight memory manager initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Pinecone connection: {e}")
+            raise
     
     def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity without numpy"""
