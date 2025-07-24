@@ -10,6 +10,8 @@ Features:
 - Memory-aware conversations
 - Chat history persistence
 - Context-aware responses
+
+Version: 2025-01-25 - Ultra lightweight memory manager
 """
 
 import os

@@ -24,7 +24,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Database configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/chatbot_db")
+MONGO_URI = os.getenv("MONGODB_URI", os.getenv("MONGO_URI", "mongodb://localhost:27017/chatbot_db"))
 DATABASE_NAME = "chatbot_db"
 
 class DatabaseConnection:
