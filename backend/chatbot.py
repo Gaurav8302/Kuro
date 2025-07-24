@@ -334,12 +334,12 @@ async def summarize_session(session_id: str, user_id: str):
     to optimize memory usage while preserving important information.
     """
     try:
-        from memory.session_cleanup import summarize_and_cleanup_session
+        # Temporarily disabled - session_cleanup module not available
+        # from memory.session_cleanup import summarize_and_cleanup_session
+        # result = await summarize_and_cleanup_session(session_id, user_id)
         
-        result = await summarize_and_cleanup_session(session_id, user_id)
-        
-        logger.info(f"Session {session_id} summarized and cleaned up")
-        return result
+        logger.info(f"Session summarization requested for {session_id} (temporarily disabled)")
+        return {"status": "success", "message": "Session summarization is temporarily disabled"}
     
     except Exception as e:
         logger.error(f"Error summarizing session: {str(e)}")

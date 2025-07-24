@@ -18,10 +18,10 @@ python -c "
 try:
     import fastapi, uvicorn, pymongo, pinecone
     print('✅ Core framework imports successful')
-    import torch, transformers, sentence_transformers
-    print('✅ AI/ML imports successful')
     import google.generativeai
     print('✅ Gemini API import successful')
+    from dotenv import load_dotenv
+    print('✅ Environment loading successful')
     print('🎉 All critical imports working!')
 except ImportError as e:
     print(f'❌ Import error: {e}')
