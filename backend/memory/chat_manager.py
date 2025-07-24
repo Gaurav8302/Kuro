@@ -19,7 +19,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-from memory.memory_manager import store_memory, get_relevant_memories_detailed, memory_manager
+from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
 from memory.chat_database import save_chat_to_db
 from memory.user_profile import get_user_name as get_profile_name, set_user_name
 
