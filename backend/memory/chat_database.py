@@ -18,7 +18,7 @@ from typing import List, Dict, Any, Optional
 from pymongo import DESCENDING
 from pymongo.errors import PyMongoError
 
-from backend.database.db import (
+from database.db import (
     chat_collection, 
     session_titles_collection,
     database

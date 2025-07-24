@@ -3,7 +3,7 @@ User Profile API endpoints for name management
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from backend.memory.user_profile import get_user_name, set_user_name
+from memory.user_profile import get_user_name, set_user_name
 
 router = APIRouter()
 

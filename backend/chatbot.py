@@ -21,55 +21,88 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import logging
+import os
 
 # Import our custom modules
-
-from backend.memory.memory_manager import store_memory, get_relevant_memories
-from backend.memory.chat_manager import chat_with_memory
-from backend.memory.chat_database import (
+from memory.memory_manager import store_memory, get_relevant_memories_detailed, memory_manager
+from memory.chat_manager import chat_with_memory
+from memory.chat_database import (
     get_sessions_by_user, 
     get_chat_by_session, 
     get_all_chats_by_user,
     delete_session_by_id,
     rename_session_title
 )
-from backend.memory.user_profile_api import router as user_profile_router
+from memory.user_profile_api import router as user_profile_router
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Environment configuration
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+IS_REPLIT = os.getenv("REPL_ID") is not None
 
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Chatbot API",
     description="Backend API for AI chatbot with persistent memory",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs" if DEBUG else None,  # Hide docs in production
+    redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
 
 # CORS middleware configuration
+replit_url = f"https://{os.getenv('REPL_SLUG')}.{os.getenv('REPL_OWNER')}.repl.co" if IS_REPLIT else None
+
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080", 
+    "http://127.0.0.1:8080",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:4173",  # Vite preview server
+    "http://127.0.0.1:4173"
+]
+
+# Add Replit URL if running on Replit
+if replit_url:
+    allowed_origins.append(replit_url)
+    allowed_origins.append(replit_url.replace("https://", "http://"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080"
-    ],  # Frontend URLs (React/Vite dev server)
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Register user profile endpoints
+# Security middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses"""
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
+
 # Register user profile endpoints
 app.include_router(user_profile_router)
 
 # Session creation endpoint for new chat
 from fastapi import Query
-from backend.memory.chat_database import create_new_session
+from memory.chat_database import create_new_session
 @app.post("/session/create", tags=["Sessions"])
 async def create_session(user_id: str = Query(...)):
     if not user_id:
@@ -103,20 +136,11 @@ class RenameRequest(BaseModel):
     """Request model for renaming sessions"""
     new_title: str = Field(..., description="New title for the session")
 
-# Health check endpoint
+# Health check endpoints
 @app.get("/", tags=["Health"])
 async def root():
-    """Health check endpoint"""
+    """Root endpoint"""
     return {"message": "AI Chatbot API is running", "status": "healthy"}
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Detailed health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "AI Chatbot Backend",
-        "version": "1.0.0"
-    }
 
 # Memory management endpoints
 @app.post("/store-memory", tags=["Memory"])
@@ -148,10 +172,27 @@ async def retrieve_memories(payload: QueryInput):
     for the given user and query.
     """
     try:
-        memories = get_relevant_memories(payload.query, payload.user_id, payload.top_k)
+        # Get detailed memories with metadata
+        memories = get_relevant_memories_detailed(
+            query=payload.query, 
+            user_filter=payload.user_id, 
+            top_k=payload.top_k
+        )
         
-        logger.info(f"Retrieved {len(memories)} memories for user {payload.user_id}")
-        return {"query": payload.query, "results": memories}
+        # Format for API response (maintain backward compatibility)  
+        formatted_memories = [
+            {
+                "text": memory["text"],
+                "score": memory.get("score", 0.0),
+                "importance": memory.get("importance", 0.5),
+                "category": memory.get("category", "general"),
+                "timestamp": memory.get("timestamp", "")
+            }
+            for memory in memories
+        ]
+        
+        logger.info(f"Retrieved {len(formatted_memories)} memories for user {payload.user_id}")
+        return {"query": payload.query, "results": formatted_memories}
     
     except Exception as e:
         logger.error(f"Error retrieving memories: {str(e)}")
@@ -163,7 +204,10 @@ async def chat_endpoint(payload: ChatInput):
     """
     Send a message to the AI chatbot
     
-    The AI will use stored memories and context to provide personalized responses.
+    ARCHITECTURE NOTE:
+    - Full chat history is stored in MongoDB (persistent, complete conversations)
+    - Pinecone stores semantic memory/context (for AI to remember user preferences, facts, etc.)
+    - This endpoint uses both: MongoDB for chat history, Pinecone for personalization
     """
     try:
         reply = chat_with_memory(
@@ -183,7 +227,7 @@ async def chat_endpoint(payload: ChatInput):
 @app.get("/sessions/{user_id}", tags=["Sessions"])
 async def get_user_sessions(user_id: str):
     """
-    Get all chat sessions for a specific user
+    Get all chat sessions for a specific user from MongoDB
     
     Returns a list of sessions with their titles and IDs, ordered by creation date.
     """
@@ -200,8 +244,10 @@ async def get_user_sessions(user_id: str):
 @app.get("/chat/{session_id}", tags=["Sessions"])
 async def get_session_chat(session_id: str):
     """
-    Get chat history for a specific session
+    Get full chat history for a specific session from MongoDB
     
+    This retrieves the complete conversation history stored in MongoDB,
+    NOT from Pinecone (which is only used for semantic memory/context).
     Returns all messages in chronological order for the given session.
     """
     try:
@@ -284,7 +330,7 @@ async def summarize_session(session_id: str, user_id: str):
     to optimize memory usage while preserving important information.
     """
     try:
-        from backend.memory.session_cleanup import summarize_and_cleanup_session
+        from memory.session_cleanup import summarize_and_cleanup_session
         
         result = await summarize_and_cleanup_session(session_id, user_id)
         
@@ -295,18 +341,103 @@ async def summarize_session(session_id: str, user_id: str):
         logger.error(f"Error summarizing session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to summarize session: {str(e)}")
 
+# Enhanced Memory Management endpoints
+@app.get("/user/{user_id}/context", tags=["Memory"])
+async def get_user_context(user_id: str):
+    """
+    Get comprehensive user context including name, preferences, goals, etc.
+    
+    This endpoint provides a complete overview of what the AI knows about the user.
+    """
+    try:
+        context = memory_manager.get_user_context(user_id)
+        
+        logger.info(f"Retrieved context for user {user_id}")
+        return {"user_id": user_id, "context": context}
+    
+    except Exception as e:
+        logger.error(f"Error retrieving user context: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve user context: {str(e)}")
+
+@app.post("/user/{user_id}/cleanup", tags=["Memory"])
+async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
+    """
+    Clean up old, low-importance memories for a user
+    
+    This helps maintain optimal performance by removing outdated information
+    while preserving important memories.
+    """
+    try:
+        memory_manager.cleanup_old_memories(user_id, days_threshold)
+        
+        logger.info(f"Cleaned up memories for user {user_id} (threshold: {days_threshold} days)")
+        return {"status": "success", "user_id": user_id, "days_threshold": days_threshold}
+    
+    except Exception as e:
+        logger.error(f"Error cleaning up memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup memories: {str(e)}")
+
+# Health check endpoint
+@app.get("/health", tags=["System"])
+async def health_check():
+    """
+    Health check endpoint for monitoring system status
+    """
+    try:
+        # Test Pinecone connection
+        stats = memory_manager.index.describe_index_stats()
+        
+        return {
+            "status": "healthy",
+            "components": {
+                "api": "operational",
+                "pinecone": "connected",
+                "vector_count": stats.total_vector_count if stats else 0
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "degraded",
+            "error": str(e)
+        }
+
 # Error handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions"""
+    logger.warning(f"HTTP {exc.status_code} error: {exc.detail}")
+    return {"error": exc.detail, "status_code": exc.status_code}
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors"""
-    return {"error": "Endpoint not found", "detail": exc.detail}
+    logger.warning(f"404 Not Found: {request.url}")
+    return {"error": "Endpoint not found", "detail": "The requested resource was not found"}
 
 @app.exception_handler(500)
-async def internal_error_handler(request: Request, exc: HTTPException):
+async def internal_error_handler(request: Request, exc: Exception):
     """Handle 500 errors"""
-    logger.error(f"Internal server error: {exc.detail}")
-    return {"error": "Internal server error", "detail": "Something went wrong"}
+    logger.error(f"Internal server error: {str(exc)}", exc_info=True)
+    return {"error": "Internal server error", "detail": "Something went wrong on our end"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    
+    # Environment-based configuration
+    host = "0.0.0.0"
+    port = int(os.getenv("PORT", 8000))
+    is_production = os.getenv("REPL_ID") is not None  # Replit environment detection
+    
+    print(f"🚀 Starting AI Chatbot API on {host}:{port}")
+    print(f"📝 Environment: {'Production (Replit)' if is_production else 'Development'}")
+    
+    uvicorn.run(
+        app, 
+        host=host, 
+        port=port, 
+        reload=not is_production,  # Disable reload in production
+        access_log=True,
+        log_level="info"
+    )

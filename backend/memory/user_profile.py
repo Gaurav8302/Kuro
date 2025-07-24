@@ -4,7 +4,7 @@ User Profile Database Module
 This module handles user profile storage and retrieval (e.g., name) in MongoDB.
 """
 
-from backend.database.db import users_collection
+from database.db import users_collection
 import logging
 from pymongo.errors import PyMongoError
 

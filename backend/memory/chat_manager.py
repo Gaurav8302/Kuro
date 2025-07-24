@@ -19,9 +19,9 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-from backend.memory.memory_manager import store_memory, get_relevant_memories
-from backend.memory.chat_database import save_chat_to_db
-from backend.memory.user_profile import get_user_name as get_profile_name, set_user_name
+from memory.memory_manager import store_memory, get_relevant_memories_detailed, memory_manager
+from memory.chat_database import save_chat_to_db
+from memory.user_profile import get_user_name as get_profile_name, set_user_name
 
 # Load environment variables
 load_dotenv()
@@ -92,13 +92,14 @@ class ChatManager:
             if name:
                 return name
             # 2. Fallback to memory search
-            memories = get_relevant_memories(
+            memories = get_relevant_memories_detailed(
                 query="name introduction", 
                 user_filter=user_id, 
-                top_k=5
+                top_k=5,
+                memory_types=["user_profile"]
             )
             for memory in memories:
-                name = self.extract_name(memory)
+                name = self.extract_name(memory["text"])
                 if name:
                     return name
             return None
@@ -121,7 +122,7 @@ class ChatManager:
                 "source": "chat_introduction",
                 "original_message": source_message
             }
-            store_memory(memory_text, metadata)
+            store_memory(memory_text, metadata, importance=0.9)  # High importance for name
             logger.info(f"Stored name '{name}' for user {user_id} (profile + memory)")
         except Exception as e:
             logger.error(f"Failed to store user name: {str(e)}")
@@ -153,7 +154,7 @@ class ChatManager:
         self, 
         user_name: str, 
         message: str, 
-        relevant_memories: List[str],
+        relevant_memories: List[Dict[str, Any]],
         session_history: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
@@ -162,13 +163,13 @@ class ChatManager:
         Args:
             user_name (str): User's name
             message (str): Current user message
-            relevant_memories (List[str]): Relevant past memories
+            relevant_memories (List[Dict]): Relevant past memories with metadata
             session_history (Optional[List[Dict]]): Recent messages from current session
             
         Returns:
             str: Formatted prompt for the AI
         """
-        # Organize memories by relevance and recency
+        # Organize memories by category and importance
         organized_context = []
         
         # Add recent session context if available
@@ -184,37 +185,54 @@ class ChatManager:
                 "🔄 Recent conversation:\n" + "\n".join(session_context)
             )
         
-        # Add relevant memories
+        # Add relevant memories organized by category
         if relevant_memories:
-            # Group memories by type
-            memory_types = {
+            memory_categories = {
                 "user_profile": [],
+                "preferences": [],
+                "goals": [],
+                "skills": [],
                 "key_information": [],
-                "past_conversations": []
+                "conversation": []
             }
             
+            # Sort memories by importance and category
             for memory in relevant_memories:
-                if "my name is" in memory.lower() or "call me" in memory.lower():
-                    memory_types["user_profile"].append(memory)
-                elif any(keyword in memory.lower() for keyword in ["remember", "important", "key", "fact"]):
-                    memory_types["key_information"].append(memory)
+                category = memory.get("category", "general")
+                if category in memory_categories:
+                    memory_categories[category].append(memory["text"])
                 else:
-                    memory_types["past_conversations"].append(memory)
+                    memory_categories["conversation"].append(memory["text"])
             
             # Add organized memories to context
-            if memory_types["user_profile"]:
+            if memory_categories["user_profile"]:
                 organized_context.append(
-                    "👤 User Profile:\n" + "\n".join(memory_types["user_profile"])
+                    "👤 User Profile:\n" + "\n".join(memory_categories["user_profile"])
                 )
             
-            if memory_types["key_information"]:
+            if memory_categories["preferences"]:
                 organized_context.append(
-                    "🔑 Key Information:\n" + "\n".join(memory_types["key_information"])
+                    "❤️ User Preferences:\n" + "\n".join(memory_categories["preferences"])
+                )
+                
+            if memory_categories["goals"]:
+                organized_context.append(
+                    "🎯 User Goals:\n" + "\n".join(memory_categories["goals"])
+                )
+                
+            if memory_categories["skills"]:
+                organized_context.append(
+                    "�️ User Skills:\n" + "\n".join(memory_categories["skills"])
                 )
             
-            if memory_types["past_conversations"]:
+            if memory_categories["key_information"]:
                 organized_context.append(
-                    "💭 Related Past Conversations:\n" + "\n".join(memory_types["past_conversations"])
+                    "🔑 Key Information:\n" + "\n".join(memory_categories["key_information"])
+                )
+            
+            if memory_categories["conversation"]:
+                organized_context.append(
+                    "💭 Related Past Conversations:\n" + "\n".join(memory_categories["conversation"])
                 )
         
         context_str = "\n\n".join(organized_context) if organized_context else "No previous context available."
@@ -227,12 +245,14 @@ You have access to previous conversations and context to provide personalized re
 Current message:
 👤 {user_name}: {message}
 
-Instructions:
-1. Use the provided context to personalize your response
-2. Be natural and conversational
-3. If referring to past conversations, be subtle (don't explicitly say "as we discussed before")
-4. Maintain a consistent personality and remember key details about {user_name}
-5. Keep your response focused and relevant to the current topic
+Instructions for responding:
+1. ALWAYS reference recent conversation context - if we were discussing a topic, continue that conversation naturally
+2. Use stored memories about {user_name}'s interests, preferences, and past requests to be more helpful
+3. Be conversational and engaging, not repetitive
+4. If {user_name} says something like "both of them" or "that one", refer to the recent context to understand what they mean
+5. Don't ask the same questions repeatedly - build on what you already know
+6. Give specific, actionable advice when asked for recommendations
+7. Remember that continuing a conversation is better than starting over
 
 🤖 Assistant:"""
         
@@ -285,18 +305,29 @@ Instructions:
                 
                 return response
             
-            # 4. Retrieve relevant memories for context
-            relevant_memories = get_relevant_memories(
+            # 4. Retrieve relevant memories for context with lower threshold
+            relevant_memories = get_relevant_memories_detailed(
                 query=message, 
                 user_filter=user_id, 
                 top_k=top_k
             )
             
-            # 5. Generate context-aware response
-            prompt = self.build_context_prompt(user_name, message, relevant_memories)
+            # 5. Get recent session history for context
+            session_history = None
+            if session_id:
+                try:
+                    from memory.chat_database import get_chat_by_session
+                    chat_data = get_chat_by_session(session_id)
+                    if chat_data and len(chat_data) > 1:  # More than just current message
+                        session_history = chat_data[-6:]  # Last 6 messages for context
+                except Exception as e:
+                    logger.warning(f"Failed to get session history: {str(e)}")
+            
+            # 6. Generate context-aware response
+            prompt = self.build_context_prompt(user_name, message, relevant_memories, session_history)
             response = self.generate_ai_response(prompt)
             
-            # 6. Store the conversation in memory and database
+            # 7. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
             save_chat_to_db(user_id, message, response, session_id)
             
@@ -315,7 +346,7 @@ Instructions:
         session_id: Optional[str] = None
     ):
         """
-        Store chat exchange in memory for future context
+        Store chat exchange in memory for future context with intelligent importance
         
         Args:
             user_id (str): User identifier
@@ -324,6 +355,7 @@ Instructions:
             session_id (Optional[str]): Session identifier
         """
         try:
+            # Store the full exchange
             chat_text = f"User: {message}\nAssistant: {response}"
             metadata = {
                 "user": user_id,
@@ -332,7 +364,19 @@ Instructions:
                 "session_id": session_id or "default"
             }
             
-            store_memory(chat_text, metadata)
+            # Calculate importance based on message content
+            importance = 0.3  # Base importance for regular chat
+            
+            # Higher importance for requests, preferences, and key information
+            message_lower = message.lower()
+            if any(keyword in message_lower for keyword in ["i love", "i like", "i prefer", "favorite", "interested in", "i enjoy", "hobby"]):
+                importance = 0.8  # High importance for preferences
+            elif any(keyword in message_lower for keyword in ["i need", "suggest", "recommend", "help me", "looking for", "can you"]):
+                importance = 0.7  # High importance for requests
+            elif any(keyword in message_lower for keyword in ["important", "remember", "key", "note"]):
+                importance = 0.9  # Very high importance for explicit requests to remember
+            
+            store_memory(chat_text, metadata, importance=importance)
             
         except Exception as e:
             logger.error(f"Failed to store chat memory: {str(e)}")

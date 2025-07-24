@@ -119,21 +119,21 @@ class EnhancedMemoryManager:
         if any(keyword in text_lower for keyword in ["my name is", "i am", "call me", "i'm"]):
             return "user_profile"
         
-        # Preferences and interests (expanded)
-        if any(keyword in text_lower for keyword in ["i like", "i love", "i prefer", "favorite", "interested in", "i enjoy", "passionate about", "hobby", "hobbies"]):
+        # Preferences and interests
+        if any(keyword in text_lower for keyword in ["i like", "i love", "i prefer", "favorite", "interested in"]):
             return "preferences"
-        
-        # Goals, needs, and requests (expanded) 
-        if any(keyword in text_lower for keyword in ["i need", "suggest", "recommend", "help me", "looking for", "want to", "goal", "plan to", "hoping", "dream", "can you"]):
-            return "goals"
-        
-        # Skills and capabilities
-        if any(keyword in text_lower for keyword in ["good at", "skilled", "experienced", "know how", "expert", "professional"]):
-            return "skills"
         
         # Important facts or key information
         if any(keyword in text_lower for keyword in ["remember", "important", "key", "note", "don't forget"]):
             return "key_information"
+        
+        # Goals and aspirations
+        if any(keyword in text_lower for keyword in ["goal", "want to", "plan to", "hoping", "dream"]):
+            return "goals"
+        
+        # Skills and capabilities
+        if any(keyword in text_lower for keyword in ["good at", "skilled", "experienced", "know how"]):
+            return "skills"
         
         # Conversational exchanges
         if metadata.get("type") == "chat_exchange":
@@ -246,7 +246,7 @@ class EnhancedMemoryManager:
         query: str, 
         user_filter: Optional[str] = None, 
         top_k: int = 8,
-        score_threshold: float = 0.3,  # Lower threshold to get more memories
+        score_threshold: float = 0.5,
         memory_types: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """

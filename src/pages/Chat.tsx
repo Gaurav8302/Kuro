@@ -65,6 +65,10 @@ const Chat = () => {
     try {
       const data = await clerkApiRequest<{ sessions: ChatSession[] }>(`/sessions/${user.id}`, 'get');
       setSessions(data.sessions);
+      // FIX: If sessionId exists, load that session after sessions are set
+      if (sessionId && data.sessions.length > 0) {
+        loadSession(sessionId);
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -138,10 +142,10 @@ const Chat = () => {
     setIsLoading(true);
     setIsTyping(true);
     setError(null);
-    
+
     try {
       if (!user || !currentSession) return;
-      
+
       // Immediately show user message
       setMessages(prev => [
         ...prev,
@@ -171,6 +175,7 @@ const Chat = () => {
           role: 'assistant'
         }
       ]);
+      setIsTyping(false); // <-- Fix: stop typing indicator after AI reply
       scrollToBottom();
 
       // Refresh chat history to ensure sync
@@ -197,6 +202,7 @@ const Chat = () => {
       });
       setMessages(mappedMessages);
     } catch (err: any) {
+      setIsTyping(false); // <-- Also stop typing on error
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
