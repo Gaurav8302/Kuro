@@ -10,7 +10,8 @@ import {
   Menu,
   X,
   Sparkles,
-  Brain
+  Brain,
+  Heart
 } from 'lucide-react';
 import { ChatSession, User } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -252,13 +253,28 @@ export const Sidebar = ({
       {/* User Profile */}
       {user && (
         <div className="p-4 border-t border-border/50">
+          {/* Donate Button */}
+          {!isCollapsed && (
+            <div className="mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+              >
+                <Heart className="w-3 h-3 mr-2" />
+                Help Make Kuro Smarter
+              </Button>
+            </div>
+          )}
+          
           <div className={cn(
             "flex items-center gap-3",
             isCollapsed && "justify-center"
           )}>
             <Avatar className="w-8 h-8 border-2 border-primary/20">
               <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="bg-gradient-secondary text-white text-sm font-medium">
+              <AvatarFallback className="bg-gradient-to-br from-purple-600 to-purple-700 text-white text-sm font-medium">
                 {user.name.split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
             </Avatar>

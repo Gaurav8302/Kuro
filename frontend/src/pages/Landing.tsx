@@ -55,9 +55,14 @@ const Landing = () => {
   ];
 
   const handleStartChat = () => {
-    // TODO: Check authentication status before navigating
-    // If not authenticated, redirect to sign-in
-    navigate('/chat');
+    // Check authentication status before navigating
+    if (isLoaded && isSignedIn) {
+      // User is signed in, go to chat
+      navigate('/chat');
+    } else {
+      // User is not signed in, redirect to sign-in page
+      navigate('/auth/signin');
+    }
   };
 
   return (
@@ -141,15 +146,33 @@ const Landing = () => {
                 >
                   Sign Up
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+                >
+                  <Heart className="w-4 h-4 mr-2" />
+                  Donate
+                </Button>
               </div>
             )}
             {isLoaded && isSignedIn && (
-              <Button 
-                variant="secondary"
-                onClick={() => navigate('/chat')}
-              >
-                Go to Chat
-              </Button>
+              <div className="flex gap-3">
+                <Button 
+                  variant="secondary"
+                  onClick={() => navigate('/chat')}
+                >
+                  Go to Chat
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+                >
+                  <Heart className="w-4 h-4 mr-2" />
+                  Donate
+                </Button>
+              </div>
             )}
           </div>
         </motion.header>
@@ -184,9 +207,9 @@ const Landing = () => {
               </h1>
 
               <p className="text-xl text-white/90 mb-8 leading-relaxed">
-                Chat with Kuro, an AI that understands your needs, remembers your 
-                preferences, and helps you get things done efficiently. 
-                <span className="font-handwriting text-2xl text-white"> ✨ Let's get started!</span>
+                Chat with Kuro, an AI powered by Gemini Free Version. While not the smartest AI, 
+                it's completely free and open-source. Want to help make it smarter? 
+                <span className="font-handwriting text-2xl text-white"> ✨ Consider donating!</span>
               </p>
 
               <motion.div
@@ -299,6 +322,81 @@ const Landing = () => {
           </div>
         </section>
 
+        {/* Tech & Open Source Section */}
+        <motion.section
+          initial={{ y: 50, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+          className="max-w-6xl mx-auto px-6 py-20"
+        >
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Built with Free & Open Source Tools
+            </h2>
+            <p className="text-xl text-white/80 max-w-3xl mx-auto">
+              Kuro is completely free and open-source, built using only free resources to keep it accessible to everyone.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center mb-4">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Google Gemini Free</h3>
+              <p className="text-white/70">
+                Powered by Gemini's free tier. Not the smartest AI, but completely free to use.
+              </p>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center mb-4">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Vercel Hosting</h3>
+              <p className="text-white/70">
+                Frontend hosted on Vercel's free tier for lightning-fast global delivery.
+              </p>
+            </div>
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center mb-4">
+                <MessageSquare className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Render Backend</h3>
+              <p className="text-white/70">
+                Backend services running on Render's free tier with MongoDB Atlas.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <p className="text-white/80 mb-6">
+              Want to help make Kuro smarter with premium AI models? Consider supporting the project!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                variant="outline"
+                size="lg"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={() => window.open('https://github.com/Gaurav8302/Kuro', '_blank')}
+              >
+                <Star className="w-5 h-5 mr-2" />
+                View on GitHub
+              </Button>
+              <Button
+                variant="hero"
+                size="lg"
+                onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+              >
+                <Heart className="w-5 h-5 mr-2" />
+                Support Development
+              </Button>
+            </div>
+          </div>
+        </motion.section>
+
         {/* CTA Section */}
         <motion.section
           initial={{ y: 50, opacity: 0 }}
@@ -309,10 +407,10 @@ const Landing = () => {
         >
           <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-12 border border-white/20">
             <h2 className="text-4xl font-bold text-white mb-4">
-              Ready to Start Creating?
+              Ready to Chat with Kuro?
             </h2>
             <p className="text-xl text-white/80 mb-8">
-              Experience the future of AI assistance. Kuro is waiting!
+              Start chatting with our free AI assistant powered by Gemini!
             </p>
             <Button
               variant="hero"
