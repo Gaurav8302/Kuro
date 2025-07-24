@@ -63,13 +63,24 @@ class UltraLightweightMemoryManager:
                 content=text,
                 task_type="retrieval_document"
             )
-            return result['embedding']
+            embedding = result['embedding']
+            
+            # Pinecone index expects 384 dimensions, but Gemini returns 768
+            # We need to reduce dimensions to match the index
+            if len(embedding) > 384:
+                # Simple dimension reduction: take every 2nd element
+                embedding = embedding[::2][:384]
+            elif len(embedding) < 384:
+                # Pad with zeros if needed
+                embedding.extend([0.0] * (384 - len(embedding)))
+            
+            return embedding
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
             # Return a default embedding vector of appropriate size
-            return [0.0] * 768  # Standard embedding size
-    
-    def store_memory(self, text: str, metadata: Dict[str, Any]) -> str:
+            return [0.0] * 384  # Match Pinecone index dimension
+
+    def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
         """Store a memory with minimal processing"""
         try:
             # Generate embedding
@@ -83,7 +94,7 @@ class UltraLightweightMemoryManager:
             enhanced_metadata = {
                 "text": text,
                 "timestamp": datetime.now().isoformat(),
-                "importance": metadata.get("importance", 0.5),
+                "importance": importance if importance is not None else metadata.get("importance", 0.5),
                 "category": metadata.get("category", "general"),
                 "user": metadata.get("user", "unknown"),
                 **metadata
@@ -168,9 +179,9 @@ class UltraLightweightMemoryManager:
 # Global instance
 ultra_lightweight_memory_manager = UltraLightweightMemoryManager()
 
-def store_memory(text: str, metadata: Dict[str, Any]) -> str:
+def store_memory(text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
     """Store memory function"""
-    return ultra_lightweight_memory_manager.store_memory(text, metadata)
+    return ultra_lightweight_memory_manager.store_memory(text, metadata, importance)
 
 def get_relevant_memories_detailed(query: str, user_filter: str = None, top_k: int = 5) -> List[Dict[str, Any]]:
     """Get relevant memories function"""
