@@ -48,7 +48,7 @@ const Landing = () => {
     },
     {
       icon: Palette,
-      title: "Creative Spark",
+      title: "Smart Conversations",
       description: "Brainstorm ideas and explore possibilities",
       color: "text-primary"
     }
@@ -119,9 +119,9 @@ const Landing = () => {
               </div>
               <div>
                 <h1 className="font-handwriting text-2xl font-bold text-white">
-                  AI Chat
+                  Kuro
                 </h1>
-                <p className="text-white/80 text-sm">Your Creative Assistant</p>
+                <p className="text-white/80 text-sm">Your AI Assistant</p>
               </div>
             </div>
 
@@ -178,15 +178,15 @@ const Landing = () => {
               <h1 className="text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
                 Meet Your
                 <span className="block font-handwriting text-gradient-rainbow bg-white">
-                  Creative AI
+                  AI Assistant
                 </span>
                 <span className="block">Companion</span>
               </h1>
 
               <p className="text-xl text-white/90 mb-8 leading-relaxed">
-                Chat with an AI that understands your creative process, remembers your 
-                preferences, and helps bring your wildest ideas to life. 
-                <span className="font-handwriting text-2xl text-white"> ✨ Let's create magic together!</span>
+                Chat with Kuro, an AI that understands your needs, remembers your 
+                preferences, and helps you get things done efficiently. 
+                <span className="font-handwriting text-2xl text-white"> ✨ Let's get started!</span>
               </p>
 
               <motion.div
@@ -228,7 +228,7 @@ const Landing = () => {
               <div className="relative overflow-hidden rounded-3xl shadow-glow">
                 <img 
                   src={heroImage} 
-                  alt="AI Assistant" 
+                  alt="Kuro AI Assistant" 
                   className="w-full h-auto animate-float"
                 />
                 {/* Overlay for extra visual interest */}
@@ -268,7 +268,7 @@ const Landing = () => {
               Why You'll <span className="font-handwriting text-5xl">Love</span> This AI
             </h2>
             <p className="text-xl text-white/80">
-              More than just a chatbot – it's your creative partner
+              More than just a chatbot – it's your AI assistant
             </p>
           </motion.div>
 
@@ -312,7 +312,7 @@ const Landing = () => {
               Ready to Start Creating?
             </h2>
             <p className="text-xl text-white/80 mb-8">
-              Join the creative revolution. Your AI companion is waiting!
+              Experience the future of AI assistance. Kuro is waiting!
             </p>
             <Button
               variant="hero"
@@ -321,7 +321,7 @@ const Landing = () => {
               className="animate-pulse-glow"
             >
               <Brain className="w-5 h-5 mr-2" />
-              Start Your Creative Journey
+              Start Chatting with Kuro
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>

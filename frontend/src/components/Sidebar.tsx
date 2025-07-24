@@ -85,14 +85,14 @@ export const Sidebar = ({
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center">
                 <Brain className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h2 className="font-handwriting text-xl font-bold text-gradient-primary">
-                  AI Chat
+                <h2 className="font-handwriting text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">
+                  Kuro
                 </h2>
-                <p className="text-xs text-muted-foreground">Your personal assistant</p>
+                <p className="text-xs text-muted-foreground">Your AI Assistant</p>
               </div>
             </div>
           )}

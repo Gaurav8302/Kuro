@@ -53,8 +53,17 @@ const Chat = () => {
   const [error, setError] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile); // Close sidebar on mobile by default
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Always start closed
   const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
+
+  // Update sidebar state when mobile state changes
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false); // Always close sidebar on mobile
+    } else {
+      setIsSidebarOpen(true); // Open sidebar on desktop
+    }
+  }, [isMobile]);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -444,23 +453,31 @@ const Chat = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={() => setIsSidebarOpen(false)}
+            onTouchStart={() => setIsSidebarOpen(false)} // Handle touch events
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
-      <AnimatePresence mode="wait">
-        {(isSidebarOpen || !isMobile) && (
+      <AnimatePresence>
+        {isSidebarOpen && (
           <motion.div
             className={cn(
-              "relative z-50",
-              isMobile && "fixed left-0 top-0 h-full"
+              "z-50 bg-background",
+              isMobile 
+                ? "fixed left-0 top-0 h-full w-80 shadow-xl" 
+                : "relative"
             )}
-            initial={isMobile ? { x: -300, opacity: 0 } : {}}
-            animate={isMobile ? { x: 0, opacity: 1 } : {}}
-            exit={isMobile ? { x: -300, opacity: 0 } : {}}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            initial={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 1, x: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 0, x: 0 }}
+            transition={{ 
+              duration: 0.3, 
+              ease: "easeInOut",
+              opacity: { duration: isMobile ? 0.2 : 0.3 }
+            }}
           >
             <Sidebar
               sessions={sessions}
@@ -482,7 +499,10 @@ const Chat = () => {
       </AnimatePresence>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={cn(
+        "flex flex-col transition-all duration-300",
+        isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
+      )}>
         {/* Chat Header */}
         <motion.header 
           className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm"
@@ -626,10 +646,10 @@ const Chat = () => {
                 >
                   <div className="max-w-md mx-auto">
                     <h3 className="text-xl font-semibold mb-2 text-foreground">
-                      Ready to Chat!
+                      Start chatting with Kuro
                     </h3>
-                    <p className="text-muted-foreground font-handwriting text-lg">
-                      Ask me anything and let's start creating magic together! ✨
+                    <p className="text-muted-foreground text-lg">
+                      How can I help you today?
                     </p>
                   </div>
                 </motion.div>
@@ -666,7 +686,7 @@ const Chat = () => {
                         <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]"></div>
                         <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce"></div>
                       </div>
-                      <span className="text-sm text-muted-foreground">AI is typing...</span>
+                      <span className="text-sm text-muted-foreground">Kuro is typing...</span>
                     </motion.div>
                   )}
                 </motion.div>
@@ -683,10 +703,10 @@ const Chat = () => {
           showTypingIndicator={isTyping}
           placeholder={
             isLoading 
-              ? "AI is thinking..." 
+              ? "Kuro is thinking..." 
               : isTyping 
-                ? "AI is typing..." 
-                : "Ask me anything... ✨"
+                ? "Kuro is typing..." 
+                : "Type your message..."
           }
         />
       </div>
