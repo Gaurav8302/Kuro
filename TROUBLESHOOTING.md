@@ -1,4 +1,46 @@
-# Deployment Troubleshooting Guide
+# Deployment Troubleshooting ### 3. Environment Variable N### 4. MongoDB Connection I**Environment Variables Required**:
+```bash
+# Database
+MONGODB_URI=mongodb+srv://wannabehacker0506:wH5QdVJ2tcWK5YOe@chatbot-cluster.8owjdjg.mongodb.net/?retryWrites=true&w=majority&appName=chatbot-cluster
+
+# AI Services
+GEMINI_API_KEY=AIzaSyBM5VKkTavMWfhiGGTutFfWIfvSUuhiuCg
+PINECONE_API_KEY=pcsk_3pJ83v_STLzqq3RoZBxnaTGvnfuCmgmnaSoho9UiCxdzzpVNaXdkmHxNm4XFxyEnDEF16L
+PINECONE_INDEX_NAME=my-chatbot-memory
+
+# Authentication
+CLERK_SECRET_KEY=sk_test_ou1X7jwlheI2glFgGC1oKttJcohi60YbJbMPwlyxyx
+
+# CORS (Optional - defaults to frontend domains)
+FRONTEND_URL=https://canvas-chat-ai-frontend.vercel.app
+```
+
+### 5. Memory Optimization for Rendersues
+
+**Problem**:
+```
+ConnectionError: Database connection failed: localhost:27017
+```
+
+**Root Cause**: 
+Environment variable mismatch - code looks for `MONGO_URI` but environment has `MONGODB_URI`.
+
+**Solution**:
+- Updated `backend/database/db.py` to check both `MONGODB_URI` and `MONGO_URI`
+- Set environment variable in Render dashboard: `MONGODB_URI=mongodb+srv://...`Problem**:
+```
+ValueError: GOOGLE_API_KEY environment variable is required
+```
+
+**Root Cause**: 
+Code inconsistency - some files expect `GEMINI_API_KEY` while others expect `GOOGLE_API_KEY`.
+
+**Solution**:
+- Standardized all files to use `GEMINI_API_KEY`
+- `ultra_lightweight_memory.py` supports both for backward compatibility
+- Set `GEMINI_API_KEY` in Render environment variables
+
+**Environment Variables Required**:uide
 
 ## Current Issues and Solutions
 
