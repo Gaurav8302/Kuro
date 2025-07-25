@@ -60,7 +60,11 @@ export const ChatInput = ({
 
   // Handle viewport changes for mobile keyboard
   useEffect(() => {
-    if (!isMobile) return; // Only run on mobile
+    if (!isMobile) {
+      // On desktop, always ensure keyboard is not visible
+      setKeyboardVisible(false);
+      return;
+    }
     
     const handleVisualViewportChange = () => {
       if ('visualViewport' in window) {
@@ -74,6 +78,9 @@ export const ChatInput = ({
         
         console.log('Viewport change:', { viewportHeight, windowHeight, heightDifference, isKeyboardOpen });
         setKeyboardVisible(isKeyboardOpen);
+      } else {
+        // Fallback: only set keyboard visible if input is focused
+        setKeyboardVisible(isFocused);
       }
     };
 
@@ -83,7 +90,7 @@ export const ChatInput = ({
         if ('visualViewport' in window) {
           handleVisualViewportChange();
         } else {
-          // Fallback: assume keyboard is open when input is focused
+          // Fallback: assume keyboard is open when input is focused on mobile
           setKeyboardVisible(true);
         }
       }, 300);
@@ -93,31 +100,14 @@ export const ChatInput = ({
       setTimeout(() => {
         // When input loses focus, keyboard should be closing
         setKeyboardVisible(false);
-        
-        if ('visualViewport' in window) {
-          handleVisualViewportChange();
-        }
       }, 300);
     };
 
-    // Also listen for window resize as additional fallback
-    const handleWindowResize = () => {
-      if (!('visualViewport' in window)) {
-        // For browsers without Visual Viewport API, use window resize
-        const currentHeight = (window as any).innerHeight;
-        const isKeyboardOpen = currentHeight < (window as any).screen.height * 0.75;
-        setKeyboardVisible(isKeyboardOpen && isFocused);
-      }
-    };
-
-    // Initial check
-    handleVisualViewportChange();
-
+    // Initial check - keyboard should be closed initially
+    setKeyboardVisible(false);
+    
     if ('visualViewport' in window) {
       window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
-    } else {
-      // Fallback for browsers without Visual Viewport API
-      (window as any).addEventListener('resize', handleWindowResize);
     }
 
     // Add focus/blur listeners as fallback
@@ -129,8 +119,6 @@ export const ChatInput = ({
     return () => {
       if ('visualViewport' in window) {
         window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
-      } else {
-        (window as any).removeEventListener('resize', handleWindowResize);
       }
       if (textareaRef.current) {
         textareaRef.current.removeEventListener('focus', handleInputFocus);
@@ -145,16 +133,14 @@ export const ChatInput = ({
       className={cn(
         "border-t backdrop-blur-sm",
         "bg-gradient-to-b from-background/80 to-background",
-        // Desktop: always sticky at bottom
-        // Mobile: dynamic positioning based on keyboard state
+        // Desktop: always sticky at bottom (normal behavior)
+        // Mobile: only fixed when keyboard is actually open, otherwise normal flow
         !isMobile 
           ? "sticky bottom-0" 
           : keyboardVisible 
             ? "fixed bottom-0 left-0 right-0 z-50" 
-            : "relative", // Changed from sticky to relative for better mobile behavior
-        isMobile && "pb-safe",
-        // Add debug info in development
-        process.env.NODE_ENV === 'development' && isMobile && keyboardVisible && "border-red-500"
+            : "", // No positioning classes for mobile when keyboard is closed
+        isMobile && keyboardVisible && "pb-safe" // Only add safe area when keyboard is open
       )}
       initial={{ y: 0, opacity: 0 }}
       animate={{ 
@@ -168,6 +154,7 @@ export const ChatInput = ({
       }}
       data-typing={disabled ? "true" : "false"}
       data-keyboard-visible={keyboardVisible ? "true" : "false"}
+      data-is-mobile={isMobile ? "true" : "false"}
     >
       <div className="max-w-4xl mx-auto p-4">
         <div className={cn(
