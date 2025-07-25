@@ -20,7 +20,6 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -58,89 +57,13 @@ export const ChatInput = ({
     }
   }, [message]);
 
-  // Handle viewport changes for mobile keyboard
-  useEffect(() => {
-    if (!isMobile) {
-      // On desktop, always ensure keyboard is not visible
-      setKeyboardVisible(false);
-      return;
-    }
-    
-    const handleVisualViewportChange = () => {
-      if ('visualViewport' in window) {
-        const viewport = window.visualViewport!;
-        const viewportHeight = viewport.height;
-        const windowHeight = window.innerHeight;
-        const heightDifference = windowHeight - viewportHeight;
-        
-        // More sensitive keyboard detection - if viewport is reduced by more than 150px
-        const isKeyboardOpen = heightDifference > 150;
-        
-        console.log('Viewport change:', { viewportHeight, windowHeight, heightDifference, isKeyboardOpen });
-        setKeyboardVisible(isKeyboardOpen);
-      } else {
-        // Fallback: only set keyboard visible if input is focused
-        setKeyboardVisible(isFocused);
-      }
-    };
-
-    // Also listen for focus/blur events as fallback
-    const handleInputFocus = () => {
-      setTimeout(() => {
-        if ('visualViewport' in window) {
-          handleVisualViewportChange();
-        } else {
-          // Fallback: assume keyboard is open when input is focused on mobile
-          setKeyboardVisible(true);
-        }
-      }, 300);
-    };
-
-    const handleInputBlur = () => {
-      setTimeout(() => {
-        // When input loses focus, keyboard should be closing
-        setKeyboardVisible(false);
-      }, 300);
-    };
-
-    // Initial check - keyboard should be closed initially
-    setKeyboardVisible(false);
-    
-    if ('visualViewport' in window) {
-      window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
-    }
-
-    // Add focus/blur listeners as fallback
-    if (textareaRef.current) {
-      textareaRef.current.addEventListener('focus', handleInputFocus);
-      textareaRef.current.addEventListener('blur', handleInputBlur);
-    }
-
-    return () => {
-      if ('visualViewport' in window) {
-        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
-      }
-      if (textareaRef.current) {
-        textareaRef.current.removeEventListener('focus', handleInputFocus);
-        textareaRef.current.removeEventListener('blur', handleInputBlur);
-      }
-    };
-  }, [isMobile, isFocused]);
-
   return (
     <motion.div
       ref={containerRef}
       className={cn(
-        "border-t backdrop-blur-sm",
-        "bg-gradient-to-b from-background/80 to-background",
-        // Desktop: always sticky at bottom (normal behavior)
-        // Mobile: only fixed when keyboard is actually open, otherwise normal flow
-        !isMobile 
-          ? "sticky bottom-0" 
-          : keyboardVisible 
-            ? "fixed bottom-0 left-0 right-0 z-50" 
-            : "", // No positioning classes for mobile when keyboard is closed
-        isMobile && keyboardVisible && "pb-safe" // Only add safe area when keyboard is open
+        "border-t backdrop-blur-sm bg-gradient-to-b from-background/80 to-background",
+        // Simple sticky positioning for all devices
+        "sticky bottom-0 z-10"
       )}
       initial={{ y: 0, opacity: 0 }}
       animate={{ 
@@ -153,8 +76,6 @@ export const ChatInput = ({
         ease: "easeOut"
       }}
       data-typing={disabled ? "true" : "false"}
-      data-keyboard-visible={keyboardVisible ? "true" : "false"}
-      data-is-mobile={isMobile ? "true" : "false"}
     >
       <div className="max-w-4xl mx-auto p-4">
         <div className={cn(

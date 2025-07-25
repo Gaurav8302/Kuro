@@ -363,7 +363,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-screen-mobile flex bg-background">
+    <div className="h-screen flex bg-background">
       <AnimatePresence>
         {error && (
           <motion.div 
@@ -411,7 +411,7 @@ const Chat = () => {
               "z-50 bg-background",
               isMobile 
                 ? "fixed left-0 top-0 h-full w-80 shadow-xl" 
-                : "relative"
+                : "relative w-80 border-r border-border"
             )}
             initial={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 1, x: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -444,7 +444,7 @@ const Chat = () => {
 
       {/* Main Chat Area */}
       <div className={cn(
-        "flex flex-col transition-all duration-300",
+        "flex flex-col h-full min-h-0",
         isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
       )}>
         {/* Chat Header */}
