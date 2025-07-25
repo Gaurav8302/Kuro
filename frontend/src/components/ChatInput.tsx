@@ -20,6 +20,7 @@ export const ChatInput = ({
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleSend = () => {
     if (message.trim() && !disabled) {
@@ -38,6 +39,23 @@ export const ChatInput = ({
     }
   };
 
+  const handleFocus = () => {
+    setIsFocused(true);
+    // Scroll into view on mobile when keyboard appears
+    setTimeout(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'end' 
+        });
+      }
+    }, 300); // Delay to allow keyboard animation
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+  };
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -46,10 +64,35 @@ export const ChatInput = ({
     }
   }, [message]);
 
+  // Handle viewport changes for mobile keyboard
+  useEffect(() => {
+    const handleVisualViewportChange = () => {
+      if ('visualViewport' in window && isFocused) {
+        // Delay to ensure smooth transition
+        setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'end' 
+            });
+          }
+        }, 100);
+      }
+    };
+
+    if ('visualViewport' in window) {
+      window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
+      return () => {
+        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
+      };
+    }
+  }, [isFocused]);
+
   return (
-    <motion.div 
+    <motion.div
+      ref={containerRef}
       className={cn(
-        "sticky bottom-0 border-t backdrop-blur-sm",
+        "sticky bottom-0 border-t backdrop-blur-sm pb-safe",
         "bg-gradient-to-b from-background/80 to-background"
       )}
       initial={{ y: 50, opacity: 0 }}
@@ -90,8 +133,8 @@ export const ChatInput = ({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               placeholder={placeholder}
               disabled={disabled}
               className={cn(

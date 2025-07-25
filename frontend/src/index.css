@@ -144,6 +144,16 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: 'Inter', sans-serif;
+    /* Mobile viewport and keyboard handling */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  /* Mobile-specific styles */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      min-height: -webkit-fill-available;
+    }
   }
 
   /* Custom font classes */
@@ -238,6 +248,26 @@
 
   .animate-bounce-in {
     animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Mobile viewport height utilities */
+  .min-h-screen-mobile {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  .h-screen-mobile {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+
+  /* Mobile safe area utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
   }
 }
 

@@ -363,7 +363,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-screen flex bg-background">
+    <div className="h-screen-mobile flex bg-background">
       <AnimatePresence>
         {error && (
           <motion.div 
@@ -507,8 +507,8 @@ const Chat = () => {
         </motion.header>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto bg-gradient-chat">
-          <div className="py-8 space-y-4">
+        <div className="flex-1 overflow-y-auto bg-gradient-chat min-h-0">
+          <div className="py-8 space-y-4 min-h-full">
             <AnimatePresence mode="wait">
               {messages.length === 0 && isLoading ? (
                 <motion.div
