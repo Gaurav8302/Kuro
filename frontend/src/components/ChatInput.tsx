@@ -65,9 +65,48 @@ export const ChatInput = ({
     const handleVisualViewportChange = () => {
       if ('visualViewport' in window) {
         const viewport = window.visualViewport!;
-        const isKeyboardOpen = viewport.height < window.innerHeight * 0.75;
+        const viewportHeight = viewport.height;
+        const windowHeight = window.innerHeight;
+        const heightDifference = windowHeight - viewportHeight;
         
+        // More sensitive keyboard detection - if viewport is reduced by more than 150px
+        const isKeyboardOpen = heightDifference > 150;
+        
+        console.log('Viewport change:', { viewportHeight, windowHeight, heightDifference, isKeyboardOpen });
         setKeyboardVisible(isKeyboardOpen);
+      }
+    };
+
+    // Also listen for focus/blur events as fallback
+    const handleInputFocus = () => {
+      setTimeout(() => {
+        if ('visualViewport' in window) {
+          handleVisualViewportChange();
+        } else {
+          // Fallback: assume keyboard is open when input is focused
+          setKeyboardVisible(true);
+        }
+      }, 300);
+    };
+
+    const handleInputBlur = () => {
+      setTimeout(() => {
+        // When input loses focus, keyboard should be closing
+        setKeyboardVisible(false);
+        
+        if ('visualViewport' in window) {
+          handleVisualViewportChange();
+        }
+      }, 300);
+    };
+
+    // Also listen for window resize as additional fallback
+    const handleWindowResize = () => {
+      if (!('visualViewport' in window)) {
+        // For browsers without Visual Viewport API, use window resize
+        const currentHeight = (window as any).innerHeight;
+        const isKeyboardOpen = currentHeight < (window as any).screen.height * 0.75;
+        setKeyboardVisible(isKeyboardOpen && isFocused);
       }
     };
 
@@ -76,11 +115,29 @@ export const ChatInput = ({
 
     if ('visualViewport' in window) {
       window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
-      return () => {
-        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
-      };
+    } else {
+      // Fallback for browsers without Visual Viewport API
+      (window as any).addEventListener('resize', handleWindowResize);
     }
-  }, [isMobile]);
+
+    // Add focus/blur listeners as fallback
+    if (textareaRef.current) {
+      textareaRef.current.addEventListener('focus', handleInputFocus);
+      textareaRef.current.addEventListener('blur', handleInputBlur);
+    }
+
+    return () => {
+      if ('visualViewport' in window) {
+        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
+      } else {
+        (window as any).removeEventListener('resize', handleWindowResize);
+      }
+      if (textareaRef.current) {
+        textareaRef.current.removeEventListener('focus', handleInputFocus);
+        textareaRef.current.removeEventListener('blur', handleInputBlur);
+      }
+    };
+  }, [isMobile, isFocused]);
 
   return (
     <motion.div
@@ -89,9 +146,15 @@ export const ChatInput = ({
         "border-t backdrop-blur-sm",
         "bg-gradient-to-b from-background/80 to-background",
         // Desktop: always sticky at bottom
-        // Mobile: fixed only when keyboard is visible, otherwise sticky
-        !isMobile ? "sticky bottom-0" : keyboardVisible ? "fixed bottom-0 left-0 right-0 z-50" : "sticky bottom-0",
-        isMobile && "pb-safe"
+        // Mobile: dynamic positioning based on keyboard state
+        !isMobile 
+          ? "sticky bottom-0" 
+          : keyboardVisible 
+            ? "fixed bottom-0 left-0 right-0 z-50" 
+            : "relative", // Changed from sticky to relative for better mobile behavior
+        isMobile && "pb-safe",
+        // Add debug info in development
+        process.env.NODE_ENV === 'development' && isMobile && keyboardVisible && "border-red-500"
       )}
       initial={{ y: 0, opacity: 0 }}
       animate={{ 
@@ -104,6 +167,7 @@ export const ChatInput = ({
         ease: "easeOut"
       }}
       data-typing={disabled ? "true" : "false"}
+      data-keyboard-visible={keyboardVisible ? "true" : "false"}
     >
       <div className="max-w-4xl mx-auto p-4">
         <div className={cn(
