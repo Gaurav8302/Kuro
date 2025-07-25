@@ -4,6 +4,7 @@ import { Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -19,8 +20,10 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   const handleSend = () => {
     if (message.trim() && !disabled) {
@@ -41,15 +44,6 @@ export const ChatInput = ({
 
   const handleFocus = () => {
     setIsFocused(true);
-    // Scroll into view on mobile when keyboard appears
-    setTimeout(() => {
-      if (containerRef.current) {
-        containerRef.current.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'end' 
-        });
-      }
-    }, 300); // Delay to allow keyboard animation
   };
 
   const handleBlur = () => {
@@ -66,19 +60,19 @@ export const ChatInput = ({
 
   // Handle viewport changes for mobile keyboard
   useEffect(() => {
+    if (!isMobile) return; // Only run on mobile
+    
     const handleVisualViewportChange = () => {
-      if ('visualViewport' in window && isFocused) {
-        // Delay to ensure smooth transition
-        setTimeout(() => {
-          if (containerRef.current) {
-            containerRef.current.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'end' 
-            });
-          }
-        }, 100);
+      if ('visualViewport' in window) {
+        const viewport = window.visualViewport!;
+        const isKeyboardOpen = viewport.height < window.innerHeight * 0.75;
+        
+        setKeyboardVisible(isKeyboardOpen);
       }
     };
+
+    // Initial check
+    handleVisualViewportChange();
 
     if ('visualViewport' in window) {
       window.visualViewport?.addEventListener('resize', handleVisualViewportChange);
@@ -86,16 +80,20 @@ export const ChatInput = ({
         window.visualViewport?.removeEventListener('resize', handleVisualViewportChange);
       };
     }
-  }, [isFocused]);
+  }, [isMobile]);
 
   return (
     <motion.div
       ref={containerRef}
       className={cn(
-        "sticky bottom-0 border-t backdrop-blur-sm pb-safe",
-        "bg-gradient-to-b from-background/80 to-background"
+        "border-t backdrop-blur-sm",
+        "bg-gradient-to-b from-background/80 to-background",
+        // Desktop: always sticky at bottom
+        // Mobile: fixed only when keyboard is visible, otherwise sticky
+        !isMobile ? "sticky bottom-0" : keyboardVisible ? "fixed bottom-0 left-0 right-0 z-50" : "sticky bottom-0",
+        isMobile && "pb-safe"
       )}
-      initial={{ y: 50, opacity: 0 }}
+      initial={{ y: 0, opacity: 0 }}
       animate={{ 
         y: 0, 
         opacity: 1,
