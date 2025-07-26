@@ -6,7 +6,7 @@ interface PublicRouteProps {
   children: React.ReactNode;
 }
 
-const PublicRoute = ({ children }: PublicRouteProps) => {
+const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
   const { isLoaded, isSignedIn } = useAuth();
 
   // Show loading spinner while Clerk is initializing
