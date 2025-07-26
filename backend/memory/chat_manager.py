@@ -279,12 +279,12 @@ Instructions for responding:
             str: AI response
         """
         try:
-            # 1. Check for user name in current message
-            extracted_name = self.extract_name(message)
-            user_name = self.get_user_name(user_id)
+            # 1. Get user name (popup handles name collection, so we don't ask)
+            user_name = self.get_user_name(user_id) or "there"  # Fallback to generic greeting
             
-            # 2. Handle name introduction
-            if extracted_name and not user_name:
+            # 2. Handle name introduction in chat (if user mentions name while chatting)
+            extracted_name = self.extract_name(message)
+            if extracted_name and not self.get_user_name(user_id):
                 self.store_user_name(user_id, extracted_name, message)
                 user_name = extracted_name
                 
@@ -296,24 +296,14 @@ Instructions for responding:
                 
                 return response
             
-            # 3. Handle unknown user
-            if not user_name:
-                response = "Hello! I don't think we've been introduced yet. What's your name?"
-                
-                # Store the greeting exchange
-                self._store_chat_memory(user_id, message, response, session_id)
-                save_chat_to_db(user_id, message, response, session_id)
-                
-                return response
-            
-            # 4. Retrieve relevant memories for context with lower threshold
+            # 3. Retrieve relevant memories for context
             relevant_memories = get_relevant_memories_detailed(
                 query=message, 
                 user_filter=user_id, 
                 top_k=top_k
             )
             
-            # 5. Get recent session history for context
+            # 4. Get recent session history for context
             session_history = None
             if session_id:
                 try:
@@ -324,11 +314,11 @@ Instructions for responding:
                 except Exception as e:
                     logger.warning(f"Failed to get session history: {str(e)}")
             
-            # 6. Generate context-aware response
+            # 5. Generate context-aware response
             prompt = self.build_context_prompt(user_name, message, relevant_memories, session_history)
             response = self.generate_ai_response(prompt)
             
-            # 7. Store the conversation in memory and database
+            # 6. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
             save_chat_to_db(user_id, message, response, session_id)
             
