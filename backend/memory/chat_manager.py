@@ -24,6 +24,8 @@ import google.generativeai as genai
 from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
 from memory.chat_database import save_chat_to_db
 from memory.user_profile import get_user_name as get_profile_name, set_user_name
+from utils.kuro_prompt import build_kuro_prompt, sanitize_response
+from utils.safety import validate_response, get_fallback_response
 
 # Load environment variables
 load_dotenv()
@@ -128,28 +130,76 @@ class ChatManager:
         except Exception as e:
             logger.error(f"Failed to store user name: {str(e)}")
     
-    def generate_ai_response(self, prompt: str) -> str:
+    def generate_ai_response(self, user_message: str, context: Optional[str] = None, max_retries: int = 2) -> str:
         """
-        Generate AI response using Google Gemini
+        Generate AI response using Kuro prompt system with safety validation
         
         Args:
-            prompt (str): Input prompt for the AI
+            user_message (str): User's message
+            context (Optional[str]): Context from memory/history
+            max_retries (int): Maximum retry attempts for unsafe responses
             
         Returns:
-            str: AI-generated response
+            str: Safe, validated AI response
         """
-        try:
-            response = self.gemini.generate_content(prompt)
-            
-            if response.text:
-                return response.text.strip()
-            else:
-                logger.warning("Empty response from Gemini")
-                return "I apologize, but I'm having trouble generating a response right now. Please try again."
+        retry_count = 0
+        
+        while retry_count <= max_retries:
+            try:
+                # Build Kuro prompt with system instruction
+                prompt_package = build_kuro_prompt(user_message, context)
                 
-        except Exception as e:
-            logger.error(f"Error generating AI response: {str(e)}")
-            return "I'm sorry, I encountered an error while processing your message. Please try again."
+                # Create generative model with system instruction
+                model = genai.GenerativeModel(
+                    model_name="models/gemini-1.5-flash",
+                    system_instruction=prompt_package["system_instruction"]
+                )
+                
+                # Generate response
+                response = model.generate_content(prompt_package["user_prompt"])
+                
+                if not response.text:
+                    logger.warning("Empty response from Gemini")
+                    return get_fallback_response(user_message)
+                
+                # Sanitize response
+                sanitized_response = sanitize_response(response.text)
+                
+                # Validate response safety
+                is_valid, assessment = validate_response(sanitized_response, context)
+                
+                if is_valid:
+                    logger.info(f"✅ Generated safe response (quality: {assessment.get('quality_score', 0):.2f})")
+                    return sanitized_response
+                else:
+                    logger.warning(f"⚠️ Unsafe response detected: {assessment.get('blocked_reasons', [])}")
+                    
+                    # If this is the last retry, return fallback
+                    if retry_count >= max_retries:
+                        logger.info("Max retries reached, using fallback response")
+                        return get_fallback_response(user_message)
+                    
+                    # Add retry enhancement to context
+                    from utils.safety import kuro_safety_validator
+                    retry_enhancement = kuro_safety_validator.get_retry_prompt_enhancement(assessment)
+                    enhanced_context = (context or "") + retry_enhancement
+                    context = enhanced_context
+                    
+                    retry_count += 1
+                    logger.info(f"Retrying generation (attempt {retry_count + 1})")
+                    continue
+                    
+            except Exception as e:
+                logger.error(f"Error generating AI response (attempt {retry_count + 1}): {str(e)}")
+                
+                if retry_count >= max_retries:
+                    return get_fallback_response(user_message)
+                
+                retry_count += 1
+                continue
+        
+        # Fallback if all retries failed
+        return get_fallback_response(user_message)
     
     def build_context_prompt(
         self, 
@@ -314,11 +364,36 @@ Instructions for responding:
                 except Exception as e:
                     logger.warning(f"Failed to get session history: {str(e)}")
             
-            # 5. Generate context-aware response
-            prompt = self.build_context_prompt(user_name, message, relevant_memories, session_history)
-            response = self.generate_ai_response(prompt)
+            # 5. Build context from memories and history
+            context_parts = []
             
-            # 6. Store the conversation in memory and database
+            # Add session history context
+            if session_history:
+                recent_exchanges = session_history[-3:]  # Last 3 messages
+                session_context = []
+                for msg in recent_exchanges:
+                    session_context.extend([
+                        f"User: {msg['user']}",
+                        f"Assistant: {msg['assistant']}"
+                    ])
+                context_parts.append("Recent conversation:\n" + "\n".join(session_context))
+            
+            # Add relevant memories context
+            if relevant_memories:
+                memory_text = []
+                for memory in relevant_memories:
+                    memory_text.append(memory["text"])
+                context_parts.append("Relevant context from past conversations:\n" + "\n".join(memory_text))
+            
+            # Add user context
+            context_parts.append(f"You are talking to {user_name}.")
+            
+            context = "\n\n".join(context_parts) if context_parts else None
+            
+            # 6. Generate response using Kuro system
+            response = self.generate_ai_response(message, context)
+            
+            # 7. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
             save_chat_to_db(user_id, message, response, session_id)
             
