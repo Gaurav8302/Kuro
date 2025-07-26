@@ -44,12 +44,15 @@ __pypackages__/
 
 # Environment Variables
 .env
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 .env*.local
 .env.backup
+.env.frontend
+.env.backend
 
 # IDE and Editors
 .idea/
