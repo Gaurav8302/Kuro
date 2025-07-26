@@ -33,13 +33,6 @@ const Chat = () => {
   const { signOut } = useAuth();
   const isMobile = useIsMobile();
   
-  // Redirect to sign-in if user is not authenticated
-  useEffect(() => {
-    if (isLoaded && !user) {
-      navigate('/auth/signin');
-    }
-  }, [isLoaded, user, navigate]);
-  
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -391,25 +384,13 @@ const Chat = () => {
     }
   };
 
-  // Show loading screen while checking authentication
-  if (!isLoaded) {
+  // Show loading screen while user data loads
+  if (!isLoaded || !user) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect will happen in useEffect if user is not authenticated
-  if (!user) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Redirecting to sign in...</p>
+          <p className="text-muted-foreground">Loading chat...</p>
         </div>
       </div>
     );

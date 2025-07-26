@@ -35,6 +35,18 @@ const SignUp = () => {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
 
+  // Show loading if Clerk is not ready
+  if (!signUpLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/80">Loading sign up...</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -49,7 +61,7 @@ const SignUp = () => {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
         redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/app`,
+        redirectUrlComplete: `${window.location.origin}/chat`,
       });
     } catch (err: any) {
       console.error('Google sign up error:', err);
@@ -106,7 +118,7 @@ const SignUp = () => {
 
       if (completeSignUp.createdSessionId) {
         await setActive({ session: completeSignUp.createdSessionId });
-        navigate('/app');
+        navigate('/chat');
       } else {
         throw new Error('No session created after verification');
       }

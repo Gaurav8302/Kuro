@@ -14,6 +14,8 @@ createRoot(document.getElementById("root")!).render(
   <ClerkProvider 
     publishableKey={publishableKey || 'pk_test_missing'}
     afterSignOutUrl="/"
+    afterSignInUrl="/chat"
+    afterSignUpUrl="/chat"
   >
     <App />
   </ClerkProvider>

@@ -27,6 +27,18 @@ const SignIn = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Show loading if Clerk is not ready
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/80">Loading sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleGoogleSignIn = async () => {
     if (!isLoaded || !signIn) return;
 
@@ -37,7 +49,7 @@ const SignIn = () => {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
         redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/app`,
+        redirectUrlComplete: `${window.location.origin}/chat`,
       });
     } catch (err: any) {
       console.error('Google sign in error:', err);
@@ -62,7 +74,7 @@ const SignIn = () => {
       if (result.status === 'complete') {
         if (result.createdSessionId) {
           await setActive({ session: result.createdSessionId });
-          navigate('/app');
+          navigate('/chat');
         } else {
           throw new Error('No session created after sign in');
         }
