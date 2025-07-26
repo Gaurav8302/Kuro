@@ -28,22 +28,27 @@ const SignIn = () => {
   const [error, setError] = useState('');
 
   const handleGoogleSignIn = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded || !signIn) return;
+
+    setIsLoading(true);
+    setError('');
 
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/chat',
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: `${window.location.origin}/app`,
       });
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Something went wrong with Google sign in.');
+      console.error('Google sign in error:', err);
+      setError(err.errors?.[0]?.message || 'Failed to sign in with Google. Please try again.');
+      setIsLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isLoaded || !signIn) return;
 
     setIsLoading(true);
     setError('');
@@ -55,13 +60,19 @@ const SignIn = () => {
       });
 
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        navigate('/chat');
+        if (result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+          navigate('/app');
+        } else {
+          throw new Error('No session created after sign in');
+        }
       } else {
-        setError('Sign in incomplete. Please try again.');
+        console.error('Sign in not complete:', result);
+        throw new Error('Sign in incomplete');
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Something went wrong. Please try again.');
+      console.error('Sign in error:', err);
+      setError(err.errors?.[0]?.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
