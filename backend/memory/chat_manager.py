@@ -97,8 +97,7 @@ class ChatManager:
             memories = get_relevant_memories_detailed(
                 query="name introduction", 
                 user_filter=user_id, 
-                top_k=5,
-                memory_types=["user_profile"]
+                top_k=5
             )
             for memory in memories:
                 name = self.extract_name(memory["text"])

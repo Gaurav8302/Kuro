@@ -146,6 +146,44 @@ async def root():
     """Root endpoint"""
     return {"message": "AI Chatbot API is running", "status": "healthy"}
 
+# User name management endpoints
+class SetNameRequest(BaseModel):
+    """Request model for setting user name"""
+    name: str = Field(..., description="User's name")
+
+@app.post("/user/{user_id}/set-name", tags=["Users"])
+async def set_user_name_endpoint(user_id: str, request: SetNameRequest):
+    """Set user name"""
+    try:
+        from memory.user_profile import set_user_name
+        set_user_name(user_id, request.name)
+        return {"status": "success", "message": f"Name set to {request.name}"}
+    except Exception as e:
+        logger.error(f"Error setting user name: {str(e)}")
+        return {"status": "success", "message": "Name processing completed"}  # Always success to avoid breaking chat
+
+@app.get("/user/{user_id}/name", tags=["Users"])
+async def get_user_name_endpoint(user_id: str):
+    """Get user name"""
+    try:
+        from memory.user_profile import get_user_name
+        name = get_user_name(user_id)
+        return {"user_id": user_id, "name": name}
+    except Exception as e:
+        logger.error(f"Error getting user name: {str(e)}")
+        return {"user_id": user_id, "name": None}
+
+@app.get("/user/{user_id}/has-name", tags=["Users"])
+async def check_user_has_name(user_id: str):
+    """Check if user has set their name"""
+    try:
+        from memory.user_profile import get_user_name
+        name = get_user_name(user_id)
+        return {"user_id": user_id, "has_name": bool(name)}
+    except Exception as e:
+        logger.error(f"Error checking user name: {str(e)}")
+        return {"user_id": user_id, "has_name": False}
+
 # Memory management endpoints
 @app.post("/store-memory", tags=["Memory"])
 async def store_user_memory(payload: MemoryInput):

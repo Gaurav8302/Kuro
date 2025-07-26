@@ -33,3 +33,16 @@ export function useClerkApi() {
 }
 
 export default apiRequest;
+
+// Name management functions
+export async function setUserName(userId: string, name: string): Promise<{ status: string; message: string }> {
+  return apiRequest(`/user/${userId}/set-name`, 'post', { name });
+}
+
+export async function getUserName(userId: string): Promise<{ user_id: string; name: string | null }> {
+  return apiRequest(`/user/${userId}/name`, 'get');
+}
+
+export async function checkUserHasName(userId: string): Promise<{ user_id: string; has_name: boolean }> {
+  return apiRequest(`/user/${userId}/has-name`, 'get');
+}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
 import { ChatBubble } from '@/components/ChatBubble';
 import { ChatInput } from '@/components/ChatInput';
+import NameSetupModal from '@/components/NameSetupModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -18,7 +19,7 @@ import { Message, ChatSession } from '@/types';
 // import { mockSessions, mockApiCalls } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useClerkApi } from '@/lib/api';
+import { useClerkApi, setUserName, checkUserHasName } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -49,6 +50,8 @@ const Chat = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Always start closed
   const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [hasCheckedName, setHasCheckedName] = useState(false);
 
   // Update sidebar state when mobile state changes
   useEffect(() => {
@@ -67,6 +70,56 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Check if user needs to set their name (only for authenticated users)
+  useEffect(() => {
+    const checkUserName = async () => {
+      if (!user || hasCheckedName) return;
+      
+      try {
+        const { has_name } = await checkUserHasName(user.id);
+        if (!has_name) {
+          setShowNameModal(true);
+        }
+        setHasCheckedName(true);
+      } catch (error) {
+        console.error('Error checking user name:', error);
+        setHasCheckedName(true); // Still mark as checked to avoid infinite loop
+      }
+    };
+
+    checkUserName();
+  }, [user, hasCheckedName]);
+
+  // Handle name setup completion
+  const handleNameSetup = async (name: string) => {
+    if (!user) return;
+    
+    try {
+      await setUserName(user.id, name);
+      setShowNameModal(false);
+      toast({
+        title: "Welcome!",
+        description: `Nice to meet you, ${name}! 🎉`,
+      });
+    } catch (error) {
+      console.error('Error setting name:', error);
+      setShowNameModal(false); // Close modal even if error to avoid blocking user
+      toast({
+        title: "Welcome!",
+        description: "Let's start chatting! 🎉",
+      });
+    }
+  };
+
+  // Handle name setup skip
+  const handleNameSkip = () => {
+    setShowNameModal(false);
+    toast({
+      title: "Welcome!",
+      description: "Let's start chatting! 🎉",
+    });
+  };
 
   // Fetch sessions from backend
   const fetchSessions = async () => {
@@ -364,6 +417,13 @@ const Chat = () => {
 
   return (
     <div className="h-screen flex bg-background">
+      {/* Name Setup Modal */}
+      <NameSetupModal
+        isOpen={showNameModal}
+        onComplete={handleNameSetup}
+        onSkip={handleNameSkip}
+      />
+      
       <AnimatePresence>
         {error && (
           <motion.div 
