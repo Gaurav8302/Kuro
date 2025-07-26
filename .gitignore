@@ -53,6 +53,7 @@ __pypackages__/
 .env.backup
 .env.frontend
 .env.backend
+.env.example
 
 # IDE and Editors
 .idea/
