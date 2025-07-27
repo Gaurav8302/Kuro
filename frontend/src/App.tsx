@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import Landing from "./pages/Landing";
 import Chat from "./pages/Chat";
 import SignInPage from "./pages/SignIn";
@@ -18,6 +19,36 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const { isLoaded } = useAuth();
+
+  // Auto-warm ping to keep Render backend awake
+  useEffect(() => {
+    // Only run in production or when API_URL points to Render
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (!apiUrl || apiUrl.includes('localhost')) {
+      console.log('🔧 Skipping auto-warm ping for local development');
+      return;
+    }
+
+    console.log('🚀 Starting auto-warm ping for production backend');
+    
+    // Ping immediately on load
+    fetch(`${apiUrl}/ping`)
+      .then(() => console.log('✅ Initial ping sent to backend'))
+      .catch(() => console.warn('⚠️ Initial ping failed'));
+
+    // Set up interval to ping every 4.5 minutes
+    const interval = setInterval(() => {
+      fetch(`${apiUrl}/ping`)
+        .then(() => console.log('🔥 Auto-warm ping sent to keep backend awake'))
+        .catch(() => console.warn('⚠️ Auto-warm ping failed – backend might be sleeping'));
+    }, 1000 * 60 * 4.5); // 270,000ms = 4.5 minutes
+
+    // Cleanup interval on unmount
+    return () => {
+      console.log('🧹 Cleaning up auto-warm ping interval');
+      clearInterval(interval);
+    };
+  }, []);
 
   // Show loading screen while Clerk initializes
   if (!isLoaded) {

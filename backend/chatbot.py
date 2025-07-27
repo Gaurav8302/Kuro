@@ -146,6 +146,22 @@ async def root():
     """Root endpoint"""
     return {"message": "AI Chatbot API is running", "status": "healthy"}
 
+@app.get("/ping", tags=["Health"])
+async def ping():
+    """
+    Auto-warm ping endpoint to keep the server awake.
+    Called by frontend every 4.5 minutes to prevent Render from sleeping.
+    """
+    from datetime import datetime
+    current_time = datetime.now().isoformat()
+    logger.info(f"Auto-warm ping received at {current_time}")
+    return {
+        "status": "ok", 
+        "message": "Server is awake and healthy",
+        "timestamp": current_time,
+        "uptime_check": "render_auto_warm"
+    }
+
 # User name management endpoints
 class SetNameRequest(BaseModel):
     """Request model for setting user name"""
