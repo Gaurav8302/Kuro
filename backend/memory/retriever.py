@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 # Load .env variables
 load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
 
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)

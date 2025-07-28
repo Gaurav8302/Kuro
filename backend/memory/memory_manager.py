@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Environment variables
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX", "my-chatbot-memory")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
 PINECONE_ENV = os.getenv("PINECONE_ENV", "us-east-1")
 
 if not PINECONE_API_KEY:

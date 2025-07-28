@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Environment variables
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX", "my-chatbot-memory")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
 PINECONE_ENV = os.getenv("PINECONE_ENV", "us-east-1")
 
 if not PINECONE_API_KEY:
@@ -213,17 +213,6 @@ class MemoryManager:
             return "conversation"
         
         return "general"
-                }
-            ])
-            
-            logger.info(f"Memory stored successfully: {vector_id} for user {metadata['user']}")
-            return vector_id
-            
-        except ValueError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to store memory: {str(e)}")
-            raise RuntimeError(f"Memory storage failed: {str(e)}")
     
     def get_relevant_memories(
         self, 
