@@ -18,7 +18,6 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import logging
@@ -58,8 +57,7 @@ app = FastAPI(
     redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
 
-# CORS middleware configuration
-# Frontend URLs for production and development
+# Frontend URLs for CORS configuration
 frontend_urls = [
     # Local development
     "http://localhost:3000",
@@ -83,65 +81,37 @@ if frontend_prod_url:
         frontend_prod_url.replace("https://", "http://")
     ])
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=frontend_urls,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-    allow_headers=[
-        "accept",
-        "accept-encoding", 
-        "authorization",
-        "content-type",
-        "dnt",
-        "origin",
-        "user-agent",
-        "x-csrftoken",
-        "x-requested-with",
-        "x-clerk-*",
-        "*"
-    ],
-    expose_headers=["*"],
-)
-
-# Security middleware - CORS debug first
+# CORS middleware for production stability
 @app.middleware("http")
-async def cors_debug_middleware(request: Request, call_next):
-    """Debug CORS requests and add manual headers"""
+async def cors_middleware(request: Request, call_next):
+    """Handle CORS requests with manual headers for reliability"""
     origin = request.headers.get("origin")
     method = request.method
-    path = request.url.path
     
-    # Log CORS-related information
-    if origin:
-        logger.info(f"CORS Request: {method} {path} from origin: {origin}")
-        logger.info(f"Allowed origins: {frontend_urls}")
-    
-    # Handle preflight OPTIONS requests manually
+    # Handle preflight OPTIONS requests
     if method == "OPTIONS":
         response = Response(status_code=200)
-        response.headers["Access-Control-Allow-Origin"] = origin if origin in frontend_urls else "https://kuro-tau.vercel.app"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
-        response.headers["Access-Control-Max-Age"] = "86400"
-        logger.info(f"Manual OPTIONS response for {path} from {origin}")
+        if origin and origin in frontend_urls:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+            response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
+            response.headers["Access-Control-Max-Age"] = "86400"
         return response
     
     response = await call_next(request)
     
     # Add CORS headers to all responses
-    if origin and (origin in frontend_urls or origin == "https://kuro-tau.vercel.app"):
+    if origin and origin in frontend_urls:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
         response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
-        logger.info(f"Added CORS headers for {method} {path} from {origin}")
     
     return response
 
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def security_headers_middleware(request: Request, call_next):
     """Add security headers to all responses"""
     response = await call_next(request)
     
@@ -205,12 +175,10 @@ async def ping():
     Called by frontend every 4.5 minutes to prevent Render from sleeping.
     """
     from datetime import datetime
-    current_time = datetime.now().isoformat()
-    logger.info(f"Auto-warm ping received at {current_time}")
     return {
         "status": "ok", 
         "message": "Server is awake and healthy",
-        "timestamp": current_time,
+        "timestamp": datetime.now().isoformat(),
         "uptime_check": "render_auto_warm"
     }
 
