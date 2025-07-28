@@ -338,7 +338,7 @@ Instructions for responding:
                 self.store_user_name(user_id, extracted_name, message)
                 user_name = extracted_name
                 
-                response = f"Nice to meet you, {user_name}! I'll remember your name for our future conversations. How can I help you today?"
+                response = f"Nice to meet you, {user_name}! How can I help you?"
                 
                 # Store the introduction exchange
                 self._store_chat_memory(user_id, message, response, session_id)
@@ -346,12 +346,18 @@ Instructions for responding:
                 
                 return response
             
-            # 3. Retrieve relevant memories for context
-            relevant_memories = get_relevant_memories_detailed(
-                query=message, 
-                user_filter=user_id, 
-                top_k=top_k
-            )
+            # 3. Retrieve relevant memories for context (optimized)
+            relevant_memories = []
+            try:
+                relevant_memories = get_relevant_memories_detailed(
+                    query=message, 
+                    user_filter=user_id, 
+                    top_k=3  # Reduced from default 5 for faster responses
+                )
+                logger.info(f"Retrieved {len(relevant_memories)} relevant memories for user {user_id}")
+            except Exception as e:
+                logger.warning(f"Memory retrieval failed: {str(e)}")
+                relevant_memories = []
             
             # 4. Get recent session history for context
             session_history = None
@@ -364,31 +370,35 @@ Instructions for responding:
                 except Exception as e:
                     logger.warning(f"Failed to get session history: {str(e)}")
             
-            # 5. Build context from memories and history
+            # 5. Build concise context from memories and history
             context_parts = []
             
-            # Add session history context
+            # Add recent session context (more natural)
             if session_history:
-                recent_exchanges = session_history[-3:]  # Last 3 messages
+                recent_exchanges = session_history[-2:]  # Reduced to last 2 messages
                 session_context = []
                 for msg in recent_exchanges:
-                    session_context.extend([
-                        f"User: {msg['user']}",
-                        f"Assistant: {msg['assistant']}"
-                    ])
-                context_parts.append("Recent conversation:\n" + "\n".join(session_context))
+                    session_context.append(f"Previous: {msg['user']} → {msg['assistant']}")
+                context_parts.append("Recent context: " + " | ".join(session_context))
             
-            # Add relevant memories context
+            # Add relevant memories (more concise)
             if relevant_memories:
-                memory_text = []
-                for memory in relevant_memories:
-                    memory_text.append(memory["text"])
-                context_parts.append("Relevant context from past conversations:\n" + "\n".join(memory_text))
+                memory_snippets = []
+                for memory in relevant_memories[:3]:  # Limit to top 3 memories
+                    # Extract key information from memory
+                    text = memory["text"][:100]  # Limit length
+                    memory_snippets.append(text)
+                context_parts.append("Past context: " + " | ".join(memory_snippets))
             
-            # Add user context
-            context_parts.append(f"You are talking to {user_name}.")
+            # Only add user name if it's relevant to the conversation
+            if user_name and (
+                "name" in message.lower() or 
+                any(greeting in message.lower() for greeting in ["hello", "hi", "hey"]) or
+                not session_history  # First message in session
+            ):
+                context_parts.append(f"User: {user_name}")
             
-            context = "\n\n".join(context_parts) if context_parts else None
+            context = " | ".join(context_parts) if context_parts else None
             
             # 6. Generate response using Kuro system
             response = self.generate_ai_response(message, context)
@@ -421,8 +431,15 @@ Instructions for responding:
             session_id (Optional[str]): Session identifier
         """
         try:
-            # Store the full exchange
-            chat_text = f"User: {message}\nAssistant: {response}"
+            # Only store important exchanges to reduce noise
+            message_lower = message.lower()
+            
+            # Skip storing very short or common messages
+            if len(message) < 10 or any(skip in message_lower for skip in ["ok", "thanks", "yes", "no"]):
+                return
+            
+            # Store concise exchange format
+            chat_text = f"Q: {message}\nA: {response[:200]}"  # Limit response length in memory
             metadata = {
                 "user": user_id,
                 "type": "chat_exchange",
@@ -434,7 +451,6 @@ Instructions for responding:
             importance = 0.3  # Base importance for regular chat
             
             # Higher importance for requests, preferences, and key information
-            message_lower = message.lower()
             if any(keyword in message_lower for keyword in ["i love", "i like", "i prefer", "favorite", "interested in", "i enjoy", "hobby"]):
                 importance = 0.8  # High importance for preferences
             elif any(keyword in message_lower for keyword in ["i need", "suggest", "recommend", "help me", "looking for", "can you"]):

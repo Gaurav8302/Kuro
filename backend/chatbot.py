@@ -16,6 +16,18 @@ Features:
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
+import logging
+
+# Validate critical environment variables on startup
+required_env_vars = ["GEMINI_API_KEY", "PINECONE_API_KEY", "MONGODB_URI"]
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    print(f"❌ Missing environment variables: {missing_vars}")
+    # Don't raise error in production to allow graceful degradation
+    if os.getenv("ENVIRONMENT") != "production":
+        raise RuntimeError(f"Missing required environment variables: {missing_vars}")
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
