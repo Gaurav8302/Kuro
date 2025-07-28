@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
@@ -86,11 +87,49 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_urls,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
+# Add explicit OPTIONS handler for debugging
+@app.options("/{path:path}")
+async def handle_options(path: str):
+    """Handle preflight OPTIONS requests"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 # Security middleware
+@app.middleware("http")
+async def cors_debug_middleware(request: Request, call_next):
+    """Debug CORS requests"""
+    origin = request.headers.get("origin")
+    method = request.method
+    path = request.url.path
+    
+    # Log CORS-related information
+    if origin:
+        logger.info(f"CORS Request: {method} {path} from origin: {origin}")
+        logger.info(f"Allowed origins: {frontend_urls}")
+    
+    response = await call_next(request)
+    
+    # Add CORS headers manually for debugging
+    if origin and origin in frontend_urls:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses"""
