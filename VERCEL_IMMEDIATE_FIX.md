@@ -23,7 +23,7 @@ This means Vercel is not using the production environment variables!
 **Set all production variables:**
 ```
 VITE_CLERK_PUBLISHABLE_KEY = pk_test_d2hvbGUtcXVhZ2dhLTQxLmNsZXJrLmFjY291bnRzLmRldiQ
-VITE_API_BASE_URL = https://canvas-chat-ai.onrender.com
+VITE_API_BASE_URL = https://kuro-cemr.onrender.com
 VITE_ENVIRONMENT = production
 ```
 
@@ -37,7 +37,7 @@ VITE_ENVIRONMENT = production
 ### 4. Verify Fix
 After redeployment, check browser console. You should see:
 ```
-🔗 API Base URL: https://canvas-chat-ai.onrender.com | Environment: production
+🔗 API Base URL: https://kuro-cemr.onrender.com | Environment: production
 ```
 
 ## Why This Happens

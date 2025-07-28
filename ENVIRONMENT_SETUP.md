@@ -25,7 +25,7 @@ PORT=8000
 Set these in your Vercel dashboard (EXACT NAMES):
 ```bash
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_d2hvbGUtcXVhZ2dhLTQxLmNsZXJrLmFjY291bnRzLmRldiQ
-VITE_API_BASE_URL=https://canvas-chat-ai.onrender.com
+VITE_API_BASE_URL=https://kuro-cemr.onrender.com
 VITE_ENVIRONMENT=production
 ```
 
