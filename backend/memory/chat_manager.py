@@ -190,7 +190,26 @@ class ChatManager:
                     continue
                     
             except Exception as e:
-                logger.error(f"Error generating AI response (attempt {retry_count + 1}): {str(e)}")
+                error_msg = str(e)
+                logger.error(f"Error generating AI response (attempt {retry_count + 1}): {error_msg}")
+                
+                # Handle Gemini API quota exceeded
+                if "quota" in error_msg.lower() or "429" in error_msg:
+                    logger.warning("⚠️ Gemini API quota exceeded - returning development message")
+                    return """🚧 **Development Mode Notice** 🚧
+
+Hi! I'm currently in development and using a free Google Gemini API key with a daily limit of 50 requests. 
+
+**We've reached today's limit!** ⏰
+
+This is temporary while we're building and testing. The quota resets every 24 hours, so you can try again tomorrow.
+
+For now, you can still:
+- Browse your previous conversations
+- Create new chat sessions (they'll be saved for when I'm back)
+- Explore the interface
+
+Thanks for your patience as we work on making this better! 🙏"""
                 
                 if retry_count >= max_retries:
                     return get_fallback_response(user_message)

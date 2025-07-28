@@ -194,6 +194,46 @@ async def ping():
         "uptime_check": "render_auto_warm"
     }
 
+@app.get("/api-status", tags=["Health"])
+async def api_status():
+    """
+    Check if the Gemini API is available or if we've hit rate limits.
+    Frontend can use this to show appropriate messages.
+    """
+    try:
+        import google.generativeai as genai
+        
+        # Test with a minimal request
+        model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
+        test_response = model.generate_content("Hello", 
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=1,
+                temperature=0
+            )
+        )
+        
+        return {
+            "status": "available",
+            "message": "AI chat is available",
+            "quota_status": "ok"
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "quota" in error_msg.lower() or "429" in error_msg:
+            return {
+                "status": "quota_exceeded", 
+                "message": "AI chat temporarily unavailable due to daily quota limit",
+                "quota_status": "exceeded",
+                "reset_info": "Quota resets every 24 hours"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "AI service temporarily unavailable", 
+                "quota_status": "unknown"
+            }
+
 # User name management endpoints
 class SetNameRequest(BaseModel):
     """Request model for setting user name"""
