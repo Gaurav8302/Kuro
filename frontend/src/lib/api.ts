@@ -2,7 +2,10 @@
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use environment-specific API base URL
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+console.log('🔗 API Base URL:', API_BASE, '| Environment:', import.meta.env.VITE_ENVIRONMENT || 'development');
 
 export async function apiRequest<T>(endpoint: string, method: 'get' | 'post' | 'put' | 'delete', data?: any, params?: any, token?: string): Promise<T> {
   try {

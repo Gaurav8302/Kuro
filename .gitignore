@@ -1,6 +1,7 @@
 # Dependencies - Update for new structure
 frontend/node_modules/
 backend/__pycache__/
+backend/venv/
 frontend/dist/
 frontend/build/
 frontend/.next/
@@ -9,6 +10,11 @@ frontend/.next/
 .pnp.js
 package-lock.json
 yarn.lock
+
+# Development environment files
+frontend/.env.local
+backend/.env.local
+scripts/temp/
 
 # Python
 __pycache__/

@@ -4,12 +4,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3000",
+    "dev:local": "vite --port 3000 --mode development",
     "build": "vite build",
     "build:prod": "vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "start": "npm run build && npm run preview"
+    "start": "npm run build && npm run preview",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.35.4",
