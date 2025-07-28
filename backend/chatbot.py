@@ -68,10 +68,13 @@ frontend_urls = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://localhost:4173",  # Vite preview server
-    "http://127.0.0.1:4173"
+    "http://127.0.0.1:4173",
+    # Production frontend URLs
+    "https://kuro-tau.vercel.app",
+    "https://kuro-tau.vercel.app/",
 ]
 
-# Add production frontend URL if specified
+# Add additional production frontend URL if specified via environment variable
 frontend_prod_url = os.getenv("FRONTEND_URL")
 if frontend_prod_url:
     frontend_urls.extend([

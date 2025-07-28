@@ -22,9 +22,9 @@ const App = () => {
 
   // Auto-warm ping to keep Render backend awake
   useEffect(() => {
-    // Only run in production or when API_URL points to Render
-    const apiUrl = import.meta.env.VITE_API_URL;
-    if (!apiUrl || apiUrl.includes('localhost')) {
+    // Only run in production or when API_BASE_URL points to Render
+    const apiUrl = import.meta.env.VITE_API_BASE_URL;
+    if (!apiUrl || apiUrl.includes('localhost') || import.meta.env.VITE_ENVIRONMENT === 'development') {
       console.log('🔧 Skipping auto-warm ping for local development');
       return;
     }

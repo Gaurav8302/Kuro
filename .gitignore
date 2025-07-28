@@ -15,6 +15,8 @@ yarn.lock
 frontend/.env.local
 backend/.env.local
 scripts/temp/
+frontend/.env.local.noauth
+frontend/scripts-update.json
 
 # Python
 __pycache__/
