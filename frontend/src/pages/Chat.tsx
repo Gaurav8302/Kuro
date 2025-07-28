@@ -45,6 +45,7 @@ const Chat = () => {
   const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [hasCheckedName, setHasCheckedName] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true); // New state for initial load
 
   // Update sidebar state when mobile state changes
   useEffect(() => {
@@ -130,10 +131,18 @@ const Chat = () => {
       
       // If sessionId exists, load that session after sessions are set
       if (sessionId && data.sessions.length > 0) {
-        loadSession(sessionId);
+        const session = data.sessions.find(s => s.session_id === sessionId);
+        if (session) {
+          await loadSession(sessionId);
+        } else {
+          // Session doesn't exist, redirect to create new one
+          navigate('/chat');
+        }
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsInitializing(false); // Mark initialization as complete
     }
   };
 
@@ -164,19 +173,19 @@ const Chat = () => {
       });
       // Always fully replace messages with the latest backend history
       setMessages(mappedMessages);
-      setCurrentSession(sessions.find(s => s.session_id === id) || null);
+      
+      // Find and set the current session
+      const session = sessions.find(s => s.session_id === id);
+      if (session) {
+        setCurrentSession(session);
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
-  // Load session on sessionId change
-  useEffect(() => {
-    if (sessionId && sessions.length > 0) {
-      loadSession(sessionId);
-    }
-  }, [sessionId, sessions]);
+  
   // Fetch sessions on mount and when user changes
   useEffect(() => {
     fetchSessions();
@@ -187,12 +196,22 @@ const Chat = () => {
     setIsLoading(true);
     try {
       if (!user) return;
-      const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
-      await fetchSessions();
-      navigate(`/chat/${data.session_id}`);
-      // After navigating, clear messages and set current session
+      
+      // Clear current state immediately
       setMessages([]);
-      setCurrentSession({ session_id: data.session_id, title: 'New Chat' });
+      setCurrentSession(null);
+      
+      const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
+      
+      // Set the new session immediately
+      const newSession = { session_id: data.session_id, title: 'New Chat' };
+      setCurrentSession(newSession);
+      
+      // Update sessions list
+      await fetchSessions();
+      
+      // Navigate to the new session
+      navigate(`/chat/${data.session_id}`);
       
       // Close sidebar on mobile after creating new chat
       if (isMobile) {
@@ -212,7 +231,19 @@ const Chat = () => {
     setError(null);
 
     try {
-      if (!user || !currentSession) return;
+      if (!user) return;
+
+      // If no current session, create one first
+      let sessionToUse = currentSession;
+      if (!sessionToUse) {
+        const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
+        sessionToUse = { session_id: data.session_id, title: 'New Chat' };
+        setCurrentSession(sessionToUse);
+        
+        // Update sessions list and navigate
+        await fetchSessions();
+        navigate(`/chat/${data.session_id}`);
+      }
 
       // Immediately show user message
       setMessages(prev => [
@@ -230,7 +261,7 @@ const Chat = () => {
       const { reply } = await clerkApiRequest<{ reply: string }>(
         `/chat`,
         'post',
-        { user_id: user.id, message, session_id: currentSession.session_id }
+        { user_id: user.id, message, session_id: sessionToUse.session_id }
       );
 
       // Add AI response
@@ -247,7 +278,7 @@ const Chat = () => {
       scrollToBottom();
 
       // Refresh chat history to ensure sync
-      const data = await clerkApiRequest<{ history: any[] }>(`/chat/${currentSession.session_id}`, 'get');
+      const data = await clerkApiRequest<{ history: any[] }>(`/chat/${sessionToUse.session_id}`, 'get');
       // Map backend chat history to frontend Message format (show both user and assistant as separate bubbles)
       const mappedMessages: Message[] = [];
       data.history.forEach((item: any) => {
@@ -271,7 +302,7 @@ const Chat = () => {
       setMessages(mappedMessages);
 
       // Auto-name session after 3-4 messages if still "New Chat"
-      if (mappedMessages.length >= 6 && currentSession.title === 'New Chat') { // 6 messages = 3 exchanges
+      if (mappedMessages.length >= 6 && sessionToUse.title === 'New Chat') { // 6 messages = 3 exchanges
         try {
           // Generate title from first user message
           const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
@@ -279,7 +310,7 @@ const Chat = () => {
             ? firstUserMessage.substring(0, 47) + '...' 
             : firstUserMessage;
           
-          await handleRenameSession(currentSession.session_id, generatedTitle);
+          await handleRenameSession(sessionToUse.session_id, generatedTitle);
         } catch (err) {
           // Ignore auto-naming errors, not critical
           console.log('Auto-naming failed:', err);
@@ -384,13 +415,15 @@ const Chat = () => {
     }
   };
 
-  // Show loading screen while user data loads
-  if (!isLoaded || !user) {
+  // Show loading screen while user data loads or during initialization
+  if (!isLoaded || !user || isInitializing) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading chat...</p>
+          <p className="text-muted-foreground">
+            {!isLoaded || !user ? "Loading chat..." : "Setting up your session..."}
+          </p>
         </div>
       </div>
     );
