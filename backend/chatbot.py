@@ -104,21 +104,6 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Add explicit OPTIONS handler for debugging
-@app.options("/{path:path}")
-async def handle_options(path: str):
-    """Handle preflight OPTIONS requests"""
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "https://kuro-tau.vercel.app",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
-            "Access-Control-Allow-Headers": "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "86400",
-        }
-    )
-
 # Security middleware - CORS debug first
 @app.middleware("http")
 async def cors_debug_middleware(request: Request, call_next):
@@ -334,15 +319,33 @@ async def chat_endpoint(payload: ChatInput):
     - Pinecone stores semantic memory/context (for AI to remember user preferences, facts, etc.)
     - This endpoint uses both: MongoDB for chat history, Pinecone for personalization
     """
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    
     try:
-        reply = chat_with_memory(
-            user_id=payload.user_id,
-            message=payload.message,
-            session_id=payload.session_id
-        )
+        # Add timeout protection to prevent worker timeout
+        def sync_chat():
+            return chat_with_memory(
+                user_id=payload.user_id,
+                message=payload.message,
+                session_id=payload.session_id
+            )
         
-        logger.info(f"Chat response generated for user {payload.user_id}")
-        return {"reply": reply}
+        # Run the synchronous chat function in a thread pool with timeout
+        try:
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                reply = await asyncio.wait_for(
+                    loop.run_in_executor(executor, sync_chat),
+                    timeout=150.0
+                )
+            
+            logger.info(f"Chat response generated for user {payload.user_id}")
+            return {"reply": reply}
+            
+        except asyncio.TimeoutError:
+            logger.warning(f"Chat response timed out for user {payload.user_id}")
+            return {"reply": "I apologize, but my response is taking longer than expected. Please try again with a shorter message or try again in a moment."}
     
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")

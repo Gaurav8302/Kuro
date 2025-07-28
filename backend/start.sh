@@ -20,7 +20,7 @@ exec gunicorn chatbot:app \
     --worker-class uvicorn.workers.UvicornWorker \
     --max-requests 1000 \
     --max-requests-jitter 100 \
-    --timeout 60 \
+    --timeout 180 \
     --keep-alive 30 \
     --worker-tmp-dir /dev/shm \
     --log-level info \
