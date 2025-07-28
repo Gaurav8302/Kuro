@@ -119,10 +119,10 @@ async def handle_options(path: str):
         }
     )
 
-# Security middleware
+# Security middleware - CORS debug first
 @app.middleware("http")
 async def cors_debug_middleware(request: Request, call_next):
-    """Debug CORS requests"""
+    """Debug CORS requests and add manual headers"""
     origin = request.headers.get("origin")
     method = request.method
     path = request.url.path
@@ -132,14 +132,26 @@ async def cors_debug_middleware(request: Request, call_next):
         logger.info(f"CORS Request: {method} {path} from origin: {origin}")
         logger.info(f"Allowed origins: {frontend_urls}")
     
+    # Handle preflight OPTIONS requests manually
+    if method == "OPTIONS":
+        response = Response(status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = origin if origin in frontend_urls else "https://kuro-tau.vercel.app"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        logger.info(f"Manual OPTIONS response for {path} from {origin}")
+        return response
+    
     response = await call_next(request)
     
-    # Add CORS headers manually for debugging
-    if origin and origin in frontend_urls:
+    # Add CORS headers to all responses
+    if origin and (origin in frontend_urls or origin == "https://kuro-tau.vercel.app"):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
+        logger.info(f"Added CORS headers for {method} {path} from {origin}")
     
     return response
 
