@@ -153,14 +153,10 @@ class OptimizedChatManager:
         
         while retry_count <= max_retries:
             try:
-                # Build Kuro system prompt
-                system_prompt = build_kuro_prompt()
-                
-                # Combine context and user message
-                if context:
-                    full_prompt = f"{context}\n\nUser: {user_message}\nAssistant:"
-                else:
-                    full_prompt = f"User: {user_message}\nAssistant:"
+                # Build Kuro system prompt with user message
+                prompt_data = build_kuro_prompt(user_message, context)
+                system_prompt = prompt_data.get("system_instruction", "")
+                full_prompt = prompt_data.get("user_prompt", f"User: {user_message}\nAssistant:")
                 
                 # Log token usage
                 logger.info(f"🔢 Token usage: {token_usage} (Total: {token_usage['total']})")
