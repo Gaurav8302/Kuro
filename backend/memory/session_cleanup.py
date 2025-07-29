@@ -14,25 +14,18 @@ Features:
 import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 
-from backend.memory.memory_manager import store_memory, delete_session_memories
-from backend.memory.chat_database import get_chat_history_for_session
+from memory.memory_manager import store_memory, delete_session_memories
+from memory.chat_database import get_chat_history_for_session
+from utils.groq_client import GroqClient
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Initialize Google Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable is required")
-
-genai.configure(api_key=GEMINI_API_KEY)
 
 class SessionCleanupManager:
     """
@@ -45,8 +38,8 @@ class SessionCleanupManager:
     def __init__(self):
         """Initialize the session cleanup manager"""
         try:
-            self.gemini = genai.GenerativeModel("models/gemini-1.5-flash")
-            logger.info("✅ Session cleanup manager initialized")
+            self.groq_client = GroqClient()
+            logger.info("✅ Session cleanup manager initialized with Groq")
         except Exception as e:
             logger.error(f"❌ Failed to initialize cleanup manager: {str(e)}")
             raise RuntimeError(f"Cleanup manager initialization failed: {str(e)}")
@@ -71,11 +64,11 @@ class SessionCleanupManager:
             # Create summarization prompt
             prompt = self._build_summary_prompt(chat_text)
             
-            # Generate summary using Gemini
-            response = self.gemini.generate_content(prompt)
+            # Generate summary using Groq
+            response = self.groq_client.generate_content(prompt)
             
-            if response.text:
-                summary = response.text.strip()
+            if response:
+                summary = response.strip()
                 logger.info("Session summary generated successfully")
                 return summary
             else:

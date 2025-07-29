@@ -6,7 +6,7 @@ This is the main entry point for the AI chatbot backend API.
 It provides endpoints for chat functionality, session management, and memory operations.
 
 Features:
-- Real-time chat with AI using Google Gemini
+- Real-time chat with AI using Groq LLaMA 3 70B
 - Persistent memory using Pinecone vector database
 - Session management with MongoDB
 - User isolation and data privacy
@@ -20,7 +20,7 @@ import os
 import logging
 
 # Validate critical environment variables on startup
-required_env_vars = ["GEMINI_API_KEY", "PINECONE_API_KEY", "MONGODB_URI"]
+required_env_vars = ["GROQ_API_KEY", "GEMINI_API_KEY", "PINECONE_API_KEY", "MONGODB_URI"]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"❌ Missing environment variables: {missing_vars}")
@@ -197,19 +197,17 @@ async def ping():
 @app.get("/api-status", tags=["Health"])
 async def api_status():
     """
-    Check if the Gemini API is available or if we've hit rate limits.
+    Check if the Groq API is available or if we've hit rate limits.
     Frontend can use this to show appropriate messages.
     """
     try:
-        import google.generativeai as genai
+        from backend.utils.groq_client import GroqClient
         
         # Test with a minimal request
-        model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
-        test_response = model.generate_content("Hello", 
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=1,
-                temperature=0
-            )
+        groq_client = GroqClient()
+        test_response = groq_client.generate_response(
+            messages=[{"role": "user", "content": "Hello"}],
+            max_tokens=1
         )
         
         return {

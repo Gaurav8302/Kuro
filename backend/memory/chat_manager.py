@@ -5,13 +5,13 @@ This module handles the core chat functionality, including AI responses,
 user name extraction, memory integration, and conversation flow management.
 
 Features:
-- AI chat responses using Google Gemini
+- AI chat responses using Groq LLaMA 3 70B
 - User name detection and storage
 - Memory-aware conversations
 - Chat history persistence
 - Context-aware responses
 
-Version: 2025-01-25 - Ultra lightweight memory manager
+Version: 2025-07-29 - Migrated from Gemini to Groq LLaMA 3 70B
 """
 
 import os
@@ -19,26 +19,19 @@ import re
 import logging
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
-import google.generativeai as genai
 
 from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
 from memory.chat_database import save_chat_to_db
 from memory.user_profile import get_user_name as get_profile_name, set_user_name
 from utils.kuro_prompt import build_kuro_prompt, sanitize_response
 from utils.safety import validate_response, get_fallback_response
+from utils.groq_client import GroqClient
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Initialize Google Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable is required")
-
-genai.configure(api_key=GEMINI_API_KEY)
 
 class ChatManager:
     """
@@ -49,12 +42,13 @@ class ChatManager:
     """
     
     def __init__(self):
-        """Initialize the chat manager with AI model"""
+        """Initialize the chat manager with Groq AI model"""
         try:
-            self.gemini = genai.GenerativeModel("models/gemini-1.5-flash")
-            logger.info("✅ Google Gemini model initialized successfully")
+            # Initialize Groq client
+            self.groq_client = GroqClient()
+            logger.info("✅ Groq LLaMA 3 70B model initialized successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini model: {str(e)}")
+            logger.error(f"❌ Failed to initialize Groq model: {str(e)}")
             raise RuntimeError(f"AI model initialization failed: {str(e)}")
     
     def extract_name(self, text: str) -> Optional[str]:
@@ -149,21 +143,18 @@ class ChatManager:
                 # Build Kuro prompt with system instruction
                 prompt_package = build_kuro_prompt(user_message, context)
                 
-                # Create generative model with system instruction
-                model = genai.GenerativeModel(
-                    model_name="models/gemini-1.5-flash",
+                # Generate response using Groq
+                response = self.groq_client.generate_content(
+                    prompt=prompt_package["user_prompt"],
                     system_instruction=prompt_package["system_instruction"]
                 )
                 
-                # Generate response
-                response = model.generate_content(prompt_package["user_prompt"])
-                
-                if not response.text:
-                    logger.warning("Empty response from Gemini")
+                if not response:
+                    logger.warning("Empty response from Groq")
                     return get_fallback_response(user_message)
                 
                 # Sanitize response
-                sanitized_response = sanitize_response(response.text)
+                sanitized_response = sanitize_response(response)
                 
                 # Validate response safety
                 is_valid, assessment = validate_response(sanitized_response, context)
@@ -193,16 +184,16 @@ class ChatManager:
                 error_msg = str(e)
                 logger.error(f"Error generating AI response (attempt {retry_count + 1}): {error_msg}")
                 
-                # Handle Gemini API quota exceeded
-                if "quota" in error_msg.lower() or "429" in error_msg:
-                    logger.warning("⚠️ Gemini API quota exceeded - returning development message")
+                # Handle Groq API rate limits
+                if "rate_limit" in error_msg.lower() or "429" in error_msg:
+                    logger.warning("⚠️ Groq API rate limit exceeded - returning development message")
                     return """🚧 **Development Mode Notice** 🚧
 
-Hi! I'm currently in development and using a free Google Gemini API key with a daily limit of 50 requests. 
+Hi! I'm currently in development and using the Groq API for LLaMA 3 70B. 
 
-**We've reached today's limit!** ⏰
+**We've hit the rate limit!** ⏰
 
-This is temporary while we're building and testing. The quota resets every 24 hours, so you can try again tomorrow.
+This is temporary while we're building and testing. Please try again in a few moments.
 
 For now, you can still:
 - Browse your previous conversations

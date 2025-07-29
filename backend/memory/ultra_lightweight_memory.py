@@ -1,6 +1,6 @@
 """
 Ultra-lightweight memory manager for Render's 512MB memory limit
-Uses only Google Gemini embeddings and basic Python operations
+Uses Google Gemini embeddings (free) and Groq for chat
 """
 
 import os
@@ -10,7 +10,7 @@ from datetime import datetime
 import json
 import math
 
-# Google Gemini imports
+# Google Gemini imports for embeddings only
 import google.generativeai as genai
 
 # Configure logging
@@ -20,10 +20,10 @@ class UltraLightweightMemoryManager:
     """Memory manager optimized for minimal memory usage"""
     
     def __init__(self):
-        # Initialize Google Gemini
+        # Initialize Google Gemini for embeddings (free tier)
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable is required")
+            raise ValueError("GEMINI_API_KEY environment variable is required for embeddings")
         
         genai.configure(api_key=api_key)
         self.embedding_model = "models/text-embedding-004"
@@ -56,7 +56,7 @@ class UltraLightweightMemoryManager:
         return dot_product / (norm1 * norm2)
     
     def get_embedding(self, text: str) -> List[float]:
-        """Get embedding from Google Gemini"""
+        """Get embedding from Google Gemini (free tier)"""
         try:
             result = genai.embed_content(
                 model=self.embedding_model,
@@ -78,6 +78,7 @@ class UltraLightweightMemoryManager:
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
             # Return a default embedding vector of appropriate size
+            return [0.0] * 384
             return [0.0] * 384  # Match Pinecone index dimension
 
     def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:

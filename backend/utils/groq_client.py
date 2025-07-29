@@ -1,0 +1,202 @@
+"""
+Groq API Client for LLaMA 3 70B Model
+
+This module provides a clean interface to interact with Groq's LLaMA 3 70B model
+using OpenAI-compatible chat completions API.
+"""
+
+import os
+import json
+import logging
+import requests
+from typing import Optional, Dict, Any, List
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+class GroqClient:
+    """
+    Groq API client for LLaMA 3 70B model
+    
+    Provides a simple interface to generate chat completions using
+    Groq's fast inference API with LLaMA 3 70B model.
+    """
+    
+    def __init__(self):
+        """Initialize the Groq client"""
+        self.api_key = os.getenv("GROQ_API_KEY")
+        if not self.api_key:
+            raise ValueError("GROQ_API_KEY environment variable is required")
+        
+        self.base_url = "https://api.groq.com/openai/v1"
+        self.model = "llama3-70b-8192"
+        
+        # Default parameters
+        self.default_params = {
+            "temperature": 0.7,
+            "max_tokens": 1024,
+            "top_p": 1,
+            "stream": False
+        }
+        
+        logger.info("✅ Groq client initialized successfully")
+    
+    def generate_content(self, prompt: str, system_instruction: Optional[str] = None) -> str:
+        """
+        Generate content using Groq's LLaMA 3 70B model
+        
+        This method maintains compatibility with the Gemini interface while
+        using Groq's OpenAI-compatible chat completions API.
+        
+        Args:
+            prompt (str): User prompt/message
+            system_instruction (str, optional): System instruction for the model
+            
+        Returns:
+            str: Generated response text
+            
+        Raises:
+            Exception: If API call fails or returns invalid response
+        """
+        try:
+            # Build messages array
+            messages = []
+            
+            # Add system instruction if provided
+            if system_instruction:
+                messages.append({
+                    "role": "system",
+                    "content": system_instruction
+                })
+            
+            # Add user prompt
+            messages.append({
+                "role": "user", 
+                "content": prompt
+            })
+            
+            # Prepare request payload
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                **self.default_params
+            }
+            
+            # Make API request
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            logger.debug(f"Making Groq API request with {len(messages)} messages")
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            # Check for HTTP errors
+            response.raise_for_status()
+            
+            # Parse response
+            response_data = response.json()
+            
+            # Extract generated text
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                content = response_data["choices"][0]["message"]["content"]
+                logger.debug(f"Groq API response generated: {len(content)} characters")
+                return content
+            else:
+                raise Exception("No choices in Groq API response")
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Groq API request failed: {str(e)}")
+            raise Exception(f"Groq API request failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Groq content generation failed: {str(e)}")
+            raise Exception(f"Groq content generation failed: {str(e)}")
+    
+    def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+        """
+        Direct chat completions API call
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            **kwargs: Additional parameters to override defaults
+            
+        Returns:
+            dict: Full API response
+        """
+        try:
+            # Merge parameters
+            params = {**self.default_params, **kwargs}
+            
+            # Prepare request payload
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                **params
+            }
+            
+            # Make API request
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except Exception as e:
+            logger.error(f"Groq chat completion failed: {str(e)}")
+            raise Exception(f"Groq chat completion failed: {str(e)}")
+
+
+# Create a mock response object to maintain compatibility with Gemini interface
+class GroqResponse:
+    """Mock response object to maintain compatibility with Gemini interface"""
+    
+    def __init__(self, text: str):
+        self.text = text
+
+
+# Initialize global Groq client
+try:
+    groq_client = GroqClient()
+    logger.info("✅ Global Groq client initialized")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize Groq client: {str(e)}")
+    groq_client = None
+
+
+def generate_with_groq(prompt: str, system_instruction: Optional[str] = None) -> GroqResponse:
+    """
+    Convenience function to generate content with Groq
+    
+    This function provides a Gemini-compatible interface for easy migration.
+    
+    Args:
+        prompt (str): User prompt
+        system_instruction (str, optional): System instruction
+        
+    Returns:
+        GroqResponse: Response object with .text property
+    """
+    if not groq_client:
+        raise Exception("Groq client not initialized")
+    
+    content = groq_client.generate_content(prompt, system_instruction)
+    return GroqResponse(content)
