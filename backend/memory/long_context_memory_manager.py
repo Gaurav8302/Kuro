@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
 from utils.groq_client import GroqClient
-from utils.token_utils import estimate_tokens, truncate_to_token_limit
+from utils.token_utils import estimate_tokens, truncate_text
 from memory.chat_database import get_chat_by_session, save_chat_to_db
 import google.generativeai as genai
 
@@ -450,13 +450,13 @@ Provide your response in this exact JSON format:
                 
                 # Truncate STM if needed
                 if stm_tokens > available_tokens // 2:
-                    stm_text = truncate_to_token_limit(stm_text, available_tokens // 2)
+                    stm_text = truncate_text(stm_text, available_tokens // 2)
                     stm_tokens = estimate_tokens(stm_text)
                 
                 # Truncate LTM with remaining tokens
                 remaining_tokens = available_tokens - stm_tokens
                 if ltm_tokens > remaining_tokens:
-                    ltm_text = truncate_to_token_limit(ltm_text, remaining_tokens)
+                    ltm_text = truncate_text(ltm_text, remaining_tokens)
                     ltm_tokens = estimate_tokens(ltm_text)
             
             # 7. Assemble final context
