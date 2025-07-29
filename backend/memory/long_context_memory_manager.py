@@ -85,7 +85,7 @@ class LongContextMemoryManager:
     MAX_CONTEXT_TOKENS = 100000  # Reserve 20K buffer for safety
     STM_MESSAGE_LIMIT = 5  # Last N message pairs in short-term memory
     LTM_RETRIEVAL_LIMIT = 3  # Max summaries to retrieve from long-term memory
-    SUMMARIZATION_THRESHOLD = 10  # Summarize sessions with 10+ messages
+    SUMMARIZATION_THRESHOLD = 4  # Summarize sessions with 4+ messages (reduced for better memory)
     
     def __init__(self):
         """Initialize the long-context memory manager"""
