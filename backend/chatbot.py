@@ -32,17 +32,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
+from datetime import datetime
 import logging
 import os
 
 # Import our custom modules
-from memory.optimized_chat_manager import chat_with_optimized_memory
-from memory.optimized_memory_manager import get_optimized_memories, store_optimized_memory
-from memory.session_summarization_service import (
-    start_summarization_service, 
-    get_summarization_stats,
-    summarize_session_now
-)
+from memory.long_context_memory_manager import chat_with_long_context_memory, long_context_memory_manager, summarize_session_background
 from memory.chat_database import (
     get_sessions_by_user, 
     get_chat_by_session, 
@@ -79,12 +74,11 @@ app = FastAPI(
 async def startup_event():
     """Initialize services on startup"""
     try:
-        # Start summarization service in production
+        # Initialize long-context memory manager
         if IS_PRODUCTION:
-            logger.info("🚀 Starting summarization service in production mode")
-            start_summarization_service()
+            logger.info("🚀 Initializing long-context memory system for production")
         else:
-            logger.info("💡 Development mode - summarization service available but not auto-started")
+            logger.info("💡 Long-context memory system initialized for development")
         
         logger.info("✅ Application startup completed successfully")
         
@@ -96,8 +90,6 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup services on shutdown"""
     try:
-        from memory.session_summarization_service import stop_summarization_service
-        stop_summarization_service()
         logger.info("✅ Application shutdown completed successfully")
         
     except Exception as e:
@@ -316,13 +308,23 @@ async def store_user_memory(payload: MemoryInput):
     try:
         # Inject user_id into metadata for user isolation
         payload.metadata["user"] = payload.user_id
-        # Store memory using optimized system
-        memory_id = store_optimized_memory(
-            text=payload.text,
-            user_id=payload.metadata.get("user", "unknown"),
-            memory_type=payload.metadata.get("category", "general"),
-            importance=payload.metadata.get("importance", 0.5)
-        )
+        
+        # Store memory using long-context system
+        # For now, we'll use the basic text storage and let the system
+        # handle it through automatic summarization
+        memory_id = f"manual_{payload.user_id}_{datetime.now().isoformat()}"
+        
+        # Store in vector database
+        embedding = long_context_memory_manager.generate_embedding(payload.text)
+        long_context_memory_manager.pinecone_index.upsert([
+            (memory_id, embedding, {
+                "user_id": payload.user_id,
+                "type": "manual_memory",
+                "text": payload.text[:1000],  # Truncate for metadata
+                "timestamp": datetime.now().isoformat(),
+                **payload.metadata
+            })
+        ])
         
         logger.info(f"Memory stored for user {payload.user_id}: {memory_id}")
         return {"status": "success", "memory_id": memory_id}
@@ -340,23 +342,25 @@ async def retrieve_memories(payload: QueryInput):
     for the given user and query.
     """
     try:
-        # Get detailed memories with metadata using optimized system
-        memories = get_optimized_memories(
-            query=payload.query, 
-            user_id=payload.user_id, 
-            top_k=min(payload.top_k, 3)  # Limit to 3 for optimization
+        # Get relevant summaries using long-context system
+        summaries = long_context_memory_manager.retrieve_relevant_summaries(
+            user_id=payload.user_id,
+            current_query=payload.query
         )
         
         # Format for API response (maintain backward compatibility)  
         formatted_memories = [
             {
-                "text": memory["text"],
-                "score": memory.get("score", 0.0),
-                "importance": memory.get("importance", 0.5),
-                "category": memory.get("category", "general"),
-                "timestamp": memory.get("timestamp", "")
+                "text": summary.summary,
+                "score": 0.8,  # Placeholder score
+                "importance": 0.7,
+                "category": "conversation_summary",
+                "timestamp": summary.timestamp,
+                "key_topics": summary.key_topics,
+                "user_preferences": summary.user_preferences,
+                "important_facts": summary.important_facts
             }
-            for memory in memories
+            for summary in summaries
         ]
         
         logger.info(f"Retrieved {len(formatted_memories)} memories for user {payload.user_id}")
@@ -383,8 +387,8 @@ async def chat_endpoint(payload: ChatInput):
     try:
         # Add timeout protection to prevent worker timeout
         def sync_chat():
-            # Use optimized chat manager
-            return chat_with_optimized_memory(
+            # Use long-context memory system
+            return chat_with_long_context_memory(
                 user_id=payload.user_id,
                 message=payload.message,
                 session_id=payload.session_id
@@ -537,16 +541,15 @@ async def get_user_context(user_id: str):
     This endpoint provides a complete overview of what the AI knows about the user.
     """
     try:
-        # Get recent memories as user context using optimized system
-        memories = get_optimized_memories(
-            query="user preferences profile goals",
+        # Get recent summaries as user context using long-context system
+        summaries = long_context_memory_manager.retrieve_relevant_summaries(
             user_id=user_id,
-            top_k=3
+            current_query="user preferences profile goals history"
         )
         
         context = {
-            "memories": memories,
-            "total_memories": len(memories)
+            "summaries": [summary.to_dict() for summary in summaries],
+            "total_summaries": len(summaries)
         }
         
         logger.info(f"Retrieved context for user {user_id}")
@@ -565,9 +568,8 @@ async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
     while preserving important memories.
     """
     try:
-        # Use optimized memory manager for cleanup
-        from memory.optimized_memory_manager import get_optimized_memory_manager
-        cleaned_count = get_optimized_memory_manager().cleanup_old_memories(user_id, days_threshold)
+        # Use long-context memory manager for cleanup
+        cleaned_count = long_context_memory_manager.cleanup_old_memories(user_id, days_threshold)
         
         logger.info(f"Cleaned up {cleaned_count} memories for user {user_id} (threshold: {days_threshold} days)")
         return {
@@ -582,20 +584,14 @@ async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
         raise HTTPException(status_code=500, detail=f"Failed to cleanup memories: {str(e)}")
 
 # Health check endpoint
-@app.get("/health", tags=["System"])
+@app.get("/health", tags=["System"])  
 async def health_check():
     """
     Health check endpoint for monitoring system status
     """
     try:
-        # Test Pinecone connection using optimized manager
-        from memory.optimized_memory_manager import optimized_memory_manager
-        
-        # Simple connection test
-        stats = optimized_memory_manager.index.describe_index_stats()
-        
-        # Get summarization service stats
-        summarization_stats = get_summarization_stats()
+        # Test Pinecone connection using long-context manager
+        stats = long_context_memory_manager.pinecone_index.describe_index_stats()
         
         return {
             "status": "healthy",
@@ -603,12 +599,14 @@ async def health_check():
                 "api": "operational",
                 "pinecone": "connected",
                 "vector_count": stats.total_vector_count if stats else 0,
-                "summarization_service": summarization_stats["is_running"]
+                "long_context_system": "active"
             },
             "memory_optimization": {
-                "max_total_tokens": optimized_memory_manager.MAX_TOTAL_TOKENS,
-                "max_memory_tokens": optimized_memory_manager.MAX_MEMORY_TOKENS,
-                "summarization_threshold": optimized_memory_manager.SUMMARIZATION_THRESHOLD
+                "max_total_tokens": long_context_memory_manager.MAX_TOTAL_TOKENS,
+                "max_context_tokens": long_context_memory_manager.MAX_CONTEXT_TOKENS,
+                "stm_message_limit": long_context_memory_manager.STM_MESSAGE_LIMIT,
+                "ltm_retrieval_limit": long_context_memory_manager.LTM_RETRIEVAL_LIMIT,
+                "model": "llama-3.3-70b-versatile"
             }
         }
     
@@ -629,14 +627,14 @@ async def summarize_session_endpoint(session_id: str, user_id: str):
     for immediate memory optimization.
     """
     try:
-        summary = summarize_session_now(session_id, user_id)
+        summary = summarize_session_background(session_id)
         
         if summary:
             logger.info(f"Session {session_id} summarized on demand")
             return {
                 "status": "success",
                 "session_id": session_id,
-                "summary": summary
+                "summary": summary.to_dict()
             }
         else:
             return {
@@ -655,20 +653,21 @@ async def get_memory_stats():
     Get memory system statistics and performance metrics
     """
     try:
-        summarization_stats = get_summarization_stats()
-        
-        from memory.optimized_memory_manager import get_optimized_memory_manager
-        manager = get_optimized_memory_manager()
-        
         return {
             "optimization_settings": {
-                "max_total_tokens": manager.MAX_TOTAL_TOKENS,
-                "max_memory_tokens": manager.MAX_MEMORY_TOKENS,
-                "max_history_tokens": manager.MAX_HISTORY_TOKENS,
-                "summarization_threshold": manager.SUMMARIZATION_THRESHOLD
+                "max_total_tokens": long_context_memory_manager.MAX_TOTAL_TOKENS,
+                "max_context_tokens": long_context_memory_manager.MAX_CONTEXT_TOKENS,
+                "stm_message_limit": long_context_memory_manager.STM_MESSAGE_LIMIT,
+                "ltm_retrieval_limit": long_context_memory_manager.LTM_RETRIEVAL_LIMIT,
+                "summarization_threshold": long_context_memory_manager.SUMMARIZATION_THRESHOLD
             },
-            "summarization_service": summarization_stats,
-            "system_status": "optimized_for_groq_llama3_70b"
+            "system_info": {
+                "model": "llama-3.3-70b-versatile",
+                "context_window": "128K tokens",
+                "memory_architecture": "two_tier_stm_ltm",
+                "vector_database": "pinecone"
+            },
+            "system_status": "optimized_for_long_context_llama"
         }
     
     except Exception as e:

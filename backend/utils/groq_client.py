@@ -1,7 +1,7 @@
 """
-Groq API Client for LLaMA 3 70B Model
+Groq API Client for LLaMA 3.3 70B Model
 
-This module provides a clean interface to interact with Groq's LLaMA 3 70B model
+This module provides a clean interface to interact with Groq's LLaMA 3.3 70B model
 using OpenAI-compatible chat completions API.
 """
 
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 class GroqClient:
     """
-    Groq API client for LLaMA 3 70B model
+    Groq API client for LLaMA 3.3 70B model
     
     Provides a simple interface to generate chat completions using
-    Groq's fast inference API with LLaMA 3 70B model.
+    Groq's fast inference API with LLaMA 3.3 70B model.
     """
     
     def __init__(self):
@@ -33,13 +33,13 @@ class GroqClient:
             raise ValueError("GROQ_API_KEY environment variable is required")
         
         self.base_url = "https://api.groq.com/openai/v1"
-        self.model = "llama3-70b-8192"
+        self.model = "llama-3.3-70b-versatile"
         
-        # Default parameters
+        # Optimized parameters for long-context model
         self.default_params = {
             "temperature": 0.7,
-            "max_tokens": 1024,
-            "top_p": 1,
+            "max_tokens": 4096,  # Increased for better responses
+            "top_p": 0.9,
             "stream": False
         }
         
@@ -47,7 +47,7 @@ class GroqClient:
     
     def generate_content(self, prompt: str, system_instruction: Optional[str] = None) -> str:
         """
-        Generate content using Groq's LLaMA 3 70B model
+        Generate content using Groq's LLaMA 3.3 70B model
         
         This method maintains compatibility with the Gemini interface while
         using Groq's OpenAI-compatible chat completions API.

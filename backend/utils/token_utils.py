@@ -1,10 +1,10 @@
 """
-Token Counting Utilities for Groq LLaMA 3 70B Optimization
+Token Counting Utilities for Groq Llama 3.3 70B Optimization
 
 This module provides utilities for estimating and managing token usage
-to ensure we stay within the 8K context limit.
+for extended context models (128K+ tokens).
 
-Version: 2025-07-30 - Optimized for Groq LLaMA 3 70B
+Version: 2025-07-30 - Optimized for Llama 3.3 70B 128K+ context
 """
 
 import re

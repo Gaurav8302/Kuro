@@ -1,18 +1,19 @@
 # Deployment Troubleshooting ### 3. Environment Variable N### 4. MongoDB Connection I**Environment Variables Required**:
 ```bash
 # Database
-MONGODB_URI=mongodb+srv://wannabehacker0506:wH5QdVJ2tcWK5YOe@chatbot-cluster.8owjdjg.mongodb.net/?retryWrites=true&w=majority&appName=chatbot-cluster
+MONGODB_URI=your_mongodb_connection_string
 
 # AI Services
-GEMINI_API_KEY=AIzaSyBM5VKkTavMWfhiGGTutFfWIfvSUuhiuCg
-PINECONE_API_KEY=pcsk_3pJ83v_STLzqq3RoZBxnaTGvnfuCmgmnaSoho9UiCxdzzpVNaXdkmHxNm4XFxyEnDEF16L
-PINECONE_INDEX_NAME=my-chatbot-memory
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+PINECONE_API_KEY=your_pinecone_api_key_here
+PINECONE_INDEX_NAME=kuro-memory
 
 # Authentication
-CLERK_SECRET_KEY=sk_test_ou1X7jwlheI2glFgGC1oKttJcohi60YbJbMPwlyxyx
+CLERK_SECRET_KEY=your_clerk_secret_key_here
 
 # CORS (Optional - defaults to frontend domains)
-FRONTEND_URL=https://canvas-chat-ai-frontend.vercel.app
+FRONTEND_URL=https://your-frontend-domain.com
 ```
 
 ### 5. Memory Optimization for Rendersues
@@ -86,18 +87,19 @@ Environment variable mismatch - code looks for `MONGO_URI` but environment has `
 **Environment Variables Required**:
 ```bash
 # Database
-MONGODB_URI=mongodb+srv://wannabehacker0506:wH5QdVJ2tcWK5YOe@chatbot-cluster.8owjdjg.mongodb.net/?retryWrites=true&w=majority&appName=chatbot-cluster
+MONGODB_URI=your_mongodb_connection_string
 
 # AI Services
-GEMINI_API_KEY=AIzaSyBM5VKkTavMWfhiGGTutFfWIfvSUuhiuCg
-PINECONE_API_KEY=pcsk_3pJ83v_STLzqq3RoZBxnaTGvnfuCmgmnaSoho9UiCxdzzpVNaXdkmHxNm4XFxyEnDEF16L
-PINECONE_INDEX_NAME=my-chatbot-memory
+GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+PINECONE_API_KEY=your_pinecone_api_key_here
+PINECONE_INDEX_NAME=kuro-memory
 
 # Authentication
-CLERK_SECRET_KEY=sk_test_ou1X7jwlheI2glFgGC1oKttJcohi60YbJbMPwlyxyx
+CLERK_SECRET_KEY=your_clerk_secret_key_here
 
 # CORS (Optional - defaults to frontend domains)
-FRONTEND_URL=https://canvas-chat-ai-frontend.vercel.app
+FRONTEND_URL=https://your-frontend-domain.com
 ```
 
 ### 3. Memory Optimization for Render

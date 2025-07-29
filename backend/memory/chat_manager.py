@@ -46,7 +46,7 @@ class ChatManager:
         try:
             # Initialize Groq client
             self.groq_client = GroqClient()
-            logger.info("✅ Groq LLaMA 3 70B model initialized successfully")
+            logger.info("✅ Groq LLaMA 3.3 70B model initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Groq model: {str(e)}")
             raise RuntimeError(f"AI model initialization failed: {str(e)}")
@@ -189,7 +189,7 @@ class ChatManager:
                     logger.warning("⚠️ Groq API rate limit exceeded - returning development message")
                     return """🚧 **Development Mode Notice** 🚧
 
-Hi! I'm currently in development and using the Groq API for LLaMA 3 70B. 
+Hi! I'm currently in development and using the Groq API for LLaMA 3.3 70B. 
 
 **We've hit the rate limit!** ⏰
 
