@@ -36,8 +36,13 @@ import logging
 import os
 
 # Import our custom modules
-from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
-from memory.chat_manager import chat_with_memory
+from memory.optimized_chat_manager import chat_with_optimized_memory
+from memory.optimized_memory_manager import get_optimized_memories, store_optimized_memory
+from memory.session_summarization_service import (
+    start_summarization_service, 
+    get_summarization_stats,
+    summarize_session_now
+)
 from memory.chat_database import (
     get_sessions_by_user, 
     get_chat_by_session, 
@@ -68,6 +73,35 @@ app = FastAPI(
     docs_url="/docs" if DEBUG else None,  # Hide docs in production
     redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
+
+# Startup event to initialize services
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    try:
+        # Start summarization service in production
+        if IS_PRODUCTION:
+            logger.info("🚀 Starting summarization service in production mode")
+            start_summarization_service()
+        else:
+            logger.info("💡 Development mode - summarization service available but not auto-started")
+        
+        logger.info("✅ Application startup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during startup: {e}")
+
+# Shutdown event to cleanup services
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup services on shutdown"""
+    try:
+        from memory.session_summarization_service import stop_summarization_service
+        stop_summarization_service()
+        logger.info("✅ Application shutdown completed successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during shutdown: {e}")
 
 # Frontend URLs for CORS configuration
 frontend_urls = [
@@ -282,7 +316,13 @@ async def store_user_memory(payload: MemoryInput):
     try:
         # Inject user_id into metadata for user isolation
         payload.metadata["user"] = payload.user_id
-        memory_id = store_memory(payload.text, payload.metadata)
+        # Store memory using optimized system
+        memory_id = store_optimized_memory(
+            text=payload.text,
+            user_id=payload.metadata.get("user", "unknown"),
+            memory_type=payload.metadata.get("category", "general"),
+            importance=payload.metadata.get("importance", 0.5)
+        )
         
         logger.info(f"Memory stored for user {payload.user_id}: {memory_id}")
         return {"status": "success", "memory_id": memory_id}
@@ -300,11 +340,11 @@ async def retrieve_memories(payload: QueryInput):
     for the given user and query.
     """
     try:
-        # Get detailed memories with metadata
-        memories = get_relevant_memories_detailed(
+        # Get detailed memories with metadata using optimized system
+        memories = get_optimized_memories(
             query=payload.query, 
-            user_filter=payload.user_id, 
-            top_k=payload.top_k
+            user_id=payload.user_id, 
+            top_k=min(payload.top_k, 3)  # Limit to 3 for optimization
         )
         
         # Format for API response (maintain backward compatibility)  
@@ -343,7 +383,8 @@ async def chat_endpoint(payload: ChatInput):
     try:
         # Add timeout protection to prevent worker timeout
         def sync_chat():
-            return chat_with_memory(
+            # Use optimized chat manager
+            return chat_with_optimized_memory(
                 user_id=payload.user_id,
                 message=payload.message,
                 session_id=payload.session_id
@@ -496,7 +537,17 @@ async def get_user_context(user_id: str):
     This endpoint provides a complete overview of what the AI knows about the user.
     """
     try:
-        context = memory_manager.get_user_context(user_id)
+        # Get recent memories as user context using optimized system
+        memories = get_optimized_memories(
+            query="user preferences profile goals",
+            user_id=user_id,
+            top_k=3
+        )
+        
+        context = {
+            "memories": memories,
+            "total_memories": len(memories)
+        }
         
         logger.info(f"Retrieved context for user {user_id}")
         return {"user_id": user_id, "context": context}
@@ -514,10 +565,17 @@ async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
     while preserving important memories.
     """
     try:
-        memory_manager.cleanup_old_memories(user_id, days_threshold)
+        # Use optimized memory manager for cleanup
+        from memory.optimized_memory_manager import optimized_memory_manager
+        cleaned_count = optimized_memory_manager.cleanup_old_memories(user_id, days_threshold)
         
-        logger.info(f"Cleaned up memories for user {user_id} (threshold: {days_threshold} days)")
-        return {"status": "success", "user_id": user_id, "days_threshold": days_threshold}
+        logger.info(f"Cleaned up {cleaned_count} memories for user {user_id} (threshold: {days_threshold} days)")
+        return {
+            "status": "success", 
+            "user_id": user_id, 
+            "days_threshold": days_threshold,
+            "cleaned_count": cleaned_count
+        }
     
     except Exception as e:
         logger.error(f"Error cleaning up memories: {str(e)}")
@@ -530,15 +588,27 @@ async def health_check():
     Health check endpoint for monitoring system status
     """
     try:
-        # Test Pinecone connection
-        stats = memory_manager.index.describe_index_stats()
+        # Test Pinecone connection using optimized manager
+        from memory.optimized_memory_manager import optimized_memory_manager
+        
+        # Simple connection test
+        stats = optimized_memory_manager.index.describe_index_stats()
+        
+        # Get summarization service stats
+        summarization_stats = get_summarization_stats()
         
         return {
             "status": "healthy",
             "components": {
                 "api": "operational",
                 "pinecone": "connected",
-                "vector_count": stats.total_vector_count if stats else 0
+                "vector_count": stats.total_vector_count if stats else 0,
+                "summarization_service": summarization_stats["is_running"]
+            },
+            "memory_optimization": {
+                "max_total_tokens": optimized_memory_manager.MAX_TOTAL_TOKENS,
+                "max_memory_tokens": optimized_memory_manager.MAX_MEMORY_TOKENS,
+                "summarization_threshold": optimized_memory_manager.SUMMARIZATION_THRESHOLD
             }
         }
     
@@ -548,6 +618,61 @@ async def health_check():
             "status": "degraded",
             "error": str(e)
         }
+
+# New optimized memory endpoints
+@app.post("/session/{session_id}/summarize", tags=["Memory"])
+async def summarize_session_endpoint(session_id: str, user_id: str):
+    """
+    Manually trigger session summarization
+    
+    This endpoint allows manual summarization of a long session
+    for immediate memory optimization.
+    """
+    try:
+        summary = summarize_session_now(session_id, user_id)
+        
+        if summary:
+            logger.info(f"Session {session_id} summarized on demand")
+            return {
+                "status": "success",
+                "session_id": session_id,
+                "summary": summary
+            }
+        else:
+            return {
+                "status": "no_action",
+                "session_id": session_id,
+                "message": "Session does not need summarization or summarization failed"
+            }
+    
+    except Exception as e:
+        logger.error(f"Error in manual session summarization: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to summarize session: {str(e)}")
+
+@app.get("/memory/stats", tags=["Memory"])
+async def get_memory_stats():
+    """
+    Get memory system statistics and performance metrics
+    """
+    try:
+        summarization_stats = get_summarization_stats()
+        
+        from memory.optimized_memory_manager import optimized_memory_manager
+        
+        return {
+            "optimization_settings": {
+                "max_total_tokens": optimized_memory_manager.MAX_TOTAL_TOKENS,
+                "max_memory_tokens": optimized_memory_manager.MAX_MEMORY_TOKENS,
+                "max_history_tokens": optimized_memory_manager.MAX_HISTORY_TOKENS,
+                "summarization_threshold": optimized_memory_manager.SUMMARIZATION_THRESHOLD
+            },
+            "summarization_service": summarization_stats,
+            "system_status": "optimized_for_groq_llama3_70b"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error retrieving memory stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve memory stats: {str(e)}")
 
 # Error handlers
 @app.exception_handler(HTTPException)
