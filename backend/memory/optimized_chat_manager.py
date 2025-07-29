@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 # Import optimized components
 from memory.optimized_memory_manager import (
-    optimized_memory_manager,
+    get_optimized_memory_manager,
     store_optimized_memory,
     build_optimized_context,
     check_and_summarize_session

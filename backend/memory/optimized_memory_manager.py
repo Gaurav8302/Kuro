@@ -561,8 +561,15 @@ Summary:"""
             return 0
 
 
-# Global instance
-optimized_memory_manager = OptimizedMemoryManager()
+# Global instance (lazy initialization)
+_optimized_memory_manager = None
+
+def get_optimized_memory_manager():
+    """Get the global optimized memory manager instance (lazy initialization)"""
+    global _optimized_memory_manager
+    if _optimized_memory_manager is None:
+        _optimized_memory_manager = OptimizedMemoryManager()
+    return _optimized_memory_manager
 
 
 # Convenience functions for backward compatibility
@@ -574,7 +581,7 @@ def store_optimized_memory(
     session_id: Optional[str] = None
 ) -> str:
     """Store memory using optimized manager"""
-    return optimized_memory_manager.store_memory_chunk(
+    return get_optimized_memory_manager().store_memory_chunk(
         text=text,
         user_id=user_id,
         memory_type=memory_type,
@@ -589,7 +596,7 @@ def get_optimized_memories(
     top_k: int = 3
 ) -> List[Dict[str, Any]]:
     """Retrieve memories using optimized manager"""
-    return optimized_memory_manager.retrieve_relevant_memories(
+    return get_optimized_memory_manager().retrieve_relevant_memories(
         query=query,
         user_id=user_id,
         top_k=top_k
@@ -603,7 +610,7 @@ def build_optimized_context(
     user_name: Optional[str] = None
 ) -> Tuple[str, Dict[str, int]]:
     """Build optimized context using optimized manager"""
-    return optimized_memory_manager.build_optimized_context(
+    return get_optimized_memory_manager().build_optimized_context(
         user_message=user_message,
         user_id=user_id,
         session_id=session_id,
@@ -613,6 +620,7 @@ def build_optimized_context(
 
 def check_and_summarize_session(session_id: str, user_id: str) -> Optional[str]:
     """Check if session needs summarization and do it if needed"""
-    if optimized_memory_manager.should_summarize_session(session_id):
-        return optimized_memory_manager.summarize_session(session_id, user_id)
+    manager = get_optimized_memory_manager()
+    if manager.should_summarize_session(session_id):
+        return manager.summarize_session(session_id, user_id)
     return None

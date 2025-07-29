@@ -566,8 +566,8 @@ async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
     """
     try:
         # Use optimized memory manager for cleanup
-        from memory.optimized_memory_manager import optimized_memory_manager
-        cleaned_count = optimized_memory_manager.cleanup_old_memories(user_id, days_threshold)
+        from memory.optimized_memory_manager import get_optimized_memory_manager
+        cleaned_count = get_optimized_memory_manager().cleanup_old_memories(user_id, days_threshold)
         
         logger.info(f"Cleaned up {cleaned_count} memories for user {user_id} (threshold: {days_threshold} days)")
         return {
@@ -657,14 +657,15 @@ async def get_memory_stats():
     try:
         summarization_stats = get_summarization_stats()
         
-        from memory.optimized_memory_manager import optimized_memory_manager
+        from memory.optimized_memory_manager import get_optimized_memory_manager
+        manager = get_optimized_memory_manager()
         
         return {
             "optimization_settings": {
-                "max_total_tokens": optimized_memory_manager.MAX_TOTAL_TOKENS,
-                "max_memory_tokens": optimized_memory_manager.MAX_MEMORY_TOKENS,
-                "max_history_tokens": optimized_memory_manager.MAX_HISTORY_TOKENS,
-                "summarization_threshold": optimized_memory_manager.SUMMARIZATION_THRESHOLD
+                "max_total_tokens": manager.MAX_TOTAL_TOKENS,
+                "max_memory_tokens": manager.MAX_MEMORY_TOKENS,
+                "max_history_tokens": manager.MAX_HISTORY_TOKENS,
+                "summarization_threshold": manager.SUMMARIZATION_THRESHOLD
             },
             "summarization_service": summarization_stats,
             "system_status": "optimized_for_groq_llama3_70b"

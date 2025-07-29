@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import threading
 import time
 
-from memory.optimized_memory_manager import optimized_memory_manager
+from memory.optimized_memory_manager import get_optimized_memory_manager
 from memory.chat_database import get_all_chats_by_user
 
 # Configure logging
@@ -90,8 +90,6 @@ class SessionSummarizationService:
             # track active sessions more efficiently
             
             from memory.chat_database import get_sessions_by_user
-            import pymongo
-            from memory.chat_database import db_manager
             
             # Get recently active sessions
             cutoff_time = datetime.now() - timedelta(hours=24)
@@ -113,7 +111,8 @@ class SessionSummarizationService:
                         for session in sessions:
                             session_id = session.get("session_id")
                             if session_id and session_id not in self.processed_sessions:
-                                if optimized_memory_manager.should_summarize_session(session_id):
+                                manager = get_optimized_memory_manager()
+                                if manager.should_summarize_session(session_id):
                                     self._summarize_session(session_id, user_id)
                                     self.processed_sessions.add(session_id)
                                     
@@ -139,7 +138,8 @@ class SessionSummarizationService:
         try:
             logger.info(f"📝 Summarizing session {session_id} for user {user_id}")
             
-            summary = optimized_memory_manager.summarize_session(session_id, user_id)
+            manager = get_optimized_memory_manager()
+            summary = manager.summarize_session(session_id, user_id)
             
             if summary:
                 logger.info(f"✅ Session {session_id} summarized: {summary[:100]}...")
@@ -161,7 +161,8 @@ class SessionSummarizationService:
             total_cleaned = 0
             for user_id in cleanup_users:
                 try:
-                    cleaned_count = optimized_memory_manager.cleanup_old_memories(
+                    manager = get_optimized_memory_manager()
+                    cleaned_count = manager.cleanup_old_memories(
                         user_id=user_id,
                         days_old=30
                     )
@@ -188,8 +189,9 @@ class SessionSummarizationService:
             Optional[str]: Summary if successful
         """
         try:
-            if optimized_memory_manager.should_summarize_session(session_id):
-                summary = optimized_memory_manager.summarize_session(session_id, user_id)
+            manager = get_optimized_memory_manager()
+            if manager.should_summarize_session(session_id):
+                summary = manager.summarize_session(session_id, user_id)
                 if summary:
                     self.processed_sessions.add(session_id)
                 return summary
