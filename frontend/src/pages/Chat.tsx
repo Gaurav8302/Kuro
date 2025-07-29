@@ -47,6 +47,19 @@ const Chat = () => {
   const [hasCheckedName, setHasCheckedName] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true); // New state for initial load
 
+  // Ensure loading state is never stuck on - failsafe
+  useEffect(() => {
+    const failsafe = setTimeout(() => {
+      if (isLoading) {
+        console.log('⚠️ Failsafe: Resetting stuck loading state');
+        setIsLoading(false);
+        setIsTyping(false);
+      }
+    }, 30000); // 30 second failsafe
+    
+    return () => clearTimeout(failsafe);
+  }, [isLoading]);
+
   // Update sidebar state when mobile state changes
   useEffect(() => {
     if (isMobile) {
@@ -75,14 +88,17 @@ const Chat = () => {
         if (!has_name) {
           setShowNameModal(true);
         }
-        setHasCheckedName(true);
       } catch (error) {
         console.error('Error checking user name:', error);
-        setHasCheckedName(true); // Still mark as checked to avoid infinite loop
+        // Don't show error to user for name check - just continue
+      } finally {
+        setHasCheckedName(true); // Always mark as checked to avoid infinite loop
       }
     };
 
-    checkUserName();
+    if (user) {
+      checkUserName();
+    }
   }, [user, hasCheckedName]);
 
   // Handle name setup completion
@@ -140,17 +156,27 @@ const Chat = () => {
         }
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      console.error('Error fetching sessions:', err);
+      // Don't block the UI if sessions fail to load - user can still chat
+      toast({ 
+        title: 'Connection Issue', 
+        description: 'Having trouble loading sessions. You can still start a new chat!', 
+        variant: 'destructive' 
+      });
     } finally {
-      setIsInitializing(false); // Mark initialization as complete
+      setIsInitializing(false); // Always mark initialization as complete
     }
   };
 
   // Load session messages from backend and map to Message[]
   const loadSession = async (id: string) => {
     setIsLoading(true);
+    setError(null);
+    
     try {
+      console.log('📡 Loading session:', id);
       const data = await clerkApiRequest<{ history: any[] }>(`/chat/${id}`, 'get');
+      
       // Map backend chat history to frontend Message format, preserving order and growing chat
       const mappedMessages: Message[] = [];
       data.history.forEach((item: any) => {
@@ -178,9 +204,32 @@ const Chat = () => {
       const session = sessions.find(s => s.session_id === id);
       if (session) {
         setCurrentSession(session);
+        console.log('✅ Session loaded successfully:', id);
+        toast({ 
+          title: 'Session Loaded', 
+          description: 'Chat session loaded successfully.' 
+        });
+      } else {
+        // Create a temporary session object if not found in list
+        setCurrentSession({ session_id: id, title: 'Chat Session' });
+        console.log('⚠️ Session not found in list, created temporary:', id);
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      console.error('❌ Error loading session:', err);
+      setError('Failed to load session messages');
+      
+      // Still set the session as current to avoid UI issues
+      const session = sessions.find(s => s.session_id === id);
+      if (session) {
+        setCurrentSession(session);
+        setMessages([]);
+      }
+      
+      toast({ 
+        title: 'Load Error', 
+        description: 'Failed to load session messages. You can still send new messages.', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -188,8 +237,50 @@ const Chat = () => {
   
   // Fetch sessions on mount and when user changes
   useEffect(() => {
-    fetchSessions();
+    if (user) {
+      fetchSessions();
+    } else {
+      setIsInitializing(false);
+    }
+    
+    // Failsafe: Always stop initializing after 10 seconds
+    const timeout = setTimeout(() => {
+      setIsInitializing(false);
+    }, 10000);
+    
+    return () => clearTimeout(timeout);
   }, [user]);
+
+  // Handle URL parameter changes for session switching
+  useEffect(() => {
+    const loadSessionFromUrl = async () => {
+      if (!user || !sessionId || sessions.length === 0) return;
+      
+      console.log('🔄 URL changed to session:', sessionId);
+      
+      // Check if this session exists in our sessions list
+      const session = sessions.find(s => s.session_id === sessionId);
+      if (session) {
+        // Only load if it's not the current session
+        if (currentSession?.session_id !== sessionId) {
+          console.log('📡 Loading session from URL:', sessionId);
+          await loadSession(sessionId);
+        }
+      } else {
+        console.log('❌ Session not found in list:', sessionId);
+        toast({ 
+          title: 'Session Not Found', 
+          description: 'The requested session could not be found.', 
+          variant: 'destructive' 
+        });
+        navigate('/chat');
+      }
+    };
+
+    if (sessions.length > 0) {
+      loadSessionFromUrl();
+    }
+  }, [sessionId, sessions, user]);
 
   // Create new session in backend
   const handleNewChat = async () => {
@@ -408,22 +499,65 @@ const Chat = () => {
   };
 
   // Handle session selection and close sidebar on mobile
-  const handleSelectSession = (id: string) => {
-    navigate(`/chat/${id}`);
-    if (isMobile) {
-      setIsSidebarOpen(false);
+  const handleSelectSession = async (id: string) => {
+    if (!user || !id) return;
+    
+    try {
+      // Prevent selecting the same session
+      if (currentSession?.session_id === id) {
+        if (isMobile) {
+          setIsSidebarOpen(false);
+        }
+        return;
+      }
+      
+      console.log('🔄 Switching to session:', id);
+      setIsLoading(true);
+      setError(null);
+      
+      // Load the session data
+      await loadSession(id);
+      
+      // Navigate to the session URL
+      navigate(`/chat/${id}`);
+      
+      // Close sidebar on mobile
+      if (isMobile) {
+        setIsSidebarOpen(false);
+      }
+      
+      console.log('✅ Session switch completed:', id);
+    } catch (err: any) {
+      console.error('❌ Session switch failed:', err);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to load session: ' + err.message, 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Show loading screen while user data loads or during initialization
-  if (!isLoaded || !user || isInitializing) {
+  // Show loading screen while user data loads or during initialization (with timeout)
+  if (!isLoaded || !user || (isInitializing && user)) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">
-            {!isLoaded || !user ? "Loading chat..." : "Setting up your session..."}
+            {!isLoaded ? "Loading..." : !user ? "Loading chat..." : "Setting up your session..."}
           </p>
+          {isInitializing && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Having trouble connecting? <button 
+                onClick={() => setIsInitializing(false)} 
+                className="text-primary underline"
+              >
+                Skip and continue
+              </button>
+            </p>
+          )}
         </div>
       </div>
     );
