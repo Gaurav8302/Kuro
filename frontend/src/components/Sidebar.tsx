@@ -101,7 +101,7 @@ export const Sidebar = ({
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center overflow-hidden">
-                <img src="/kuroai.png" alt="Kuro AI" className="w-5 h-5 object-contain" />
+                <img src="/kuroai.png" alt="Kuro AI" className="w-full h-full object-cover rounded-full" />
               </div>
               <div>
                 <h2 className="font-handwriting text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">

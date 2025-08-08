@@ -132,7 +132,7 @@ const Landing = () => {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center overflow-hidden">
-                <img src="/kuroai.png" alt="Kuro AI" className="w-8 h-8 object-contain" />
+                <img src="/kuroai.png" alt="Kuro AI" className="w-full h-full object-cover rounded-full" />
               </div>
               <div>
                 <h1 className="font-handwriting text-2xl font-bold text-white">
