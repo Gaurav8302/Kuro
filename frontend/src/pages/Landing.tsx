@@ -131,8 +131,8 @@ const Landing = () => {
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center overflow-hidden">
+                <img src="/kuroai.png" alt="Kuro AI" className="w-8 h-8 object-contain" />
               </div>
               <div>
                 <h1 className="font-handwriting text-2xl font-bold text-white">
@@ -154,7 +154,8 @@ const Landing = () => {
                     Sign In
                   </Button>
                   <Button 
-                    variant="secondary"
+                    variant="outline" 
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
                     onClick={() => navigate('/auth/signup')}
                   >
                     Sign Up

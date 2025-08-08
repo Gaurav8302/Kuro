@@ -189,8 +189,8 @@ const SignUp = () => {
           <Card className="bg-black/20 backdrop-blur-lg border-white/10">
             <CardHeader className="text-center pb-6">
               <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                  <Brain className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center overflow-hidden">
+                  <img src="/kuroai.png" alt="Kuro AI" className="w-10 h-10 object-contain" />
                 </div>
               </div>
               <CardTitle className="text-2xl font-handwriting text-white mb-2">

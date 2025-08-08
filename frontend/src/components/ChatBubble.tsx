@@ -48,9 +48,12 @@ export const ChatBubble = ({ message, userAvatar }: ChatBubbleProps) => {
               </AvatarFallback>
             </>
           ) : (
-            <AvatarFallback className="bg-gradient-to-br from-purple-600 to-purple-700 text-white">
-              <Bot className="w-4 h-4" />
-            </AvatarFallback>
+            <>
+              <AvatarImage src="/kuroai.png" alt="Kuro AI" />
+              <AvatarFallback className="bg-gradient-to-br from-purple-600 to-purple-700 text-white">
+                <Bot className="w-4 h-4" />
+              </AvatarFallback>
+            </>
           )}
         </Avatar>
         

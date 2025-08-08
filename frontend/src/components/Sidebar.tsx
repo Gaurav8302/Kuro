@@ -100,8 +100,8 @@ export const Sidebar = ({
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center">
-                <Brain className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center overflow-hidden">
+                <img src="/kuroai.png" alt="Kuro AI" className="w-5 h-5 object-contain" />
               </div>
               <div>
                 <h2 className="font-handwriting text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">
