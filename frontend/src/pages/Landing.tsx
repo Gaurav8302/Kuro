@@ -131,7 +131,7 @@ const Landing = () => {
         >
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center overflow-hidden">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center overflow-hidden">
                 <img src="/kuroai.png" alt="Kuro AI" className="w-8 h-8 object-contain" />
               </div>
               <div>
@@ -210,7 +210,7 @@ const Landing = () => {
                 className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-white mb-6"
               >
                 <Sparkles className="w-4 h-4" />
-                <span className="text-sm font-medium">Powered by Gemini Free Version</span>
+                <span className="text-sm font-medium">Powered by Groq LLaMA 3 70B</span>
                 <Star className="w-4 h-4" />
               </motion.div>
 
@@ -223,9 +223,9 @@ const Landing = () => {
               </h1>
 
               <p className="text-xl text-white/90 mb-8 leading-relaxed">
-                Chat with Kuro, an AI powered by Gemini Free Version. While not the smartest AI, 
-                it's completely free and open-source. Want to help make it smarter? 
-                <span className="font-handwriting text-2xl text-white"> ✨ Consider donating!</span>
+                Chat with Kuro, an AI powered by Groq's ultra-fast LLaMA 3 70B model. 
+                Experience lightning-fast responses with advanced reasoning capabilities.
+                <span className="font-handwriting text-2xl text-white"> ✨ Open source & free!</span>
               </p>
 
               <motion.div
@@ -360,9 +360,9 @@ const Landing = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg flex items-center justify-center mb-4">
                 <Brain className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Google Gemini Free</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Groq LLaMA 3 70B</h3>
               <p className="text-white/70">
-                Powered by Gemini's free tier. Not the smartest AI, but completely free to use.
+                Powered by Groq's ultra-fast inference engine. Experience lightning-fast AI with advanced reasoning.
               </p>
             </div>
 
@@ -426,7 +426,7 @@ const Landing = () => {
               Ready to Chat with Kuro?
             </h2>
             <p className="text-xl text-white/80 mb-8">
-              Start chatting with our free AI assistant powered by Gemini!
+              Start chatting with our lightning-fast AI assistant powered by Groq LLaMA 3!
             </p>
             <Button
               variant="hero"

@@ -102,6 +102,17 @@ class GroqClient:
             )
             
             # Check for HTTP errors
+            if response.status_code == 429:
+                # Rate limit exceeded
+                retry_after = response.headers.get('retry-after', '60')
+                raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
+            elif response.status_code == 401:
+                raise Exception("AUTHENTICATION_ERROR:Invalid API key")
+            elif response.status_code == 403:
+                raise Exception("QUOTA_EXCEEDED:API quota exceeded")
+            elif response.status_code >= 500:
+                raise Exception("SERVER_ERROR:Groq server error")
+            
             response.raise_for_status()
             
             # Parse response
@@ -156,6 +167,17 @@ class GroqClient:
                 json=payload,
                 timeout=30
             )
+            
+            # Enhanced error handling
+            if response.status_code == 429:
+                retry_after = response.headers.get('retry-after', '60')
+                raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
+            elif response.status_code == 401:
+                raise Exception("AUTHENTICATION_ERROR:Invalid API key")
+            elif response.status_code == 403:
+                raise Exception("QUOTA_EXCEEDED:API quota exceeded")
+            elif response.status_code >= 500:
+                raise Exception("SERVER_ERROR:Groq server error")
             
             response.raise_for_status()
             return response.json()

@@ -184,23 +184,73 @@ class ChatManager:
                 error_msg = str(e)
                 logger.error(f"Error generating AI response (attempt {retry_count + 1}): {error_msg}")
                 
-                # Handle Groq API rate limits
-                if "rate_limit" in error_msg.lower() or "429" in error_msg:
-                    logger.warning("⚠️ Groq API rate limit exceeded - returning development message")
-                    return """🚧 **Development Mode Notice** 🚧
+                # Handle specific Groq API errors gracefully
+                if "RATE_LIMIT_EXCEEDED" in error_msg:
+                    retry_info = error_msg.split(":", 1)[1] if ":" in error_msg else "Try again in a moment"
+                    logger.warning("⚠️ Groq API rate limit exceeded")
+                    return f"""⏰ **Rate Limit Reached**
 
-Hi! I'm currently in development and using the Groq API for LLaMA 3 70B. 
+I'm temporarily paused due to API rate limits. {retry_info}.
 
-**We've hit the rate limit!** ⏰
+🔄 **What you can do:**
+• Try again in a few minutes
+• Browse your chat history
+• Start new conversations (they'll be saved)
 
-This is temporary while we're building and testing. Please try again in a few moments.
+Thanks for your patience! 🙏"""
 
-For now, you can still:
-- Browse your previous conversations
-- Create new chat sessions (they'll be saved for when I'm back)
-- Explore the interface
+                elif "QUOTA_EXCEEDED" in error_msg:
+                    logger.warning("⚠️ Groq API quota exceeded")
+                    return """� **Daily Quota Reached**
 
-Thanks for your patience as we work on making this better! 🙏"""
+We've reached today's API usage limit for the Groq LLaMA 3 model.
+
+🕒 **Reset Information:**
+• Quota resets every 24 hours
+• You can still browse previous chats
+• New conversations will work tomorrow
+
+Thanks for being an active user! 🎉"""
+
+                elif "AUTHENTICATION_ERROR" in error_msg:
+                    logger.error("❌ Groq API authentication error")
+                    return """🔐 **Service Configuration Issue**
+
+There's a temporary authentication issue with our AI service.
+
+👨‍💻 **We're on it:**
+• This is a configuration issue on our end
+• Your data and conversations are safe
+• Service should be restored soon
+
+Please try again later! 🛠️"""
+
+                elif "SERVER_ERROR" in error_msg:
+                    logger.warning("⚠️ Groq server error")
+                    return """🔧 **AI Service Temporarily Down**
+
+The AI service is experiencing technical difficulties.
+
+🔄 **Please try:**
+• Waiting a few minutes and trying again
+• Starting a new conversation
+• Checking back later
+
+Your conversations are saved and secure! 💾"""
+
+                # Handle legacy rate limit patterns
+                elif "rate_limit" in error_msg.lower() or "429" in error_msg:
+                    logger.warning("⚠️ Groq API rate limit exceeded - legacy pattern")
+                    return """⏰ **Rate Limit Reached**
+
+I'm temporarily paused due to API rate limits. Please try again in a few minutes.
+
+🔄 **What you can do:**
+• Wait and try again
+• Browse your previous conversations  
+• Start new conversations (they'll be saved)
+
+Thanks for your patience! 🙏"""
                 
                 if retry_count >= max_retries:
                     return get_fallback_response(user_message)

@@ -4,10 +4,12 @@ import { cn } from '@/lib/utils';
 import { Bot, User } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { SystemMessage } from '@/components/SystemMessage';
 
 interface ChatBubbleProps {
   message: Message;
   userAvatar?: string;
+  onRetry?: () => void;
 }
 
 const TypingIndicator = () => (
@@ -18,9 +20,21 @@ const TypingIndicator = () => (
   </div>
 );
 
-export const ChatBubble = ({ message, userAvatar }: ChatBubbleProps) => {
+export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) => {
   const isUser = message.role === 'user';
   const isMobile = useIsMobile();
+
+  // Handle system messages (rate limits, errors, etc.)
+  if (message.role === 'system') {
+    return (
+      <SystemMessage
+        message={message.message}
+        messageType={message.messageType || 'normal'}
+        timestamp={message.timestamp || new Date().toISOString()}
+        onRetry={onRetry}
+      />
+    );
+  }
 
   return (
     <motion.div

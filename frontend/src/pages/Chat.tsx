@@ -46,6 +46,7 @@ const Chat = () => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [hasCheckedName, setHasCheckedName] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true); // New state for initial load
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
 
   // Ensure loading state is never stuck on - failsafe
   useEffect(() => {
@@ -189,11 +190,13 @@ const Chat = () => {
           });
         }
         if (item.assistant) {
+          const systemInfo = detectSystemMessage(item.assistant);
           mappedMessages.push({
             message: item.assistant,
             reply: '',
             timestamp: item.timestamp,
-            role: 'assistant'
+            role: systemInfo.isSystem ? 'system' : 'assistant',
+            messageType: systemInfo.messageType
           });
         }
       });
@@ -355,14 +358,33 @@ const Chat = () => {
         { user_id: user.id, message, session_id: sessionToUse.session_id }
       );
 
-      // Add AI response
+      // Detect if the response is a rate limit or system message
+      const isRateLimitMessage = reply.includes('Rate Limit') || 
+                                reply.includes('rate limit') || 
+                                reply.includes('⏰') ||
+                                reply.includes('Quota') ||
+                                reply.includes('quota') ||
+                                reply.includes('Service Configuration') ||
+                                reply.includes('Server Error') ||
+                                reply.includes('Temporarily Down');
+
+      const getMessageType = (message: string): 'normal' | 'rate_limit' | 'error' | 'warning' => {
+        if (message.includes('Rate Limit') || message.includes('⏰')) return 'rate_limit';
+        if (message.includes('Quota') || message.includes('📊')) return 'rate_limit';
+        if (message.includes('Configuration') || message.includes('🔐')) return 'error';
+        if (message.includes('Server Error') || message.includes('🔧')) return 'warning';
+        return 'normal';
+      };
+
+      // Add AI response with appropriate role and type
       setMessages(prev => [
         ...prev,
         {
           message: reply,
           reply: '',
           timestamp: new Date().toISOString(),
-          role: 'assistant'
+          role: isRateLimitMessage ? 'system' : 'assistant',
+          messageType: isRateLimitMessage ? getMessageType(reply) : 'normal'
         }
       ]);
       setIsTyping(false); // <-- Fix: stop typing indicator after AI reply
@@ -382,11 +404,13 @@ const Chat = () => {
           });
         }
         if (item.assistant) {
+          const systemInfo = detectSystemMessage(item.assistant);
           mappedMessages.push({
             message: item.assistant,
             reply: '',
             timestamp: item.timestamp,
-            role: 'assistant'
+            role: systemInfo.isSystem ? 'system' : 'assistant',
+            messageType: systemInfo.messageType
           });
         }
       });
@@ -414,9 +438,39 @@ const Chat = () => {
       }
     } catch (err: any) {
       setIsTyping(false); // <-- Also stop typing on error
+      setLastFailedMessage(message); // Store the message for retry
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Helper function to detect and categorize system messages
+  const detectSystemMessage = (messageText: string): { isSystem: boolean; messageType: 'normal' | 'rate_limit' | 'error' | 'warning' } => {
+    const isRateLimitMessage = messageText.includes('Rate Limit') || 
+                              messageText.includes('rate limit') || 
+                              messageText.includes('⏰') ||
+                              messageText.includes('Quota') ||
+                              messageText.includes('quota') ||
+                              messageText.includes('Service Configuration') ||
+                              messageText.includes('Server Error') ||
+                              messageText.includes('Temporarily Down');
+
+    if (!isRateLimitMessage) return { isSystem: false, messageType: 'normal' };
+
+    if (messageText.includes('Rate Limit') || messageText.includes('⏰')) return { isSystem: true, messageType: 'rate_limit' };
+    if (messageText.includes('Quota') || messageText.includes('📊')) return { isSystem: true, messageType: 'rate_limit' };
+    if (messageText.includes('Configuration') || messageText.includes('🔐')) return { isSystem: true, messageType: 'error' };
+    if (messageText.includes('Server Error') || messageText.includes('🔧')) return { isSystem: true, messageType: 'warning' };
+    return { isSystem: true, messageType: 'normal' };
+  };
+
+  // Retry the last failed message
+  const handleRetryMessage = async () => {
+    if (lastFailedMessage) {
+      const messageToRetry = lastFailedMessage;
+      setLastFailedMessage(null);
+      await handleSendMessage(messageToRetry);
     }
   };
 
@@ -751,7 +805,7 @@ const Chat = () => {
                       How can I help you today?
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Powered by Gemini Free Version
+                      Powered by Groq LLaMA 3 70B
                     </p>
                   </div>
                 </motion.div>
@@ -773,6 +827,7 @@ const Chat = () => {
                       <ChatBubble
                         message={message}
                         userAvatar={user?.imageUrl || ''}
+                        onRetry={handleRetryMessage}
                       />
                     </motion.div>
                   ))}

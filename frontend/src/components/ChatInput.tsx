@@ -57,6 +57,13 @@ export const ChatInput = ({
     }
   }, [message]);
 
+  // Auto-focus when input becomes enabled (after AI response)
+  useEffect(() => {
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [disabled]);
+
   return (
     <motion.div
       ref={containerRef}

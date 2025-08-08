@@ -4,7 +4,8 @@ export interface Message {
   message: string;
   reply: string;
   timestamp?: string;
-  role?: 'user' | 'assistant';
+  role?: 'user' | 'assistant' | 'system';
+  messageType?: 'normal' | 'rate_limit' | 'error' | 'warning';
 }
 
 export interface ChatSession {
