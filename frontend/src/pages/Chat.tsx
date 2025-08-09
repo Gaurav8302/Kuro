@@ -836,9 +836,13 @@ const Chat = () => {
 
         {/* Messages Area */}
         <div className={cn(
-          "flex-1 overflow-y-auto bg-gradient-chat min-h-0"
+          "flex-1 overflow-y-auto bg-gradient-chat min-h-0",
+          isMobile && "pb-28 px-1" // extra bottom padding so last message not hidden behind keyboard / input
         )}>
-          <div className="py-8 space-y-4 min-h-full">
+          <div className={cn(
+            "py-8 space-y-4 min-h-full",
+            isMobile && "space-y-3 py-6" // tighter vertical rhythm on mobile
+          )}>
             <AnimatePresence mode="wait">
               {messages.length === 0 && isLoading ? (
                 <motion.div
@@ -922,14 +926,12 @@ const Chat = () => {
         {/* Chat Input */}
         <ChatInput
           onSendMessage={handleSendMessage}
-          disabled={isLoading}
+          sending={isTyping || isLoading}
           showTypingIndicator={isTyping}
           placeholder={
-            isLoading 
-              ? "Kuro is thinking..." 
-              : isTyping 
-                ? "Kuro is typing..." 
-                : "Type your message..."
+            (isTyping || isLoading)
+              ? "Kuro is responding..." 
+              : "Type your message..."
           }
         />
       </div>

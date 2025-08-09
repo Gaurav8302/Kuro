@@ -8,15 +8,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
-  disabled?: boolean;
   placeholder?: string;
   showTypingIndicator?: boolean;
+  sending?: boolean; // AI is responding
 }
 
 export const ChatInput = ({ 
   onSendMessage, 
-  disabled = false, 
-  placeholder = "Ask me anything... ✨" 
+  placeholder = "Ask me anything... ✨",
+  sending = false
 }: ChatInputProps) => {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -25,11 +25,13 @@ export const ChatInput = ({
   const isMobile = useIsMobile();
 
   const handleSend = () => {
-    if (message.trim() && !disabled) {
+    if (message.trim() && !sending) {
       onSendMessage(message.trim());
       setMessage('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
+        // Keep focus so mobile keyboard stays open
+        textareaRef.current.focus();
       }
     }
   };
@@ -57,12 +59,12 @@ export const ChatInput = ({
     }
   }, [message]);
 
-  // Auto-focus when input becomes enabled (after AI response)
+  // Initial focus (desktop only to avoid unexpected keyboard pop on mobile first load)
   useEffect(() => {
-    if (!disabled && textareaRef.current) {
+    if (!isMobile && textareaRef.current) {
       textareaRef.current.focus();
     }
-  }, [disabled]);
+  }, [isMobile]);
 
   return (
     <motion.div
@@ -76,22 +78,22 @@ export const ChatInput = ({
       animate={{ 
         y: 0, 
         opacity: 1,
-        scale: disabled ? 0.98 : 1
+  scale: sending ? 0.98 : 1
       }}
       transition={{ 
         duration: 0.3,
         ease: "easeOut"
       }}
-      data-typing={disabled ? "true" : "false"}
+      data-typing={sending ? "true" : "false"}
     >
       <div className={cn(
         "max-w-4xl mx-auto p-4",
-        isMobile && "px-3 pb-3" // Better mobile spacing
+        isMobile && "px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]" // Better mobile spacing & safe area
       )}>
         <div className={cn(
           "relative flex items-end gap-3 p-3 rounded-xl border bg-card transition-all duration-300",
           isFocused ? "border-primary shadow-glow" : "border-border",
-          disabled && "opacity-50"
+          sending && "opacity-70"
         )}>
           
           {/* Fun sparkle decoration */}
@@ -116,7 +118,6 @@ export const ChatInput = ({
               onFocus={handleFocus}
               onBlur={handleBlur}
               placeholder={placeholder}
-              disabled={disabled}
               className={cn(
                 "min-h-[20px] max-h-32 resize-none border-none bg-transparent",
                 "focus-visible:ring-0 focus-visible:ring-offset-0 p-0",
@@ -133,7 +134,7 @@ export const ChatInput = ({
           >
             <Button
               onClick={handleSend}
-              disabled={!message.trim() || disabled}
+              disabled={!message.trim() || sending}
               variant="chat"
               size="icon"
               className="rounded-full shadow-accent"
@@ -144,9 +145,10 @@ export const ChatInput = ({
         </div>
 
         {/* Helper text */}
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          Press <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Enter</kbd> to send, 
-          <kbd className="px-1 py-0.5 text-xs bg-muted rounded ml-1">Shift + Enter</kbd> for new line
+        <p className="text-xs text-muted-foreground text-center mt-2 select-none">
+          Press <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Enter</kbd> to send
+          <span className="mx-1">•</span>
+          <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Shift + Enter</kbd> = newline
         </p>
       </div>
     </motion.div>
