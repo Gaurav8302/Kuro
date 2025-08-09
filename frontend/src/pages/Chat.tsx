@@ -543,7 +543,10 @@ const Chat = () => {
       
       // If we deleted the current session, redirect to /chat to start a new one
       if (currentSession?.session_id === sessionId) {
-        navigate('/chat');
+  // Clear chat area immediately for better UX
+  setMessages([]);
+  setCurrentSession(null);
+  navigate('/chat');
       }
     } catch (err: any) {
   showErrorToast('Error', 'Failed to delete session: ' + err.message);
