@@ -47,6 +47,19 @@ const Chat = () => {
   const [hasCheckedName, setHasCheckedName] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true); // New state for initial load
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
+  // Track if user manually edited or generated a title to prevent further auto-naming
+  const [hasUserEditedTitle, setHasUserEditedTitle] = useState(false);
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  // Maintenance / friendly error handling in development
+  const maintenanceMessage = 'Maintenance in progress. Please try again later.';
+  const isDev = import.meta.env.DEV;
+  const showErrorToast = (fallbackTitle: string, fallbackDescription: string) => {
+    toast({
+      title: isDev ? 'Maintenance' : fallbackTitle,
+      description: isDev ? maintenanceMessage : fallbackDescription,
+      variant: 'destructive'
+    });
+  };
 
   // Ensure loading state is never stuck on - failsafe
   useEffect(() => {
@@ -157,13 +170,9 @@ const Chat = () => {
         }
       }
     } catch (err: any) {
-      console.error('Error fetching sessions:', err);
-      // Don't block the UI if sessions fail to load - user can still chat
-      toast({ 
-        title: 'Connection Issue', 
-        description: 'Having trouble loading sessions. You can still start a new chat!', 
-        variant: 'destructive' 
-      });
+  console.error('Error fetching sessions:', err);
+  // Don't block the UI if sessions fail to load - user can still chat
+  showErrorToast('Connection Issue', 'Having trouble loading sessions. You can still start a new chat!');
     } finally {
       setIsInitializing(false); // Always mark initialization as complete
     }
@@ -207,6 +216,8 @@ const Chat = () => {
       const session = sessions.find(s => s.session_id === id);
       if (session) {
         setCurrentSession(session);
+  // If the session already has a non-default title, suppress auto-naming
+  setHasUserEditedTitle(session.title !== 'New Chat');
         console.log('✅ Session loaded successfully:', id);
         toast({ 
           title: 'Session Loaded', 
@@ -215,11 +226,12 @@ const Chat = () => {
       } else {
         // Create a temporary session object if not found in list
         setCurrentSession({ session_id: id, title: 'Chat Session' });
+  setHasUserEditedTitle(true); // Avoid auto-renaming unknown sessions
         console.log('⚠️ Session not found in list, created temporary:', id);
       }
     } catch (err: any) {
       console.error('❌ Error loading session:', err);
-      setError('Failed to load session messages');
+      setError(isDev ? maintenanceMessage : 'Failed to load session messages');
       
       // Still set the session as current to avoid UI issues
       const session = sessions.find(s => s.session_id === id);
@@ -228,11 +240,7 @@ const Chat = () => {
         setMessages([]);
       }
       
-      toast({ 
-        title: 'Load Error', 
-        description: 'Failed to load session messages. You can still send new messages.', 
-        variant: 'destructive' 
-      });
+      showErrorToast('Load Error', 'Failed to load session messages. You can still send new messages.');
     } finally {
       setIsLoading(false);
     }
@@ -294,6 +302,7 @@ const Chat = () => {
       // Clear current state immediately
       setMessages([]);
       setCurrentSession(null);
+  setHasUserEditedTitle(false); // Reset for brand new chat
       
       const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
       
@@ -312,7 +321,7 @@ const Chat = () => {
         setIsSidebarOpen(false);
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+  showErrorToast('Error', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -418,6 +427,8 @@ const Chat = () => {
 
       // Improved auto-naming: trigger after first successful assistant reply if still default
       if (sessionToUse.title === 'New Chat') {
+    // Skip auto-naming if user already manually edited / generated a title
+    if (!hasUserEditedTitle) {
         try {
           const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
           const firstAssistantMessage = mappedMessages.find(m => m.role === 'assistant')?.message || reply;
@@ -439,10 +450,13 @@ const Chat = () => {
             // Avoid empty
             if (candidate.length < 3) candidate = 'Chat Session';
             await handleRenameSession(sessionToUse.session_id, candidate);
+      // Mark as user-edited equivalent to stop further auto attempts
+      setHasUserEditedTitle(true);
           }
         } catch (err) {
           console.log('Auto-naming failed:', err);
         }
+    }
       }
 
       // Close sidebar on mobile after sending message
@@ -452,7 +466,7 @@ const Chat = () => {
     } catch (err: any) {
       setIsTyping(false); // <-- Also stop typing on error
       setLastFailedMessage(message); // Store the message for retry
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+  showErrorToast('Error', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -509,11 +523,7 @@ const Chat = () => {
         description: "Chat session title has been updated successfully.",
       });
     } catch (err: any) {
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to rename session: ' + err.message, 
-        variant: 'destructive' 
-      });
+  showErrorToast('Error', 'Failed to rename session: ' + err.message);
     }
   };
 
@@ -536,11 +546,7 @@ const Chat = () => {
         navigate('/chat');
       }
     } catch (err: any) {
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to delete session: ' + err.message, 
-        variant: 'destructive' 
-      });
+  showErrorToast('Error', 'Failed to delete session: ' + err.message);
     }
   };
 
@@ -548,6 +554,43 @@ const Chat = () => {
     if (currentSession && editTitle.trim()) {
       await handleRenameSession(currentSession.session_id, editTitle.trim());
       setIsEditingTitle(false);
+      setHasUserEditedTitle(true); // User manually chose a title
+    }
+  };
+
+  // Generate a title suggestion based on recent messages
+  const handleGenerateTitle = async () => {
+    if (!currentSession || isGeneratingTitle) return;
+    setIsGeneratingTitle(true);
+    try {
+      // Gather candidate text: prefer last user message, fallback to first user or first assistant
+      const userMessages = messages.filter(m => m.role === 'user');
+      const assistantMessages = messages.filter(m => m.role === 'assistant');
+      const lastUser = userMessages[userMessages.length - 1]?.message || '';
+      const firstUser = userMessages[0]?.message || '';
+      const firstAssistant = assistantMessages[0]?.message || '';
+      let base = lastUser || firstUser || firstAssistant || 'Chat Session';
+      base = base
+        .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
+        .trim();
+      let candidate = base.split('\n')[0];
+      candidate = candidate.replace(/[*#`>_~]/g, '').trim();
+      candidate = candidate.replace(/\s{2,}/g, ' ');
+      if (candidate) {
+        candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      }
+      if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '…';
+      if (candidate.length < 3) candidate = 'Chat Session';
+      await handleRenameSession(currentSession.session_id, candidate);
+      setHasUserEditedTitle(true); // Prevent further auto renames
+    } catch (err: any) {
+      toast({
+        title: 'Title generation failed',
+        description: err.message || 'Could not generate a title right now.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingTitle(false);
     }
   };
 
@@ -595,12 +638,8 @@ const Chat = () => {
       
       console.log('✅ Session switch completed:', id);
     } catch (err: any) {
-      console.error('❌ Session switch failed:', err);
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to load session: ' + err.message, 
-        variant: 'destructive' 
-      });
+  console.error('❌ Session switch failed:', err);
+  showErrorToast('Error', 'Failed to load session: ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -774,6 +813,17 @@ const Chat = () => {
                     className="w-6 h-6"
                   >
                     <Edit3 className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isGeneratingTitle || !currentSession}
+                    onClick={handleGenerateTitle}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {isGeneratingTitle ? (
+                      <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Generating…</span>
+                    ) : 'Generate Title'}
                   </Button>
                 </div>
               )}
