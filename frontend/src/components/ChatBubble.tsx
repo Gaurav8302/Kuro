@@ -109,50 +109,57 @@ export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) =>
         isMobile ? "w-full" : "max-w-[70%]",
         !isMobile && (isUser ? "items-end" : "items-start")
       )}>
-        <div className="relative inline-block group w-full">
-          <div className={cn(
-            "px-4 py-3 rounded-2xl shadow-lg transition-smooth",
-            isUser 
-              ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white" 
-              : "bg-card border border-border text-foreground",
-            isMobile ? (isUser ? "ml-auto mr-0 rounded-tr-md" : "mr-auto ml-0 rounded-tl-md") : 
-                       (isUser ? "rounded-tr-md" : "rounded-tl-md"),
-            isMobile ? "max-w-[85%]" : "w-full"
-          )}>
-            {isUser ? (
-              <p className={cn(
-                "text-sm leading-relaxed whitespace-pre-wrap",
-                isUser ? "text-white" : "text-foreground"
-              )}>
-                {message.message}
-              </p>
-            ) : (
-              <MarkdownMessage content={message.message} />
-            )}
-
-            {/* Fun decorative element */}
-            {isUser && (
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full opacity-60" />
-            )}
-            {!isUser && (
-              <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full opacity-60" />
-            )}
-          </div>
-          {/* External copy button (outside bubble, right side) */}
-          <button
-            type="button"
-            onClick={handleCopyFull}
-            className={cn(
-              "absolute top-2 -right-2 translate-x-full inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 transition-colors shadow-sm backdrop-blur-sm",
+        <div className="w-full">
+          <div className="relative inline-block group w-full">
+            <div className={cn(
+              "px-4 py-3 rounded-2xl shadow-lg transition-smooth",
               isUser 
-                ? "border-white/20 bg-white/10 hover:bg-white/20 text-white" 
-                : "border-border/50 bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground"
-            )}
-            aria-label={isUser ? "Copy your message" : "Copy full response"}
-          >
-            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
+                ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white" 
+                : "bg-card border border-border text-foreground",
+              isMobile ? (isUser ? "ml-auto mr-0 rounded-tr-md" : "mr-auto ml-0 rounded-tl-md") : 
+                         (isUser ? "rounded-tr-md" : "rounded-tl-md"),
+              isMobile ? "max-w-[85%]" : "w-full"
+            )}>
+              {isUser ? (
+                <p className={cn(
+                  "text-sm leading-relaxed whitespace-pre-wrap",
+                  isUser ? "text-white" : "text-foreground"
+                )}>
+                  {message.message}
+                </p>
+              ) : (
+                <MarkdownMessage content={message.message} />
+              )}
+
+              {/* Fun decorative element */}
+              {isUser && (
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full opacity-60" />
+              )}
+              {!isUser && (
+                <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full opacity-60" />
+              )}
+            </div>
+            {/* Copy button BELOW bubble aligned right (ChatGPT style) */}
+            <div className={cn(
+              "flex mt-1",
+              isUser ? "justify-end" : "justify-end"
+            )}>
+              <button
+                type="button"
+                onClick={handleCopyFull}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 transition-colors shadow-sm backdrop-blur-sm",
+                  isUser
+                    ? "border-white/20 bg-white/10 hover:bg-white/20 text-white"
+                    : "border-border/50 bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground"
+                )}
+                aria-label={isUser ? "Copy your message" : "Copy full response"}
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </div>
         </div>
         
         {/* Timestamp */}
