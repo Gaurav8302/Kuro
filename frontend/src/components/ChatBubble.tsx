@@ -5,6 +5,7 @@ import { Bot, User } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SystemMessage } from '@/components/SystemMessage';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
 
 interface ChatBubbleProps {
   message: Message;
@@ -94,12 +95,16 @@ export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) =>
                      (isUser ? "rounded-tr-md" : "rounded-tl-md"),
           isMobile ? "max-w-[85%]" : "w-full"
         )}>
-          <p className={cn(
-            "text-sm leading-relaxed",
-            isUser ? "text-white" : "text-foreground"
-          )}>
-            {message.message}
-          </p>
+          {isUser ? (
+            <p className={cn(
+              "text-sm leading-relaxed whitespace-pre-wrap",
+              isUser ? "text-white" : "text-foreground"
+            )}>
+              {message.message}
+            </p>
+          ) : (
+            <MarkdownMessage content={message.message} />
+          )}
           
           {/* Fun decorative element */}
           {isUser && (

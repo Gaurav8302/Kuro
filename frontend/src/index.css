@@ -320,3 +320,22 @@
 .animate-typing {
   animation: typing 1.4s infinite;
 }
+
+@keyframes pulse-subtle { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.animate-pulse-subtle { animation: pulse-subtle 2s ease-in-out infinite; }
+
+/* Markdown styling overrides */
+.markdown-body :where(h1,h2,h3,h4) { scroll-margin-top: 80px; }
+.markdown-body p { margin-top: 0.25rem; }
+.markdown-body pre { background: #0f1115; }
+.markdown-body pre code { display: block; }
+.markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.markdown-body a { color: hsl(var(--primary)); text-decoration: underline; }
+.markdown-body table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.markdown-body table th, .markdown-body table td { border: 1px solid hsl(var(--border)); padding: 0.25rem 0.5rem; }
+.markdown-body blockquote { background: hsl(var(--muted)/0.3); border-radius: 0.25rem; }
+/* Line numbers styling */
+.with-line-numbers { counter-reset: line; }
+.with-line-numbers .code-line { display:block; position:relative; padding-left:3.25rem; }
+.with-line-numbers .code-line::before { counter-increment: line; content: counter(line); position:absolute; left:0.5rem; top:0; color:hsl(var(--muted-foreground)); width:2.25rem; text-align:right; padding-right:0.5rem; opacity:0.5; }
+.group\/code:hover .code-line::before { opacity:0.8; }
