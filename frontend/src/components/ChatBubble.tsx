@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Message } from '@/types';
 import { cn } from '@/lib/utils';
-import { Bot, User } from 'lucide-react';
+import { Bot, User, Copy, Check } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SystemMessage } from '@/components/SystemMessage';
@@ -21,9 +21,32 @@ const TypingIndicator = () => (
   </div>
 );
 
+import { useState } from 'react';
+
 export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) => {
   const isUser = message.role === 'user';
   const isMobile = useIsMobile();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyFull = async () => {
+    if (!message.message) return;
+    try {
+      await navigator.clipboard.writeText(message.message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = message.message;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {/* noop */}
+    }
+  };
 
   // Handle system messages (rate limits, errors, etc.)
   if (message.role === 'system') {
@@ -104,6 +127,17 @@ export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) =>
             </p>
           ) : (
             <MarkdownMessage content={message.message} />
+          )}
+          {!isUser && (
+            <button
+              type="button"
+              onClick={handleCopyFull}
+              className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border border-border/50 bg-background/40 hover:bg-background/60 text-[10px] px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Copy full response"
+            >
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
           )}
           
           {/* Fun decorative element */}

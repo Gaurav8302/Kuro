@@ -416,18 +416,31 @@ const Chat = () => {
       });
       setMessages(mappedMessages);
 
-      // Auto-name session after 3-4 messages if still "New Chat"
-      if (mappedMessages.length >= 6 && sessionToUse.title === 'New Chat') { // 6 messages = 3 exchanges
+      // Improved auto-naming: trigger after first successful assistant reply if still default
+      if (sessionToUse.title === 'New Chat') {
         try {
-          // Generate title from first user message
           const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
-          const generatedTitle = firstUserMessage.length > 50 
-            ? firstUserMessage.substring(0, 47) + '...' 
-            : firstUserMessage;
-          
-          await handleRenameSession(sessionToUse.session_id, generatedTitle);
+          const firstAssistantMessage = mappedMessages.find(m => m.role === 'assistant')?.message || reply;
+
+          if (firstUserMessage && firstAssistantMessage) {
+            // Derive a concise title using heuristics: prefer user intent keywords
+            const base = firstUserMessage
+              .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
+              .trim();
+            let candidate = base || firstAssistantMessage.split('\n')[0];
+            // Remove markdown formatting asterisks and hashes
+            candidate = candidate.replace(/[*#`>_~]/g, '').trim();
+            // Collapse whitespace
+            candidate = candidate.replace(/\s{2,}/g, ' ');
+            // Capitalize first letter
+            candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+            // Truncate
+            if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '…';
+            // Avoid empty
+            if (candidate.length < 3) candidate = 'Chat Session';
+            await handleRenameSession(sessionToUse.session_id, candidate);
+          }
         } catch (err) {
-          // Ignore auto-naming errors, not critical
           console.log('Auto-naming failed:', err);
         }
       }
