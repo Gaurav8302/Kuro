@@ -49,3 +49,12 @@ export async function getUserName(userId: string): Promise<{ user_id: string; na
 export async function checkUserHasName(userId: string): Promise<{ user_id: string; has_name: boolean }> {
   return apiRequest(`/user/${userId}/has-name`, 'get');
 }
+
+// Intro animation persistence
+export async function getIntroShown(userId: string): Promise<{ user_id: string; intro_shown: boolean }> {
+  return apiRequest(`/user/${userId}/intro-shown`, 'get');
+}
+
+export async function setIntroShown(userId: string): Promise<{ status: string; user_id: string; intro_shown: boolean }> {
+  return apiRequest(`/user/${userId}/intro-shown`, 'post', { shown: true });
+}

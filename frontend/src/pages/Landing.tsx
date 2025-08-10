@@ -13,27 +13,19 @@ import {
   Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import KuroIntro from '@/components/KuroIntro';
 import { Card } from '@/components/ui/card';
 import heroImage from '@/assets/hero-ai.jpg';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useUser();
-  const [showIntro, setShowIntro] = useState(true);
-
-  // Hide intro after fixed duration
-  useEffect(() => {
-    const t = setTimeout(() => setShowIntro(false), 5200); // ~3 cycles
-    return () => clearTimeout(t);
-  }, []);
 
   // Optionally, redirect signed-in users to /chat automatically
   useEffect(() => {
-    if (isLoaded && isSignedIn && !showIntro) {
+    if (isLoaded && isSignedIn) {
       navigate('/chat');
     }
-  }, [isLoaded, isSignedIn, showIntro, navigate]);
+  }, [isLoaded, isSignedIn, navigate]);
 
   const features = [
     {
@@ -86,13 +78,7 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-hero overflow-hidden relative">
-      {/* Embedded hero animation (not full screen) */}
-      <div className="max-w-7xl mx-auto px-6 pt-10">
-        <div className="mb-16">
-          <KuroIntro fullscreen={false} />
-        </div>
-      </div>
+  <div className="min-h-screen bg-gradient-hero overflow-hidden relative">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div

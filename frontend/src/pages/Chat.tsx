@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
+import KuroIntro from '@/components/KuroIntro';
 import { ChatBubble } from '@/components/ChatBubble';
 import { ChatInput } from '@/components/ChatInput';
 import NameSetupModal from '@/components/NameSetupModal';
@@ -19,7 +20,7 @@ import { Message, ChatSession } from '@/types';
 // import { mockSessions, mockApiCalls } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useClerkApi, setUserName, checkUserHasName } from '@/lib/api';
+import { useClerkApi, setUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -50,6 +51,9 @@ const Chat = () => {
   // Track if user manually edited or generated a title to prevent further auto-naming
   const [hasUserEditedTitle, setHasUserEditedTitle] = useState(false);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  // Show first-time welcome animation after initial sign-in only once per user
+  const [showFirstTimeIntro, setShowFirstTimeIntro] = useState(false);
+  const [introChecking, setIntroChecking] = useState(true);
   // Maintenance / friendly error handling in development
   const maintenanceMessage = 'Maintenance in progress. Please try again later.';
   const isDev = import.meta.env.DEV;
@@ -60,6 +64,34 @@ const Chat = () => {
       variant: 'destructive'
     });
   };
+
+  // First-time intro logic
+  useEffect(() => {
+    const checkIntro = async () => {
+      if (!user || !isLoaded) return;
+      try {
+        const { intro_shown } = await getIntroShown(user.id);
+        if (!intro_shown) {
+          setShowFirstTimeIntro(true);
+          // Persist immediately so even if user refreshes it's not shown again
+          await setIntroShown(user.id);
+          // Auto dismiss after 7s
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+        }
+      } catch (e) {
+        // Fallback to localStorage if backend call fails (offline tolerance)
+        const fallbackKey = `kuro_intro_shown_${user.id}`;
+        if (!localStorage.getItem(fallbackKey)) {
+          localStorage.setItem(fallbackKey, '1');
+          setShowFirstTimeIntro(true);
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+        }
+      } finally {
+        setIntroChecking(false);
+      }
+    };
+    checkIntro();
+  }, [user, isLoaded]);
 
   // Ensure loading state is never stuck on - failsafe
   useEffect(() => {
@@ -674,6 +706,37 @@ const Chat = () => {
 
   return (
     <div className="h-screen flex bg-background">
+      <AnimatePresence>
+        {showFirstTimeIntro && (
+          <motion.div
+            key="intro-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[9998]"
+          >
+            <KuroIntro
+              phrases={[
+                user?.firstName ? `Welcome, ${user.firstName}` : 'Welcome',
+                "Let's Imagine",
+                "Let's Build",
+                'Kuro AI'
+              ]}
+              cycleMs={1600}
+              fullscreen
+              onFinish={() => {/* keep visible until user closes or timeout */}}
+            />
+            {/* Skip / Close button */}
+            <button
+              onClick={() => setShowFirstTimeIntro(false)}
+              className="absolute top-4 right-4 z-[10000] px-4 py-2 rounded-full bg-black/40 backdrop-blur-md text-white/80 hover:text-white hover:bg-black/60 text-sm border border-white/10 transition"
+            >
+              Skip
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Name Setup Modal */}
       <NameSetupModal
         isOpen={showNameModal}

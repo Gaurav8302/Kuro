@@ -5,6 +5,43 @@ All notable changes to Kuro AI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-08-10 - **ONBOARDING & UX ENHANCEMENTS** 🚀
+
+### ✨ Added
+- **First-Time Onboarding Animation**: Full-screen "KuroIntro" branded animation shown only once per authenticated user after initial sign-in.
+- **Backend Persistence for Intro State**: New Mongo-backed `intro_shown` flag stored in `users` collection with REST endpoints:
+	- `GET /user/{user_id}/intro-shown` → `{ intro_shown: bool }`
+	- `POST /user/{user_id}/intro-shown` (body: `{ "shown": true }`) to mark as displayed (idempotent).
+- **Skip / Auto-Dismiss Controls**: User can dismiss the intro early via a Skip button; auto-dismiss occurs after ~7s.
+- **Personalized Welcome Phrases**: Intro cycle now greets user by first name when available.
+- **Extensible Intro Component**: `KuroIntro` now accepts `phrases`, `cycleMs`, `fullscreen`, and `onFinish` callback.
+- **Session Title UX Improvements**: Manual title editing, generate button, and debounce-based auto-naming suppression after manual edits.
+- **Enhanced Markdown & Code Block UX**: Copy single block & full-response, syntax highlighting, safety-aware rendering.
+- **Mobile Chat Polishing**: Persistent keyboard focus, tighter spacing, adaptive sidebar behavior, responsive layout refinements.
+- **System & Rate Limit Messaging**: Styled system messages with type classification (rate_limit, error, warning, normal).
+
+### 🔄 Changed
+- Landing page no longer embeds the intro animation; onboarding moved to post-auth flow for cleaner marketing landing.
+- Chat initialization flow now concurrently checks name setup and intro flag without blocking chat availability.
+
+### 🛠️ Technical
+- Added persistence helpers `get_intro_shown`, `set_intro_shown` in `memory/user_profile.py`.
+- Added new endpoints in `chatbot.py` for intro state management.
+- Frontend API layer (`src/lib/api.ts`) extended with `getIntroShown` & `setIntroShown` helpers and graceful fallback to `localStorage` if backend unavailable.
+- `Chat.tsx` integrates intro overlay via `AnimatePresence` with fade transitions.
+
+### 🧪 Quality / Reliability
+- Added failsafes ensuring loading / typing indicators reset if stuck.
+- Idempotent intro persistence prevents duplicate writes on refresh.
+
+### ⚠️ Potential Follow-Ups (Not Included in 1.1.0)
+- Replay intro from a user settings panel.
+- Telemetry around onboarding completion.
+- Progressive enhancement: reduced-motion variant for accessibility.
+- Multi-tenant customization (theming / phrase injection per org).
+
+---
+
 ## [1.0.0] - 2025-01-27 - **STABLE BASELINE RELEASE** 🎉
 
 ### **This marks the stable, production-ready baseline for Kuro AI**

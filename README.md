@@ -2,7 +2,7 @@
 
 ![Kuro AI Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=Kuro+AI+-+Your+Intelligent+Assistant)
 
-> **A modern, production-grade AI chatbot powered by Google Gemini 1.5 Flash with advanced memory management, safety guardrails, and enterprise-ready architecture.**
+> **A modern, production-grade AI chatbot powered by Google Gemini 1.5 Flash with advanced memory management, safety guardrails, personalized onboarding, and enterprise-ready architecture.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -37,10 +37,13 @@
 - **CORS Protection** - Proper cross-origin resource sharing
 
 ### 🎨 **Modern UI/UX**
+- **Personalized Onboarding** - One-time animated welcome (KuroIntro) after first sign-in
 - **Responsive Design** - Works seamlessly on all devices
 - **Real-time Chat** - Instant message delivery and typing indicators
+- **Enhanced Code Rendering** - Copy single snippet or full answer, syntax highlighting
+- **Session Title Control** - Manual edit and one-click AI-generated titles
 - **Beautiful Interface** - Modern design with Framer Motion animations
-- **Accessibility** - WCAG compliant with keyboard navigation
+- **Accessibility** - WCAG conscious patterns & reduced motion friendly
 
 ## 🏗️ Architecture
 
@@ -57,7 +60,7 @@
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## � Quick Start
+## ⚡ Quick Start
 
 ### Prerequisites
 
@@ -149,7 +152,7 @@ VITE_API_URL=http://localhost:8000
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 ```
 
-## � Project Structure
+## 📂 Project Structure
 
 ```
 kuro/
@@ -284,6 +287,42 @@ python demo_kuro_system.py
 - **Formatting**: Prettier (Frontend), Black (Backend)
 - **Type Checking**: TypeScript (Frontend), mypy (Backend)
 - **Testing**: Jest (Frontend), pytest (Backend)
+
+### Onboarding Intro (KuroIntro)
+
+The animated onboarding component is displayed once per authenticated user after first successful sign-in.
+
+Frontend integration (`Chat.tsx`):
+- Checks backend: `GET /user/{user_id}/intro-shown`.
+- If `false`, shows `KuroIntro`, persists with `POST /user/{user_id}/intro-shown`.
+- Fallback to `localStorage` if backend unavailable.
+- Auto-dismiss after ~7s or via Skip button.
+
+Component props:
+- `phrases: string[]` – cycle list (personalized first phrase supported)
+- `cycleMs: number` – per phrase duration
+- `fullscreen: boolean` – layout mode (only fullscreen used now)
+- `onFinish?: () => void` – optional callback after a full cycle
+
+### New User Intro Persistence API
+
+| Method | Endpoint | Description | Response |
+|--------|----------|-------------|----------|
+| GET | `/user/{user_id}/intro-shown` | Returns whether intro was shown | `{ user_id, intro_shown: bool }` |
+| POST | `/user/{user_id}/intro-shown` | Marks intro as shown (expects `{ "shown": true }`) | `{ status, user_id, intro_shown: true }` |
+
+Idempotent: Multiple POSTs are safe.
+
+### Session Title UX
+- Manual edit toggles editing state; Enter saves, Escape cancels.
+- Generate button disabled while generating to prevent duplicates.
+- Auto-naming suppressed after user edits or generates manually.
+
+### Markdown & Code UX
+- Code blocks: copy button per block.
+- Whole answer: aggregate copy button.
+- Highlight.js + rehype pipeline for formatting.
+- System & rate limit messages styled distinctly (`messageType`).
 
 ## 🤝 Contributing
 

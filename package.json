@@ -1,6 +1,6 @@
 {
   "name": "canvas-chat-ai",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Canvas Chat AI - Production-ready AI chatbot with React frontend and FastAPI backend",
   "type": "module",
   "scripts": {

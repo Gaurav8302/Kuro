@@ -16,10 +16,11 @@ interface KuroIntroProps {
   cycleMs?: number;
   fullscreen?: boolean; // if false, renders embeddable hero-sized variant
   className?: string;
+  onFinish?: () => void; // optional callback when component auto cycles through once (optional future use)
 }
 
 // Full‑screen intro animation for Kuro AI (React + Vite compatible)
-const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let's Build", 'Kuro AI'], cycleMs = 1800, fullscreen = true, className }) => {
+const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let's Build", 'Kuro AI'], cycleMs = 1800, fullscreen = true, className, onFinish }) => {
   const [index, setIndex] = useState(0);
   const mounted = useRef(false);
 
@@ -39,13 +40,20 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
   useEffect(() => {
     mounted.current = true;
     const interval = setInterval(() => {
-      setIndex(prev => (prev + 1) % phrases.length);
+      setIndex(prev => {
+        const next = (prev + 1) % phrases.length;
+        // If we've completed a full cycle, invoke onFinish once
+        if (onFinish && next === 0 && prev !== 0) {
+          onFinish();
+        }
+        return next;
+      });
     }, cycleMs);
     return () => {
       mounted.current = false;
       clearInterval(interval);
     };
-  }, [phrases.length, cycleMs]);
+  }, [phrases.length, cycleMs, onFinish]);
 
   const phrase = phrases[index];
 

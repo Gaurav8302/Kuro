@@ -270,6 +270,35 @@ async def check_user_has_name(user_id: str):
         logger.error(f"Error checking user name: {str(e)}")
         return {"user_id": user_id, "has_name": False}
 
+# Intro shown persistence endpoints
+class IntroShownRequest(BaseModel):
+    """Request model for marking intro as shown"""
+    shown: bool = Field(default=True, description="Whether intro was shown")
+
+@app.get("/user/{user_id}/intro-shown", tags=["Users"])
+async def get_intro_shown_endpoint(user_id: str):
+    """Return whether the welcome intro was already displayed."""
+    try:
+        from memory.user_profile import get_intro_shown
+        shown = get_intro_shown(user_id)
+        return {"user_id": user_id, "intro_shown": shown}
+    except Exception as e:
+        logger.error(f"Error retrieving intro_shown: {str(e)}")
+        return {"user_id": user_id, "intro_shown": False}
+
+@app.post("/user/{user_id}/intro-shown", tags=["Users"])
+async def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
+    """Mark intro as shown (idempotent)."""
+    if not body.shown:
+        return {"status": "ignored", "reason": "Only true is accepted"}
+    try:
+        from memory.user_profile import set_intro_shown
+        set_intro_shown(user_id)
+        return {"status": "success", "user_id": user_id, "intro_shown": True}
+    except Exception as e:
+        logger.error(f"Error setting intro_shown: {str(e)}")
+        return {"status": "error", "message": "Failed to persist intro flag"}
+
 # Memory management endpoints
 @app.post("/store-memory", tags=["Memory"])
 async def store_user_memory(payload: MemoryInput):
