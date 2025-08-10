@@ -87,16 +87,12 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-gradient-hero overflow-hidden relative">
-      {showIntro && (
-        <div className="absolute inset-0 z-50">
-          <KuroIntro />
-          {/* Skip button */}
-          <button
-            onClick={() => setShowIntro(false)}
-            className="absolute top-4 right-4 text-xs uppercase tracking-wide bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white px-3 py-1.5 rounded-full border border-white/20 transition"
-          >Skip</button>
+      {/* Embedded hero animation (not full screen) */}
+      <div className="max-w-7xl mx-auto px-6 pt-10">
+        <div className="mb-16">
+          <KuroIntro fullscreen={false} />
         </div>
-      )}
+      </div>
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div

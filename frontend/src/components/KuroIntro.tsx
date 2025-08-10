@@ -14,10 +14,12 @@ interface Particle {
 interface KuroIntroProps {
   phrases?: string[];
   cycleMs?: number;
+  fullscreen?: boolean; // if false, renders embeddable hero-sized variant
+  className?: string;
 }
 
 // Full‑screen intro animation for Kuro AI (React + Vite compatible)
-const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let's Build", 'Kuro AI'], cycleMs = 1800 }) => {
+const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let's Build", 'Kuro AI'], cycleMs = 1800, fullscreen = true, className }) => {
   const [index, setIndex] = useState(0);
   const mounted = useRef(false);
 
@@ -48,7 +50,11 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
   const phrase = phrases[index];
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-hidden select-none">
+    <div className={[
+      fullscreen
+        ? 'fixed inset-0 z-[9999]'
+        : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden shadow-glow'
+      , 'overflow-hidden select-none', className].filter(Boolean).join(' ')}>
       {/* Base gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0d0d1a] to-[#1a0033]" />
 
@@ -94,7 +100,10 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.92, y: -8 }}
                 transition={{ duration: 0.7, ease: [0.25, 0.8, 0.25, 1] }}
-                className="font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 drop-shadow-[0_0_10px_rgba(147,51,234,0.8)] text-5xl md:text-7xl"
+                className={fullscreen
+                  ? 'font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 drop-shadow-[0_0_10px_rgba(147,51,234,0.8)] text-5xl md:text-7xl'
+                  : 'font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 drop-shadow-[0_0_8px_rgba(147,51,234,0.7)] text-4xl md:text-6xl'
+                }
               >
                 {phrase}
               </motion.h1>
@@ -111,24 +120,27 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
             />
           </div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 0.6, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="mt-10 max-w-xl text-sm md:text-base text-white/60 leading-relaxed"
-          >
-            A creative co‑pilot for builders, dreamers & problem solvers.
-          </motion.p>
+          {fullscreen && (
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 0.6, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+              className="mt-10 max-w-xl text-sm md:text-base text-white/60 leading-relaxed"
+            >
+              A creative co‑pilot for builders, dreamers & problem solvers.
+            </motion.p>
+          )}
         </div>
       </div>
 
-      {/* Optional subtle bottom gradient fade */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      {fullscreen && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      )}
 
       <style>{`
         .animate-kuro-hue { animation: kuroHue 12s linear infinite; }
         .animate-kuro-wave { animation: kuroWave 18s ease-in-out infinite; }
-        .animate-kuro-float { animation: kuroFloat linear infinite; }
+  .animate-kuro-float { animation: kuroFloat linear infinite; }
         @keyframes kuroHue { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
         @keyframes kuroWave { 0%,100%{transform:translate3d(0,0,0)} 50%{transform:translate3d(-8%,4%,0)} }
         @keyframes kuroFloat { 0% { transform: translateY(0) translateX(0) scale(1); } 25% { transform: translateY(-12vh) translateX(4vw) scale(1.15); } 50% { transform: translateY(-24vh) translateX(-2vw) scale(0.9); } 75% { transform: translateY(-36vh) translateX(3vw) scale(1.1); } 100% { transform: translateY(-48vh) translateX(0) scale(1); } }
