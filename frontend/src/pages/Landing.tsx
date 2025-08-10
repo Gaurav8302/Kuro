@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { 
   ArrowRight, 
@@ -13,19 +13,27 @@ import {
   Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import KuroIntro from '@/components/KuroIntro';
 import { Card } from '@/components/ui/card';
 import heroImage from '@/assets/hero-ai.jpg';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useUser();
+  const [showIntro, setShowIntro] = useState(true);
+
+  // Hide intro after fixed duration
+  useEffect(() => {
+    const t = setTimeout(() => setShowIntro(false), 5200); // ~3 cycles
+    return () => clearTimeout(t);
+  }, []);
 
   // Optionally, redirect signed-in users to /chat automatically
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (isLoaded && isSignedIn && !showIntro) {
       navigate('/chat');
     }
-  }, [isLoaded, isSignedIn, navigate]);
+  }, [isLoaded, isSignedIn, showIntro, navigate]);
 
   const features = [
     {
@@ -78,7 +86,17 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-hero overflow-hidden">
+    <div className="min-h-screen bg-gradient-hero overflow-hidden relative">
+      {showIntro && (
+        <div className="absolute inset-0 z-50">
+          <KuroIntro />
+          {/* Skip button */}
+          <button
+            onClick={() => setShowIntro(false)}
+            className="absolute top-4 right-4 text-xs uppercase tracking-wide bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white px-3 py-1.5 rounded-full border border-white/20 transition"
+          >Skip</button>
+        </div>
+      )}
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -121,7 +139,7 @@ const Landing = () => {
         />
       </div>
 
-      <div className="relative z-10">
+  <div className="relative z-10">
         {/* Header */}
         <motion.header 
           className="p-6"
