@@ -21,6 +21,7 @@ from pymongo.errors import PyMongoError
 from database.db import (
     chat_collection, 
     session_titles_collection,
+    conversation_summaries_collection,
     database
 )
 
@@ -188,6 +189,23 @@ class ChatDatabase:
             return []
         except Exception as e:
             logger.error(f"Unexpected error retrieving chat history: {str(e)}")
+            return []
+
+    def get_session_messages_with_sequence(self, session_id: str) -> List[Dict[str, Any]]:
+        """Retrieve full messages including sequence numbers (for advanced logic/testing)."""
+        try:
+            chats = self.chat_collection.find({"session_id": session_id}).sort("metadata.sequence_number", 1)
+            return [
+                {
+                    "sequence": c.get("metadata", {}).get("sequence_number", 0),
+                    "user": c["message"],
+                    "assistant": c["reply"],
+                    "timestamp": c["timestamp"],
+                }
+                for c in chats
+            ]
+        except Exception as e:
+            logger.error(f"Error retrieving session messages with sequence: {e}")
             return []
 
     def get_all_chats_by_user(self, user_id: str) -> List[Dict[str, Any]]:

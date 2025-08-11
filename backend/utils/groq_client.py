@@ -9,7 +9,7 @@ import os
 import json
 import logging
 import requests
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -17,6 +17,12 @@ load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+from routing.model_router import route_model
+from reliability.circuit_breaker import allow_request, record_failure, record_success
+from reliability.fallback_router import choose_fallback
+from utils.token_estimator import estimate_tokens, trim_messages
+from config.config_loader import get_model
 
 class GroqClient:
     """
@@ -45,7 +51,38 @@ class GroqClient:
         
         logger.info("✅ Groq client initialized successfully")
     
-    def generate_content(self, prompt: str, system_instruction: Optional[str] = None) -> str:
+    def _prepare_messages(self, prompt: str, system_instruction: Optional[str]) -> List[Dict[str,str]]:
+        messages: List[Dict[str,str]] = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
+        return messages
+
+    def _select_model(self, messages: List[Dict[str,str]], intent: Optional[str]) -> Tuple[str,str]:
+        est_tokens = estimate_tokens(" ".join(m["content"] for m in messages))
+        routing = route_model(messages[-1]["content"], est_tokens, intent)
+        model_id = routing["model_id"]
+        rule = routing["rule"]
+        return model_id, rule
+
+    def _call_api(self, model: str, messages: List[Dict[str,str]], params: Dict[str,Any]) -> Dict[str,Any]:
+        payload = {"model": model, "messages": messages, **params}
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=30)
+        # Error classification reused
+        if response.status_code == 429:
+            retry_after = response.headers.get('retry-after', '60')
+            raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
+        elif response.status_code == 401:
+            raise Exception("AUTHENTICATION_ERROR:Invalid API key")
+        elif response.status_code == 403:
+            raise Exception("QUOTA_EXCEEDED:API quota exceeded")
+        elif response.status_code >= 500:
+            raise Exception("SERVER_ERROR:Groq server error")
+        response.raise_for_status()
+        return response.json()
+
+    def generate_content(self, prompt: str, system_instruction: Optional[str] = None, intent: Optional[str] = None) -> str:
         """
         Generate content using Groq's LLaMA 3 70B model
         
@@ -63,63 +100,38 @@ class GroqClient:
             Exception: If API call fails or returns invalid response
         """
         try:
-            # Build messages array
-            messages = []
-            
-            # Add system instruction if provided
-            if system_instruction:
-                messages.append({
-                    "role": "system",
-                    "content": system_instruction
-                })
-            
-            # Add user prompt
-            messages.append({
-                "role": "user", 
-                "content": prompt
-            })
-            
-            # Prepare request payload
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                **self.default_params
-            }
-            
-            # Make API request
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            logger.debug(f"Making Groq API request with {len(messages)} messages")
-            
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            # Check for HTTP errors
-            if response.status_code == 429:
-                # Rate limit exceeded
-                retry_after = response.headers.get('retry-after', '60')
-                raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
-            elif response.status_code == 401:
-                raise Exception("AUTHENTICATION_ERROR:Invalid API key")
-            elif response.status_code == 403:
-                raise Exception("QUOTA_EXCEEDED:API quota exceeded")
-            elif response.status_code >= 500:
-                raise Exception("SERVER_ERROR:Groq server error")
-            
-            response.raise_for_status()
-            
-            # Parse response
-            response_data = response.json()
+            messages = self._prepare_messages(prompt, system_instruction)
+            # Routing selection
+            selected_model, rule = self._select_model(messages, intent)
+            model_cfg = get_model(selected_model) or {}
+            max_ctx = int(model_cfg.get("max_context_tokens", 8192))
+            messages = trim_messages(messages, max_ctx - 1024)  # leave headroom for completion
+            attempt_model = selected_model
+            attempts = 0
+            last_error = None
+            while attempts < 3 and attempt_model:
+                attempts += 1
+                if not allow_request(attempt_model):
+                    attempt_model = choose_fallback(attempt_model)
+                    continue
+                try:
+                    logger.debug(f"Groq routed model={attempt_model} rule={rule} attempt={attempts}")
+                    response_data = self._call_api(attempt_model, messages, self.default_params)
+                    record_success(attempt_model)
+                    break
+                except Exception as e:  # classify recoverable
+                    record_failure(attempt_model)
+                    last_error = e
+                    attempt_model = choose_fallback(attempt_model)
+                    continue
+            else:
+                # exhausted
+                if last_error:
+                    raise last_error
+                raise Exception("MODEL_ROUTING_FAILED:No model succeeded")
             
             # Extract generated text
-            if "choices" in response_data and len(response_data["choices"]) > 0:
+            if response_data and "choices" in response_data and len(response_data["choices"]) > 0:
                 content = response_data["choices"][0]["message"]["content"]
                 logger.debug(f"Groq API response generated: {len(content)} characters")
                 return content
@@ -131,7 +143,7 @@ class GroqClient:
             raise Exception(f"Groq API request failed: {str(e)}")
         except Exception as e:
             logger.error(f"Groq content generation failed: {str(e)}")
-            raise Exception(f"Groq content generation failed: {str(e)}")
+            raise
     
     def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """

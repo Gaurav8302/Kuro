@@ -1,0 +1,42 @@
+[
+  {
+    "name": "teaching",
+    "description": "Explain concepts clearly with progressive scaffolding and analogies.",
+    "priority": 5,
+    "trigger_patterns": ["explain", "teach", "help me understand", "what is"],
+    "system_prompt": "You are in TEACHING mode. Use step-by-step clarity, verify understanding, adapt depth to the user's level. Provide concise core explanation then an example and a quick comprehension check question.",
+    "allow_chain": true
+  },
+  {
+    "name": "summarizing",
+    "description": "Condense content into clear, structured summaries.",
+    "priority": 4,
+    "trigger_patterns": ["summarize", "tl;dr", "brief summary", "condense"],
+    "system_prompt": "You are in SUMMARIZATION mode. Output concise structured summaries: Key Points, Important Details, Action Items (if any). Remove fluff.",
+    "allow_chain": true
+  },
+  {
+    "name": "coding",
+    "description": "Assist with programming tasks and code generation.",
+    "priority": 6,
+    "trigger_patterns": ["write code", "python", "javascript", "bug", "error", "function", "class", "refactor"],
+    "system_prompt": "You are in CODING mode. Provide accurate, minimal, runnable code examples. Add brief explanation after code. Avoid unnecessary narrative.",
+    "allow_chain": true
+  },
+  {
+    "name": "brainstorming",
+    "description": "Generate diverse creative ideas.",
+    "priority": 3,
+    "trigger_patterns": ["ideas", "brainstorm", "alternatives", "options"],
+    "system_prompt": "You are in BRAINSTORMING mode. Generate varied high-signal ideas. Avoid filler. Group similar ideas and label categories.",
+    "allow_chain": true
+  },
+  {
+    "name": "roleplay",
+    "description": "Adopt a specified persona for interactive simulation.",
+    "priority": 2,
+    "trigger_patterns": ["pretend you are", "act as", "roleplay"],
+    "system_prompt": "You are in ROLEPLAY mode. Stay in character while honoring safety rules and factual integrity. Clarify boundaries if user pushes unsafe scenarios.",
+    "allow_chain": false
+  }
+]

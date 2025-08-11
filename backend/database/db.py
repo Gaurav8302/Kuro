@@ -108,6 +108,8 @@ database = db_connection.database
 chat_collection = database["chat_sessions"]
 session_titles_collection = database["session_titles"]
 users_collection = database["users"]
+# Progressive summarization collection
+conversation_summaries_collection = database["conversation_summaries"]
 
 def get_database():
     """

@@ -30,6 +30,7 @@ if missing_vars:
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import logging
@@ -68,6 +69,33 @@ app = FastAPI(
     docs_url="/docs" if DEBUG else None,  # Hide docs in production
     redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
+
+# --- Observability / Instrumentation Registration (Step 1+) ---
+try:
+    from observability.instrumentation_middleware import register_instrumentation
+    register_instrumentation(app)
+except Exception as _obs_err:
+    logger.warning(f"Instrumentation middleware registration failed: {_obs_err}")
+
+# --- Sentry Initialization (Step 7 Alerts) ---
+if os.getenv("SENTRY_DSN"):
+    try:
+        import sentry_sdk  # type: ignore
+        sentry_sdk.init(
+            dsn=os.getenv("SENTRY_DSN"),
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+            enable_tracing=os.getenv("SENTRY_ENABLE_TRACING", "false").lower() in {"1","true","yes"}
+        )
+        logger.info("Sentry initialized")
+    except Exception as e:
+        logger.warning(f"Sentry init failed: {e}")
+
+# --- Admin Router (Step 6) ---
+try:
+    from admin.router import router as admin_router
+    app.include_router(admin_router)
+except Exception as e:
+    logger.warning(f"Admin router not mounted: {e}")
 
 # Frontend URLs for CORS configuration
 frontend_urls = [
@@ -121,6 +149,16 @@ async def cors_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
     
     return response
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """Prometheus metrics exposition endpoint."""
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        data = generate_latest()  # type: ignore
+        return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        return PlainTextResponse(str(e), status_code=500)
 
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):

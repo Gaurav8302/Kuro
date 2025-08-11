@@ -121,7 +121,7 @@ SAFETY:
         
         return "\n\n".join(prompt_parts)
     
-    def build_kuro_prompt(self, user_message: str, context: Optional[str] = None) -> Dict[str, str]:
+    def build_kuro_prompt(self, user_message: str, context: Optional[str] = None, system_overrides: Optional[str] = None) -> Dict[str, str]:
         """
         Build complete prompt package for Kuro AI
         
@@ -134,6 +134,9 @@ SAFETY:
         """
         try:
             system_instruction = self.build_system_instruction()
+            if system_overrides:
+                # Append injected skill prompts after a separator for clarity
+                system_instruction = system_instruction + "\n\n" + system_overrides.strip()
             user_prompt = self.build_user_prompt(user_message, context)
             
             return {
@@ -236,7 +239,7 @@ class KuroSafetyFilter:
 kuro_prompt_builder = KuroPromptBuilder()
 kuro_safety_filter = KuroSafetyFilter()
 
-def build_kuro_prompt(user_message: str, context: Optional[str] = None) -> Dict[str, str]:
+def build_kuro_prompt(user_message: str, context: Optional[str] = None, system_overrides: Optional[str] = None) -> Dict[str, str]:
     """
     Convenience function to build Kuro prompt
     
@@ -247,7 +250,7 @@ def build_kuro_prompt(user_message: str, context: Optional[str] = None) -> Dict[
     Returns:
         Dict[str, str]: Prompt package for Gemini
     """
-    return kuro_prompt_builder.build_kuro_prompt(user_message, context)
+    return kuro_prompt_builder.build_kuro_prompt(user_message, context, system_overrides)
 
 def is_safe_response(response: str) -> Tuple[bool, Optional[str]]:
     """

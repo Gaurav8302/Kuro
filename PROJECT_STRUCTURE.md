@@ -361,6 +361,8 @@ python chatbot.py                # Start dev server (localhost:8000)
 - `README.md` - Project overview and quick start
 - `SECURITY.md` - Security best practices
 
+- Orchestration: `docs/ORCHESTRATION.md`
+- Memory Architecture: `docs/MEMORY_ARCHITECTURE.md`
 ## 🎯 Next Steps
 
 1. **Local Development**: Set up environment variables and test locally

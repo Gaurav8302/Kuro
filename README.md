@@ -9,6 +9,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](https://github.com/Gaurav8302/Kuro)
+[![CI](https://github.com/Gaurav8302/Kuro/actions/workflows/ci.yml/badge.svg)](https://github.com/Gaurav8302/Kuro/actions/workflows/ci.yml)
 
 ## ✨ Features
 
@@ -29,6 +30,8 @@
 - **User Profiling** - Persistent user preferences and context
 - **Session Management** - Maintains conversation continuity
 - **Intelligent Pruning** - Optimized memory usage for production
+- **Layered Compression** - Short / medium / long summaries + verbatim fact anchors
+- **Context Rehydration** - Deterministic assembly (facts → summaries → recent turns) under token budget
 
 ### 🔐 **Authentication & Security**
 - **Clerk Integration** - Secure user authentication and management
@@ -280,6 +283,8 @@ python demo_kuro_system.py
 2. **Frontend Components**: Add to `/frontend/src/components/`
 3. **AI Prompts**: Modify `/backend/utils/kuro_prompt.py`
 4. **Safety Rules**: Update `/backend/utils/safety.py`
+5. **Routing / Orchestration**: See `/docs/ORCHESTRATION.md`
+6. **Memory Architecture**: See `/docs/MEMORY_ARCHITECTURE.md`
 
 ### Code Quality
 

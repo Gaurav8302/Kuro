@@ -1,0 +1,42 @@
+models:
+  - id: llama-3.3-70B-versatile
+    label: general
+    capabilities: [general, high_quality]
+    fallback: ["llama-3.1-8B-instant", "mixtral-8x7B-32k"]
+    max_context_tokens: 8192
+    avg_latency_ms: 900
+    quality_tier: high
+    cost_score: 3
+  - id: llama-3.1-8B-instant
+    label: fast
+    capabilities: [general, fast]
+    max_context_tokens: 8192
+    avg_latency_ms: 350
+    quality_tier: medium
+    cost_score: 1
+  - id: mixtral-8x7B-32k
+    label: long_context
+    capabilities: [general, long_context]
+    max_context_tokens: 32768
+    avg_latency_ms: 1100
+    quality_tier: high
+    cost_score: 3
+  - id: deepseek-r1
+    label: reasoning
+    capabilities: [reasoning, complex]
+    max_context_tokens: 16384
+    avg_latency_ms: 1400
+    quality_tier: high
+    cost_score: 2
+routing_rules:
+  - name: tool_call
+    intent: "tool_call"
+    choose: "llama-3-groq-tool-use-8b"
+  - name: long_document
+    condition: "context_tokens > 20000"
+    choose: "mixtral-8x7B-32k"
+  - name: short_query
+    condition: "context_tokens < 2000 and message_len_chars < 300"
+    choose: "llama-3.1-8B-instant"
+  - name: default
+    choose: "llama-3.3-70B-versatile"

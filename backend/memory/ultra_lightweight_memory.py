@@ -103,6 +103,13 @@ class UltraLightweightMemoryManager:
             
             # Store in Pinecone
             self.index.upsert([(memory_id, embedding, enhanced_metadata)])
+
+            # Ingest into keyword index for hybrid retrieval (best-effort)
+            try:
+                from retrieval import ingest_document
+                ingest_document(memory_id, text, enhanced_metadata)
+            except Exception:
+                pass
             
             logger.info(f"Memory stored: {memory_id}")
             return memory_id
@@ -177,8 +184,22 @@ class UltraLightweightMemoryManager:
         # Simplified - just return success for now
         return True
 
-# Global instance
-ultra_lightweight_memory_manager = UltraLightweightMemoryManager()
+# Global instance (allow disabling heavy init for tests)
+if os.getenv("DISABLE_MEMORY_INIT") == "1":
+    class _DummyMemoryManager:
+        def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
+            import uuid
+            return str(uuid.uuid4())
+        def get_relevant_memories(self, query: str, user_filter: str = None, top_k: int = 5):
+            return []
+        def get_user_context(self, user_id: str):
+            return {"recent_memories": 0, "topics": [], "last_interaction": ""}
+        def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
+            return True
+    ultra_lightweight_memory_manager = _DummyMemoryManager()
+    logger.info("Using dummy memory manager (DISABLE_MEMORY_INIT=1)")
+else:
+    ultra_lightweight_memory_manager = UltraLightweightMemoryManager()
 
 def store_memory(text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
     """Store memory function"""

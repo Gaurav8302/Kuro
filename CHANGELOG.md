@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2025-08-10 - **ONBOARDING & UX ENHANCEMENTS** 🚀
 
+## [1.2.0] - 2025-08-11 - **ORCHESTRATION, MEMORY COMPRESSION & OPS** ⚙️🧠
+
+### ✨ Added
+- **Multi-Model Orchestration Layer**: Capability/intents aware model router with scoring (latency, quality, cost) and graceful fallback chain.
+- **Model Registry**: YAML-driven registry (`backend/config/model_registry.yml`) with capabilities, default weights, and fallback configuration.
+- **Intent Classification**: Lightweight rule-based classifier (keywords + overrides) powering routing decisions.
+- **Circuit Breaker + Resilience**: Automatic open/half-open tracking for failing models; fallback to healthy alternatives.
+- **Layered Memory Compression**: Progressive short / medium / long-term summarization with verbatim fact extraction to retain critical details.
+- **Context Rehydration**: Smart assembly of prompt context (facts → summaries → recent turns) under token budget with deterministic trimming.
+- **Verbatim Fact Store**: High-signal immutable facts extracted during summarization for accurate persona & knowledge grounding.
+- **Token Estimator Utility**: Heuristic token counting for proactive context budgeting and overflow protection.
+- **Admin & Introspection Hooks**: Foundations for secured admin endpoints (registry reload, circuit breaker stats, LLM call listing).
+- **Observability Scaffolding**: Structured logging (request_id), metrics outlines, Grafana dashboard draft, Sentry hook placeholder.
+- **Test Coverage Expansion**: Added tests for intent routing, fallback behavior, memory layering, and context rehydration.
+- **CI Workflow**: GitHub Actions pipeline (lint + backend tests + frontend build) for PR validation.
+
+### 🔄 Changed
+- **README** expanded to document orchestration & layered memory architecture.
+- **Rolling Memory Module** refactored to emit layered summaries + fact blocks while retaining original text for audit.
+- **Documentation Suite**: Added `docs/ORCHESTRATION.md`, `docs/MEMORY_ARCHITECTURE.md`, and deployment optimization notes.
+
+### 🛠️ Technical
+- Deterministic prompt templates for progressive summarization ensure reproducible compression and auditability.
+- Context assembly now performs deduplication & priority ordering (facts > summaries > short-term turns) with iterative token pruning.
+- Registry-driven routing decouples model selection logic from application code (hot reconfig potential).
+
+### 🧪 Quality / Reliability
+- Fallback invocation verified under forced failure scenarios.
+- Token budget trimming tests enforce safe degradation instead of abrupt truncation.
+- Memory deduplication prevents redundant fact & summary inflation.
+
+### ⚠️ Potential Follow-Ups
+- Pluggable semantic intent classifier (embedding similarity) to augment rule set.
+- Cost & latency adaptive dynamic weight tuning (feedback loop).
+- Persistent metrics exporter & finalized Grafana dashboard JSON.
+- Admin API hardening (API key / RBAC, rate limiting) & audit event stream.
+- Advanced summarization validation (consistency / divergence detection).
+
+---
+
 ### ✨ Added
 - **First-Time Onboarding Animation**: Full-screen "KuroIntro" branded animation shown only once per authenticated user after initial sign-in.
 - **Backend Persistence for Intro State**: New Mongo-backed `intro_shown` flag stored in `users` collection with REST endpoints:

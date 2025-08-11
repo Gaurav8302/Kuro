@@ -99,3 +99,10 @@ cd frontend
 npm install
 npm run dev:local
 ```
+
+## 🔁 Orchestration & Memory Architecture
+
+Refer to `docs/ORCHESTRATION.md` for multi-model routing, scoring, fallback, and future admin/metrics plans.
+
+Refer to `docs/MEMORY_ARCHITECTURE.md` for layered memory compression (short/medium/long summaries + verbatim facts) and context rehydration strategy.
+
