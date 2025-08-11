@@ -131,6 +131,9 @@ npm run dev
 # Google Gemini AI
 GEMINI_API_KEY=your_gemini_api_key_here
 
+# Groq (chat model)
+GROQ_API_KEY=your_groq_api_key_here
+
 # Authentication
 CLERK_SECRET_KEY=your_clerk_secret_key
 
@@ -141,6 +144,12 @@ MONGO_URI=your_mongodb_connection_string
 PINECONE_API_KEY=your_pinecone_api_key
 PINECONE_INDEX=your_pinecone_index_name
 PINECONE_ENV=your_pinecone_environment
+
+# Performance / Retrieval Tuning (optional)
+# Skip frequent readiness probes: seconds to cache empty/non-empty state (default 300)
+RAG_INDEX_CHECK_INTERVAL=300
+# Disable periodic skill file auto-reload to save I/O on constrained hosts
+SKILL_AUTO_RELOAD_DISABLED=1
 
 # Production
 FRONTEND_URL=https://your-frontend-domain.com
@@ -268,6 +277,7 @@ python demo_kuro_system.py
 - **Memory Usage**: Optimized for 512MB deployment
 - **Uptime**: 99.9% availability target
 - **Safety**: 100% harmful content blocked
+ - **Cold Start Optimization**: RAG retrieval skipped when vector index empty (memoized readiness)
 
 ### Monitoring
 - Real-time error tracking

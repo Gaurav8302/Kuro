@@ -67,3 +67,13 @@ npm run dev
 The application includes comprehensive logging. Monitor these endpoints:
 - `/health` - System status and component health
 - Application logs for errors and performance metrics
+
+### Performance Tuning (Optional)
+Set these if you want to optimize for cold starts / minimal I/O on constrained platforms:
+
+```env
+RAG_INDEX_CHECK_INTERVAL=300   # Cache empty index detection (seconds)
+SKILL_AUTO_RELOAD_DISABLED=1   # Disable periodic skill file reload checks
+```
+
+Both have safe defaults; only override if you notice cold-start latency or file stat overhead.

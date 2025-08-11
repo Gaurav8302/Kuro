@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2025-08-11 - **PERF & RELIABILITY PATCH** 🚀
+
+### 🔁 Changed
+- Chat retrieval path now skips RAG when the Pinecone index is empty using a memoized readiness probe (reduces cold-start latency / wasted queries on fresh deployments).
+- Skill manager auto-reload can be disabled via `SKILL_AUTO_RELOAD_DISABLED=1` for memory-constrained single-process environments (prevents periodic file stat churn on Render free tier).
+- All stored memory timestamps normalized to UTC ISO8601 (fixes timezone drift and comparison inconsistencies in future summarization & cleanup logic).
+
+### ✨ Added
+- Environment var `RAG_INDEX_CHECK_INTERVAL` (seconds, default 300) to tune index readiness probe TTL.
+- Guard helper `rag_retrieval_enabled()` exposed for lightweight retrieval gating.
+
+### 🛠️ Technical
+- Readiness probe uses a cheap single-vector similarity query instead of full stats to infer emptiness and caches result for the configured interval.
+- Skill reload path short‑circuits when disabled to avoid unnecessary filesystem calls.
+
+### 🧪 Impact
+- Lower average latency for first messages after deployment when index not yet populated.
+- Reduced file I/O + CPU micro-spikes from skill reload checks.
+- Consistent temporal ordering for future analytics and retention policies.
+
+### ⚠️ Migration Notes
+- No action required; defaults are safe.
+- Set `SKILL_AUTO_RELOAD_DISABLED=1` in production if you do not hot-edit `skills.json`.
+- Optionally adjust `RAG_INDEX_CHECK_INTERVAL` if you bulk-load vectors and need faster readiness detection.
+
+### ✅ Verification
+- Local lint/tests pass.
+- Manual sanity: empty index path returns chat responses without RAG context, populated path unchanged.
+
+
 ## [1.2.1] - 2025-08-11 - **HOTFIX: Deployment Dependency Resolution** 🐛
 
 ### 🔧 Fixed

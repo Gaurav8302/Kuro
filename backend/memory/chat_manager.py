@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 
 from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
 from memory.rolling_memory import rolling_memory_manager
-from retrieval import get_rag_pipeline, ingest_document
+from retrieval import get_rag_pipeline, ingest_document, rag_retrieval_enabled
 from memory.chat_database import save_chat_to_db
 from memory.user_profile import get_user_name as get_profile_name, set_user_name
 from utils.kuro_prompt import build_kuro_prompt, sanitize_response
@@ -449,27 +449,30 @@ Instructions for responding:
             relevant_memories = []
             rag_context = None
             try:
-                rag_pipeline = get_rag_pipeline()
-                rag_result = rag_pipeline.retrieve(
-                    query=message,
-                    user_id=user_id,
-                    user_pref_tags=None  # Future: fetch from user profile
-                )
-                # Convert final chunks to legacy memory format expected downstream
-                relevant_memories = [
-                    {
-                        "text": c["text"],
-                        "score": c.get("score", 0.0),
-                        "importance": c.get("metadata", {}).get("importance", 0.5),
-                        "category": c.get("metadata", {}).get("category", "general"),
-                        "timestamp": c.get("metadata", {}).get("timestamp", "")
-                    }
-                    for c in rag_result.get("final_chunks", [])
-                ]
-                rag_context = rag_result.get("context")
-                logger.info(
-                    f"RAG retrieval: broad={rag_result.get('broad_count')} focus={rag_result.get('focus_count')} final={len(relevant_memories)}"
-                )
+                if rag_retrieval_enabled():
+                    rag_pipeline = get_rag_pipeline()
+                    rag_result = rag_pipeline.retrieve(
+                        query=message,
+                        user_id=user_id,
+                        user_pref_tags=None  # Future: fetch from user profile
+                    )
+                    # Convert final chunks to legacy memory format expected downstream
+                    relevant_memories = [
+                        {
+                            "text": c["text"],
+                            "score": c.get("score", 0.0),
+                            "importance": c.get("metadata", {}).get("importance", 0.5),
+                            "category": c.get("metadata", {}).get("category", "general"),
+                            "timestamp": c.get("metadata", {}).get("timestamp", "")
+                        }
+                        for c in rag_result.get("final_chunks", [])
+                    ]
+                    rag_context = rag_result.get("context")
+                    logger.info(
+                        f"RAG retrieval: broad={rag_result.get('broad_count')} focus={rag_result.get('focus_count')} final={len(relevant_memories)}"
+                    )
+                else:
+                    logger.debug("RAG retrieval skipped (index not ready / empty).")
             except Exception as e:
                 logger.warning(f"RAG retrieval failed, falling back to basic memory: {str(e)}")
                 try:

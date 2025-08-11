@@ -31,6 +31,12 @@ FRONTEND_URL=https://kuro-tau.vercel.app
 ENVIRONMENT=production
 DEBUG=False
 PORT=8000
+
+# Optional Performance Tuning
+# Cache RAG index readiness probe results (seconds)
+RAG_INDEX_CHECK_INTERVAL=300
+# Disable skill auto-reload file stat loop (set to 1 in production if not hot-editing skills)
+SKILL_AUTO_RELOAD_DISABLED=1
 ```
 
 ### **VERCEL (Frontend) Environment Variables**

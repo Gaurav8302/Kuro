@@ -16,6 +16,7 @@ import json
 import re
 import time
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
@@ -48,6 +49,10 @@ class SkillManager:
     def __init__(self, min_score: int = 1, max_chain: int = 3, auto_reload_seconds: int = 60):
         self.min_score = min_score
         self.max_chain = max_chain
+        # Allow disabling periodic reload on constrained environments (e.g. Render free tier)
+        if os.getenv("SKILL_AUTO_RELOAD_DISABLED") == "1":
+            auto_reload_seconds = 10_000_000  # effectively never inside single process lifetime
+            logger.info("Skill auto-reload disabled via SKILL_AUTO_RELOAD_DISABLED=1")
         self.auto_reload_seconds = auto_reload_seconds
         self._skills: List[Skill] = []
         self._last_load = 0.0
@@ -72,6 +77,9 @@ class SkillManager:
             logger.error(f"Failed to load skills: {e}")
 
     def reload_if_changed(self):
+        # Fast path: If reload effectively disabled, skip stat call
+        if self.auto_reload_seconds > 1_000_000:
+            return
         self._load_skills(force=False)
 
     # ---------- Detection ----------

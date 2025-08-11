@@ -6,7 +6,7 @@ Uses Google Gemini embeddings (free) and Groq for chat
 import os
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import math
 
@@ -92,9 +92,10 @@ class UltraLightweightMemoryManager:
             memory_id = str(uuid.uuid4())
             
             # Enhanced metadata with defaults
+            # Always store UTC ISO timestamps to avoid timezone drift / comparison bugs
             enhanced_metadata = {
                 "text": text,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "importance": importance if importance is not None else metadata.get("importance", 0.5),
                 "category": metadata.get("category", "general"),
                 "user": metadata.get("user", "unknown"),
