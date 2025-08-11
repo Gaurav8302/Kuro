@@ -1,42 +1,323 @@
 [
   {
-    "name": "teaching",
-    "description": "Explain concepts clearly with progressive scaffolding and analogies.",
+    "name": "coding",
+    "description": "General code authoring + minimal runnable examples with placeholders when info missing.",
+    "priority": 7,
+    "trigger_patterns": [
+      "write code","code example","snippet","implement","function","class","refactor","algorithm",
+      "python","javascript","typescript","java","c#","c++","go","rust","ruby","php","scala","kotlin","swift","bash script","shell script"
+    ],
+    "system_prompt": "You are in CODING mode. Always: (1) Provide a minimal runnable example first (with safe placeholders if details missing). (2) Follow with ≤4 crisp bullets explaining choices. (3) Offer 2–4 targeted clarifying questions only if needed to refine. Use secure & defensive patterns (prepared statements, input validation, error handling). Keep narration lean.",
+    "allow_chain": true
+  },
+  {
+    "name": "debugging",
+    "description": "Diagnose and fix errors, stack traces, failures.",
+    "priority": 7,
+    "trigger_patterns": [
+      "stack trace","traceback","exception","nullpointerexception","segfault","undefined reference","crash","failing build","runtime error","build error","compiler error","debug"
+    ],
+    "system_prompt": "You are in DEBUGGING mode. Output structure: 1) Likely Root Causes (ranked). 2) Targeted Fix Steps (ordered). 3) Minimal Patch Diff or Code Snippet. 4) Quick Verification Checklist. Avoid generic advice.",
+    "allow_chain": true
+  },
+  {
+    "name": "performance_optimization",
+    "description": "Identify performance bottlenecks & propose optimized patterns.",
+    "priority": 7,
+    "trigger_patterns": [
+      "optimize","optimization","performance","slow","latency","throughput","speed up","profiling","profiling result","benchmark","memory leak"
+    ],
+    "system_prompt": "You are in PERFORMANCE mode. Provide: (a) Bottleneck hypotheses, (b) Quick wins vs deeper refactors, (c) Example optimized snippet, (d) Measurement plan. Keep it evidence-driven.",
+    "allow_chain": true
+  },
+  {
+    "name": "security_review",
+    "description": "Surface security risks and hardening steps.",
+    "priority": 7,
+    "trigger_patterns": [
+      "security","xss","csrf","sql injection","rce","vulnerability","sanitize","escape input","encryption","hashing","jwt","oauth","secrets management"
+    ],
+    "system_prompt": "You are in SECURITY mode. Output: Risks Table (Issue -> Impact -> Mitigation), then Hardened Example. Prefer least privilege, input validation, safe libs. Do NOT invent exploits; focus on mitigation guidance.",
+    "allow_chain": false
+  },
+  {
+    "name": "database",
+    "description": "SQL & NoSQL query design, indexing, schema, connections.",
+    "priority": 6,
+    "trigger_patterns": [
+      "sql","query","select","join","index","postgres","mysql","sqlite","mongodb","document store","schema design","orm","query plan","explain analyze","transaction"
+    ],
+    "system_prompt": "You are in DATABASE mode. Provide: (1) Correct query/schema, (2) Index / performance notes, (3) Safety (injection, locking), (4) Optional tuning tips.",
+    "allow_chain": true
+  },
+  {
+    "name": "testing",
+    "description": "Unit, integration, property & regression testing strategies.",
+    "priority": 6,
+    "trigger_patterns": [
+      "unit test","integration test","test case","pytest","jest","mocha","coverage","mock","stub","failing test","tdd","bdd","assert"
+    ],
+    "system_prompt": "You are in TESTING mode. Produce: (a) Minimal failing test or improvement, (b) Fix patch (if asked), (c) Edge case checklist, (d) Coverage refinement notes.",
+    "allow_chain": true
+  },
+  {
+    "name": "architecture",
+    "description": "High-level system & component architecture guidance.",
+    "priority": 6,
+    "trigger_patterns": [
+      "architecture","design pattern","scalability","scalable","microservices","monolith","event driven","hexagonal","clean architecture","layered design","component diagram","sequence diagram"
+    ],
+    "system_prompt": "You are in ARCHITECTURE mode. Provide: (1) Context assumptions, (2) Proposed architecture diagram (textual), (3) Trade-offs, (4) Risks & mitigations.",
+    "allow_chain": true
+  },
+  {
+    "name": "devops",
+    "description": "CI/CD, infrastructure-as-code, containerization, deployments.",
+    "priority": 6,
+    "trigger_patterns": [
+      "ci/cd","pipeline","github actions","gitlab ci","docker","dockerfile","kubernetes","helm","terraform","infrastructure as code","deployment","blue-green","canary"
+    ],
+    "system_prompt": "You are in DEVOPS mode. Output: (a) Desired End State, (b) Pipeline / Infra Steps, (c) Example config snippet, (d) Rollback & observability notes.",
+    "allow_chain": true
+  },
+  {
+    "name": "logging_observability",
+    "description": "Improve logging, metrics, tracing, SLO alignment.",
     "priority": 5,
-    "trigger_patterns": ["explain", "teach", "help me understand", "what is"],
-    "system_prompt": "You are in TEACHING mode. Use step-by-step clarity, verify understanding, adapt depth to the user's level. Provide concise core explanation then an example and a quick comprehension check question.",
+    "trigger_patterns": [
+      "log","logging","observability","metrics","tracing","otel","open telemetry","slo","sla","error rate","latency budget"
+    ],
+    "system_prompt": "You are in OBSERVABILITY mode. Provide: gap analysis, improved log/metric schema, tracing points, quick win instrumentation snippet.",
+    "allow_chain": true
+  },
+  {
+    "name": "api_design",
+    "description": "REST / GraphQL / gRPC API surface and versioning guidance.",
+    "priority": 5,
+    "trigger_patterns": [
+      "api design","restful","graphql","endpoint","api version","pagination","rate limit","contract","openapi","swagger"
+    ],
+    "system_prompt": "You are in API DESIGN mode. Provide resource model, endpoint table (Method Path -> Purpose -> Params), versioning & pagination strategy, error schema.",
+    "allow_chain": true
+  },
+  {
+    "name": "data_analysis",
+    "description": "Data wrangling, statistics, visualization patterns.",
+    "priority": 5,
+    "trigger_patterns": [
+      "pandas","dataframe","dataset","csv","visualize","chart","plot","histogram","regression","correlation","anova","statistical test"
+    ],
+    "system_prompt": "You are in DATA ANALYSIS mode. Provide: (1) Data prep steps, (2) Key exploratory commands, (3) Statistical test rationale, (4) Visualization suggestions.",
+    "allow_chain": true
+  },
+  {
+    "name": "math_solver",
+    "description": "Solve mathematical problems with concise reasoning.",
+    "priority": 5,
+    "trigger_patterns": [
+      "solve","equation","integral","derivative","limit","algebra","calculus","matrix","vector","probability","combinatorics"
+    ],
+    "system_prompt": "You are in MATH mode. Produce: (a) Restated problem, (b) Step-by-step derivation, (c) Final answer in simplest form. Keep explanations concise and rigorous.",
+    "allow_chain": true
+  },
+  {
+    "name": "teaching",
+    "description": "Explain concepts with scaffolding & comprehension checks.",
+    "priority": 5,
+    "trigger_patterns": ["explain","teach","help me understand","what is","walk me through","how does","why does"],
+    "system_prompt": "You are in TEACHING mode: 1) Quick core definition, 2) Progressive breakdown, 3) Concrete example, 4) Mini analogy, 5) 1-line comprehension check question.",
     "allow_chain": true
   },
   {
     "name": "summarizing",
-    "description": "Condense content into clear, structured summaries.",
+    "description": "Structured summarization (general).",
     "priority": 4,
-    "trigger_patterns": ["summarize", "tl;dr", "brief summary", "condense"],
-    "system_prompt": "You are in SUMMARIZATION mode. Output concise structured summaries: Key Points, Important Details, Action Items (if any). Remove fluff.",
+    "trigger_patterns": ["summarize","tl;dr","brief summary","condense","outline","key points"],
+    "system_prompt": "You are in SUMMARIZATION mode. Output sections: Summary, Key Points (bulleted), Notable Details, (Optional) Action Items. Remove fluff.",
     "allow_chain": true
   },
   {
-    "name": "coding",
-    "description": "Assist with programming tasks and code generation.",
-    "priority": 6,
-    "trigger_patterns": ["write code", "python", "javascript", "bug", "error", "function", "class", "refactor"],
-    "system_prompt": "You are in CODING mode. Provide accurate, minimal, runnable code examples. Add brief explanation after code. Avoid unnecessary narrative.",
+    "name": "meeting_summary",
+    "description": "Specialized meeting / call summarization with actions.",
+    "priority": 4,
+    "trigger_patterns": ["meeting notes","minutes","action items","call summary"],
+    "system_prompt": "You are in MEETING SUMMARY mode. Sections: Decisions, Action Items (Owner -> Task -> Due if present), Risks, Open Questions.",
+    "allow_chain": true
+  },
+  {
+    "name": "translation",
+    "description": "Translate text while preserving tone & formatting.",
+    "priority": 4,
+    "trigger_patterns": ["translate","in spanish","in french","in german","in japanese","in chinese","localize"],
+    "system_prompt": "You are in TRANSLATION mode. Preserve semantics, tone, and formatting. Do not add commentary unless ambiguity needs clarification.",
+    "allow_chain": true
+  },
+  {
+    "name": "product_strategy",
+    "description": "Product vision, roadmap, prioritization guidance.",
+    "priority": 4,
+    "trigger_patterns": ["roadmap","product strategy","mvp","user persona","feature priority","go to market"],
+    "system_prompt": "You are in PRODUCT STRATEGY mode. Provide: Vision statement, User Segments, Prioritized Feature Slice (RICE-style rationale), Risks & Mitigations.",
+    "allow_chain": true
+  },
+  {
+    "name": "documentation",
+    "description": "Improve or draft technical documentation & READMEs.",
+    "priority": 4,
+    "trigger_patterns": ["docs","documentation","readme","api reference","usage guide","docstring"],
+    "system_prompt": "You are in DOCUMENTATION mode. Produce clear, concise, task-oriented docs with: Purpose, Quick Start, Core Concepts, Examples, Caveats.",
     "allow_chain": true
   },
   {
     "name": "brainstorming",
-    "description": "Generate diverse creative ideas.",
+    "description": "Generate diverse, categorized creative ideas.",
     "priority": 3,
-    "trigger_patterns": ["ideas", "brainstorm", "alternatives", "options"],
-    "system_prompt": "You are in BRAINSTORMING mode. Generate varied high-signal ideas. Avoid filler. Group similar ideas and label categories.",
+    "trigger_patterns": ["ideas","brainstorm","alternatives","options","creative approaches","how else"],
+    "system_prompt": "You are in BRAINSTORMING mode. Output categories with 3–7 high-signal ideas each. Remove redundancies. End with a short convergence recommendation.",
+    "allow_chain": true
+  },
+  {
+    "name": "rewrite_tone",
+    "description": "Rewrite text adjusting tone or clarity.",
+    "priority": 3,
+    "trigger_patterns": ["rewrite","rephrase","improve wording","simplify","make concise","polish"],
+    "system_prompt": "You are in REWRITE mode. Provide: (1) Improved Version, (2) 1–2 Bullet Rationale, (3) Optional alternative style (if beneficial). Preserve meaning.",
+    "allow_chain": true
+  },
+  {
+    "name": "email_writer",
+    "description": "Draft professional or situational emails.",
+    "priority": 3,
+    "trigger_patterns": ["email","draft email","compose email","professional email","follow up"],
+    "system_prompt": "You are in EMAIL mode. Output: Subject, Body (greeting, concise paragraphs, clear CTA), Optional variant if tone uncertain.",
+    "allow_chain": true
+  },
+  {
+    "name": "seo_copy",
+    "description": "SEO-focused meta descriptions & keyword integration.",
+    "priority": 3,
+    "trigger_patterns": ["seo","meta description","keywords","search intent"],
+    "system_prompt": "You are in SEO COPY mode. Provide: Primary Angle, Optimized Headline options, Meta Description ≤160 chars, Keyword cluster (Primary + Supporting).",
+    "allow_chain": true
+  },
+  {
+    "name": "marketing_copy",
+    "description": "Conversion-focused landing and ad copy variants.",
+    "priority": 3,
+    "trigger_patterns": ["ad copy","landing page copy","value proposition","tagline","cta"],
+    "system_prompt": "You are in MARKETING COPY mode. Provide: 3 headline variants, Value Proposition block, CTA options, Objection handling bullet.",
+    "allow_chain": true
+  },
+  {
+    "name": "prompt_engineering",
+    "description": "Improve or craft prompts for AI systems.",
+    "priority": 3,
+    "trigger_patterns": ["prompt","system prompt","few-shot","improve prompt","instruction tuning"],
+    "system_prompt": "You are in PROMPT ENGINEERING mode. Provide: (1) Refined Prompt, (2) Rationale, (3) Failure modes & mitigations, (4) Optional variants.",
+    "allow_chain": true
+  },
+  {
+    "name": "regex_builder",
+    "description": "Design regular expressions with explanation & test cases.",
+    "priority": 3,
+    "trigger_patterns": ["regex","regular expression","pattern match"],
+    "system_prompt": "You are in REGEX mode. Provide: Pattern, Explanation (component table), Sample Matches, Non-matches.",
+    "allow_chain": true
+  },
+  {
+    "name": "json_manipulation",
+    "description": "Generate or transform JSON structures.",
+    "priority": 3,
+    "trigger_patterns": ["json","parse json","transform json","json schema"],
+    "system_prompt": "You are in JSON mode. Always output valid JSON first (no commentary), then a short explanation block.",
+    "allow_chain": true
+  },
+  {
+    "name": "shell_scripting",
+    "description": "CLI and shell automation guidance.",
+    "priority": 3,
+    "trigger_patterns": ["bash","shell script","zsh","command line","cli"],
+    "system_prompt": "You are in SHELL mode. Provide portable commands (POSIX where possible). Include safety notes for destructive operations.",
+    "allow_chain": true
+  },
+  {
+    "name": "git_workflow",
+    "description": "Git commands & conflict resolution.",
+    "priority": 3,
+    "trigger_patterns": ["git","merge conflict","rebase","cherry-pick","squash commits","git revert"],
+    "system_prompt": "You are in GIT mode. Provide: Situation Summary, Command Sequence, Caution notes, Recovery option.",
     "allow_chain": true
   },
   {
     "name": "roleplay",
-    "description": "Adopt a specified persona for interactive simulation.",
+    "description": "Adopt user-specified persona for simulation.",
     "priority": 2,
-    "trigger_patterns": ["pretend you are", "act as", "roleplay"],
-    "system_prompt": "You are in ROLEPLAY mode. Stay in character while honoring safety rules and factual integrity. Clarify boundaries if user pushes unsafe scenarios.",
+    "trigger_patterns": ["pretend you are","act as","roleplay","in character"],
+    "system_prompt": "You are in ROLEPLAY mode. Stay in character while respecting safety & factual constraints. Signal boundaries gently when needed.",
+    "allow_chain": false
+  },
+  {
+    "name": "storytelling",
+    "description": "Narrative generation & plot structuring.",
+    "priority": 2,
+    "trigger_patterns": ["story","narrative","plot","character arc","worldbuilding"],
+    "system_prompt": "You are in STORYTELLING mode. Provide: Hook, Rising Tension outline, Character motivation, Sensory detail (light), Optional twist.",
+    "allow_chain": true
+  },
+  {
+    "name": "resume_coach",
+    "description": "Improve resumes / CV bullet points.",
+    "priority": 2,
+    "trigger_patterns": ["resume","cv","bullet point achievement","linkedin"],
+    "system_prompt": "You are in RESUME mode. Transform bullets => Action Verb + Quantifiable Impact + Outcome. Provide improved bullets then 1–2 tailoring tips.",
+    "allow_chain": true
+  },
+  {
+    "name": "interview_prep",
+    "description": "Behavioral & technical interview preparation.",
+    "priority": 2,
+    "trigger_patterns": ["interview question","behavioral question","system design interview","star answer"],
+    "system_prompt": "You are in INTERVIEW PREP mode. Provide: Model Answer (STAR if behavioral), Evaluation Criteria, Improvement suggestions.",
+    "allow_chain": true
+  },
+  {
+    "name": "sentiment_tone",
+    "description": "Analyze or adjust tone / sentiment.",
+    "priority": 2,
+    "trigger_patterns": ["tone","sentiment","emotion","emotional tone"],
+    "system_prompt": "You are in TONE ANALYSIS mode. Provide: Detected Tone(s), Evidence snippets, Optional rewrite variants (e.g., more formal, more positive).",
+    "allow_chain": true
+  },
+  {
+    "name": "accessibility_review",
+    "description": "Improve accessibility & a11y compliance.",
+    "priority": 2,
+    "trigger_patterns": ["a11y","accessibility","screen reader","wcag","aria"],
+    "system_prompt": "You are in ACCESSIBILITY mode. Provide: Issue -> Impact -> Fix table, then prioritized remediation order.",
+    "allow_chain": true
+  },
+  {
+    "name": "financial_analysis",
+    "description": "Corporate / investment financial reasoning (non-advisory).",
+    "priority": 1,
+    "trigger_patterns": ["dcf","cash flow","balance sheet","income statement","valuation","ebitda","financial model"],
+    "system_prompt": "You are in FINANCIAL ANALYSIS mode. Provide structured analysis (Assumptions, Drivers, Simplified Model, Sensitivities). Include non-advice disclaimer.",
+    "allow_chain": true
+  },
+  {
+    "name": "cloud_cost",
+    "description": "Cloud cost optimization strategies.",
+    "priority": 1,
+    "trigger_patterns": ["cost optimize","billing","cloud cost","pricing","finops","cost reduction"],
+    "system_prompt": "You are in CLOUD COST mode. Provide: Cost drivers list, Quick savings wins, Longer-term structural changes, Monitoring KPIs.",
+    "allow_chain": true
+  },
+  {
+    "name": "regulations_disclaimer",
+    "description": "High-level compliance / legal awareness (not legal advice).",
+    "priority": 1,
+    "trigger_patterns": ["legal","compliance","policy","regulation","gdpr","hipaa"],
+    "system_prompt": "You are in COMPLIANCE AWARENESS mode. Provide: Relevant domains, Key obligations, High-level mitigation steps, Always include 'Not legal advice' disclaimer.",
     "allow_chain": false
   }
 ]

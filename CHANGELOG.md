@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-08-11 - **SKILL ENGINE EXPANSION** 🧠✨
+
+### ✨ Added
+- 30+ new skills (coding, debugging, performance, security_review, database, testing, architecture, devops, observability, api_design, data_analysis, math_solver, meeting_summary, translation, product_strategy, documentation, rewrite_tone, email_writer, seo_copy, marketing_copy, prompt_engineering, regex_builder, json_manipulation, shell_scripting, git_workflow, storytelling, resume_coach, interview_prep, sentiment_tone, accessibility_review, financial_analysis, cloud_cost, regulations_disclaimer).
+- Rich metadata per skill: category, tags, cooldown_seconds, negative_patterns support.
+- Skill debug mode via `SKILL_DEBUG=1` for transparent scoring & reasons.
+
+### 🔁 Changed
+- Matching algorithm now supports: precompiled patterns, negative pattern subtraction, cooldown gating, environment-variable overrides (`SKILL_MIN_SCORE`, `SKILL_MAX_CHAIN`).
+- Injection header enriched: `[SKILL:NAME|cat=category|prio=N]` for clearer downstream inspection.
+
+### 🛠️ Technical
+- Added `detect_with_explanations()` returning (skill, score, reasons) tuples for potential UI/telemetry surfacing.
+- Pattern compiler auto-detects regex (meta characters or `re:` prefix) else falls back to escaped literal substring search.
+- Cooldown map `_last_applied` prevents repeated injection spam for rapid multi-turn sequences.
+
+### 🧪 Impact
+- Higher precision intent capture reduces generic system prompt usage.
+- Negative patterns + cooldown lower accidental over-injection & noise.
+- Structured headers prepare groundwork for analytics or adaptive weighting.
+
+### ⚙️ Config
+- Optional envs: `SKILL_MIN_SCORE`, `SKILL_MAX_CHAIN`, `SKILL_DEBUG`.
+- Existing: `SKILL_AUTO_RELOAD_DISABLED` still respected (bypass stat calls on constrained deployments).
+
+### ✅ Verification
+- Local load: skills file parses successfully (JSON valid) and logs count.
+- Manual probes: sample inputs trigger expected skill combinations; cooldown prevents immediate duplicate application.
+
+### ⚠️ Notes
+- Future iteration: add lightweight embedding similarity fallback for messages lacking explicit keyword triggers.
+- Consider persistence of application stats for adaptive pruning/tuning.
+
+
 ## [1.2.2] - 2025-08-11 - **PERF & RELIABILITY PATCH** 🚀
 
 ### 🔁 Changed
