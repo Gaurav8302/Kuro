@@ -35,29 +35,24 @@ _collection = None
 # Context variable for per-request tracing
 _current_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_request_id", default=None)
 
-def init_motor(uri: str | None = None, db_name: str | None = None):
+async def init_motor(uri: str | None = None, db_name: str | None = None):
+    """Initialize Motor client inside the running event loop (post-fork)."""
     global _mongo_client, _db, _collection
-    uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-    db_name = db_name or os.getenv("MONGO_DB", "chatbot_db")
-    _mongo_client = AsyncIOMotorClient(uri)
-    _db = _mongo_client[db_name]
-    _collection = _db["llm_calls"]
-    async def _ensure():  # type: ignore
+    try:
+        uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+        db_name = db_name or os.getenv("MONGO_DB", "chatbot_db")
+        _mongo_client = AsyncIOMotorClient(uri)
+        _db = _mongo_client[db_name]
+        _collection = _db["llm_calls"]
         try:
             await _collection.create_index("request_id", unique=True)
             await _collection.create_index([("ts", -1)])
             await _collection.create_index([("user_id", 1), ("ts", -1)])
         except Exception:
             pass
-    try:
-        import asyncio
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_ensure())
-        else:
-            loop.run_until_complete(_ensure())
-    except Exception:
-        pass
+        _logger.info("observability_motor_initialized")
+    except Exception as e:
+        _logger.warning("observability_motor_init_failed", error=str(e))
 
 async def upsert_llm_call(request_id: str, update: Dict[str, Any]):
     # Avoid truthiness check; PyMongo/Motor collections forbid __bool__.
@@ -140,7 +135,10 @@ class InstrumentationMiddleware:
                 pass
 
 def register_instrumentation(app):
-    init_motor()
+    # Schedule async init on startup
+    @app.on_event("startup")
+    async def _obs_init():  # type: ignore
+        await init_motor()
     app.middleware("http")(InstrumentationMiddleware(app))
 
 def get_current_request_id() -> str | None:
