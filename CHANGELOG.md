@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2025-08-10 - **ONBOARDING & UX ENHANCEMENTS** 🚀
 
+## [1.2.1] - 2025-08-11 - **HOTFIX: Deployment Dependency Resolution** 🐛
+
+### 🔧 Fixed
+- Resolved Render deployment failure caused by incompatible `pymongo==4.13.2` with `motor==3.6.0` (requires `<4.10`). Downgraded to `pymongo==4.9.2` in both `backend/requirements.txt` and `backend/requirements-minimal.txt`.
+- Ensured consistency across standard and minimal requirement sets to prevent future resolution divergence.
+
+### 📝 Notes
+- No code changes; pure dependency alignment. Safe patch release.
+- Monitor next deployment to confirm successful environment build.
+
 ## [1.2.0] - 2025-08-11 - **ORCHESTRATION, MEMORY COMPRESSION & OPS** ⚙️🧠
 
 ### ✨ Added
