@@ -145,8 +145,30 @@ class ChatDatabase:
         except PyMongoError as e:
             logger.error(f"Error creating session title: {str(e)}")
 
-    def create_new_session(self, user_id: str) -> str:
+    def create_new_session(self, user_id: str, force_new: bool = False) -> str:
+        """Create a new chat session for a user.
+
+        If the user already has an existing empty session (no messages yet)
+        this will return that session instead of creating a new one to avoid
+        piling up multiple empty sessions. Pass force_new=True to always
+        create a brand new session.
+        """
         try:
+            if not force_new:
+                # Find the most recently created placeholder session
+                existing = self.session_titles.find_one(
+                    {"user_id": user_id, "title": "New Chat"},
+                    sort=[("created_at", DESCENDING)]
+                )
+                if existing:
+                    # Check if it has any messages
+                    has_message = self.chat_collection.find_one({"session_id": existing["session_id"]})
+                    if not has_message:
+                        logger.info(
+                            f"Reusing existing empty session {existing['session_id']} for user {user_id}"  # noqa: E501
+                        )
+                        return existing["session_id"]
+
             session_id = f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             title_document = {
                 "session_id": session_id,
@@ -307,8 +329,8 @@ def rename_session_title(session_id: str, new_title: str) -> bool:
 def get_chat_history_for_session(session_id: str) -> List[Dict[str, Any]]:
     return chat_db.get_chat_history_for_session(session_id)
 
-def create_new_session(user_id: str) -> str:
-    return chat_db.create_new_session(user_id)
+def create_new_session(user_id: str, force_new: bool = False) -> str:
+    return chat_db.create_new_session(user_id, force_new=force_new)
 
 def get_database_stats() -> Dict[str, Any]:
     return chat_db.get_database_stats()

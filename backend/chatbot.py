@@ -185,12 +185,15 @@ async def security_headers_middleware(request: Request, call_next):
 from fastapi import Query
 from memory.chat_database import create_new_session
 @app.post("/session/create", tags=["Sessions"])
-async def create_session(user_id: str = Query(...)):
+async def create_session(
+    user_id: str = Query(...),
+    force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists")
+):
     if not user_id:
         raise HTTPException(status_code=400, detail="Missing user_id")
-    session_id = create_new_session(user_id)
+    session_id = create_new_session(user_id, force_new=force_new)
     if session_id:
-        return {"status": "success", "session_id": session_id}
+        return {"status": "success", "session_id": session_id, "reused": not force_new}
     else:
         raise HTTPException(status_code=500, detail="Failed to create session")
 
