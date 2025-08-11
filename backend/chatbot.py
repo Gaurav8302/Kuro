@@ -218,10 +218,26 @@ class RenameRequest(BaseModel):
     new_title: str = Field(..., description="New title for the session")
 
 # Health check endpoints
+@app.head("/")
+async def root_head():
+    return Response(status_code=200)
+
 @app.get("/", tags=["Health"])
 async def root():
-    """Root endpoint"""
     return {"message": "AI Chatbot API is running", "status": "healthy"}
+
+@app.get("/healthz", tags=["Health"])
+async def healthz():
+    return {"status": "ok"}
+
+@app.get("/live", tags=["Health"])
+async def live():
+    return {"live": True}
+
+@app.get("/ready", tags=["Health"])
+async def ready():
+    # Extend with dependency readiness checks if needed
+    return {"ready": True}
 
 @app.get("/ping", tags=["Health"])
 async def ping():

@@ -5,7 +5,7 @@ All notable changes to Kuro AI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2025-08-10 - **ONBOARDING & UX ENHANCEMENTS** 🚀
+## [Unreleased]
 
 ## [1.2.1] - 2025-08-11 - **HOTFIX: Deployment Dependency Resolution** 🐛
 
@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Admin API hardening (API key / RBAC, rate limiting) & audit event stream.
 - Advanced summarization validation (consistency / divergence detection).
 
----
+## [1.1.0] - 2025-08-10 - **ONBOARDING & UX ENHANCEMENTS** 🚀
 
 ### ✨ Added
 - **First-Time Onboarding Animation**: Full-screen "KuroIntro" branded animation shown only once per authenticated user after initial sign-in.
@@ -84,13 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added failsafes ensuring loading / typing indicators reset if stuck.
 - Idempotent intro persistence prevents duplicate writes on refresh.
 
-### ⚠️ Potential Follow-Ups (Not Included in 1.1.0)
+### ⚠️ Potential Follow-Ups
 - Replay intro from a user settings panel.
 - Telemetry around onboarding completion.
 - Progressive enhancement: reduced-motion variant for accessibility.
 - Multi-tenant customization (theming / phrase injection per org).
-
----
 
 ## [1.0.0] - 2025-01-27 - **STABLE BASELINE RELEASE** 🎉
 

@@ -9,6 +9,9 @@ from typing import Callable, Awaitable, Dict, Any
 import contextvars
 from fastapi import Request, Response
 
+OBS_DISABLED = os.getenv("OBS_DISABLED") == "1"
+HEALTH_PATHS = {"/healthz", "/live", "/ready", "/metrics"}
+
 try:
     import structlog  # type: ignore
     _logger = structlog.get_logger()
@@ -71,7 +74,7 @@ class InstrumentationMiddleware:
         self.app = app
 
     async def __call__(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
-        if request.url.path.startswith("/metrics"):
+        if OBS_DISABLED or request.method == "HEAD" or request.url.path in HEALTH_PATHS:
             return await call_next(request)
         start = time.time()
         request_id = str(uuid.uuid4())
