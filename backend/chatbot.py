@@ -70,6 +70,11 @@ app = FastAPI(
     redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
 
+# Fast startup signal
+@app.on_event("startup")
+async def _startup_log():
+    logger.info("🚀 FastAPI startup complete - readiness signal")
+
 # --- Observability / Instrumentation Registration (Step 1+) ---
 try:
     from observability.instrumentation_middleware import register_instrumentation
@@ -232,6 +237,11 @@ async def ping():
         "uptime_check": "render_auto_warm"
     }
 
+@app.get("/healthz", tags=["Health"])
+async def healthz():
+    """Lightweight health probe endpoint (no external calls)."""
+    return {"status": "ok"}
+
 @app.get("/api-status", tags=["Health"])
 async def api_status():
     """
@@ -239,7 +249,11 @@ async def api_status():
     Frontend can use this to show appropriate messages.
     """
     try:
-        from backend.utils.groq_client import GroqClient
+        # Import adjusted to work whether run as module or script
+        try:
+            from backend.utils.groq_client import GroqClient  # type: ignore
+        except ImportError:
+            from utils.groq_client import GroqClient  # type: ignore
         
         # Test with a minimal request
         groq_client = GroqClient()
