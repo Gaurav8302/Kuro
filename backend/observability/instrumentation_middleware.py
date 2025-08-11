@@ -60,7 +60,8 @@ def init_motor(uri: str | None = None, db_name: str | None = None):
         pass
 
 async def upsert_llm_call(request_id: str, update: Dict[str, Any]):
-    if not _collection:
+    # Avoid truthiness check; PyMongo/Motor collections forbid __bool__.
+    if _collection is None:
         return
     try:
         await _collection.update_one({"request_id": request_id}, {"$set": update}, upsert=True)
@@ -130,6 +131,7 @@ class InstrumentationMiddleware:
                 observe_request(route=request.url.path, model=None, success=False, latency_seconds=total_latency_ms/1000.0, prompt_tokens=base_doc.get("prompt_token_estimate"))
             except Exception:
                 pass
+            # Re-raise to let FastAPI error handlers work.
             raise
         finally:
             try:
