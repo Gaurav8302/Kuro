@@ -25,10 +25,21 @@ class RankingWeights:
 
 
 def _parse_timestamp(ts: Optional[str]) -> Optional[datetime]:
+    """Parse ISO timestamp string into a timezone-aware UTC datetime.
+
+    Ensures downstream arithmetic never mixes naive and aware datetimes.
+    Returns None on parse failure.
+    """
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            # Normalize to UTC without changing absolute time
+            dt = dt.astimezone(timezone.utc)
+        return dt
     except Exception:  # pragma: no cover - defensive
         return None
 

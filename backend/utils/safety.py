@@ -64,8 +64,11 @@ class KuroSafetyValidator:
                 r'\b(nazi|terrorist|extremist)\b'
             ],
             'personal': [
-                r'\b(ssn|social security|credit card|password|bank account)\b',
-                r'\b(home address|phone number|email password)\b'
+                # Highly sensitive direct identifiers (keep strict)
+                r'\b(ssn|social security|credit card|bank account)\b',
+                # Refine password pattern to reduce false positives in code examples
+                r'\b(password\s*[:=]\s*["\']?[A-Za-z0-9!@#$%^&*]{6,}|email password)\b',
+                r'\b(home address|phone number)\b'
             ]
         }
         
