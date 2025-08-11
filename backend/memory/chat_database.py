@@ -260,8 +260,29 @@ class ChatDatabase:
 
     def rename_session_title(self, session_id: str, new_title: str) -> bool:
         try:
-            result = self.session_titles.update_one({"session_id": session_id}, {"$set": {"title": new_title[:100]}})
-            return result.modified_count > 0
+            # Fetch existing to handle no-op renames gracefully
+            existing = self.session_titles.find_one({"session_id": session_id})
+            if not existing:
+                return False
+
+            # Normalise incoming title
+            clean_title = (new_title or "").strip()[:100]
+            if not clean_title:
+                # Reject empty titles
+                logger.warning(f"Rejecting empty title rename for session {session_id}")
+                return False
+
+            # If the title is identical (case sensitive) treat as success (no-op)
+            if existing.get("title") == clean_title:
+                logger.debug(f"No-op rename (same title) for session {session_id}")
+                return True
+
+            result = self.session_titles.update_one(
+                {"session_id": session_id},
+                {"$set": {"title": clean_title, "last_renamed_at": datetime.utcnow()}}
+            )
+            # Success if we matched a document even if modified_count is 0 (already handled)
+            return result.matched_count > 0
         except PyMongoError as e:
             logger.error(f"Database error renaming session: {str(e)}")
             return False
