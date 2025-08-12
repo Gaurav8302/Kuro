@@ -44,8 +44,8 @@ class DatabaseConnection:
         return cls._instance
     
     def __init__(self):
-        if self._client is None:
-            self._connect()
+        # Do not connect on import; connect lazily on first use
+        pass
     
     def _connect(self):
         """Establish connection to MongoDB"""
@@ -63,6 +63,7 @@ class DatabaseConnection:
             
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
             logger.error(f"❌ Failed to connect to MongoDB: {str(e)}")
+            # Defer raising to actual DB usage to avoid startup crash
             raise ConnectionError(f"Database connection failed: {str(e)}")
         
         except Exception as e:
@@ -97,28 +98,40 @@ class DatabaseConnection:
             self._client = None
             logger.info("Database connection closed")
 
-# Create a global database connection instance
-db_connection = DatabaseConnection()
+_db_singleton: DatabaseConnection | None = None
 
-# Export the client and database for easy importing
-client = db_connection.client
-database = db_connection.database
+def get_db_connection() -> DatabaseConnection:
+    global _db_singleton
+    if _db_singleton is None:
+        _db_singleton = DatabaseConnection()
+    return _db_singleton
 
-# Collection shortcuts for common use
-chat_collection = database["chat_sessions"]
-session_titles_collection = database["session_titles"]
-users_collection = database["users"]
-# Progressive summarization collection
-conversation_summaries_collection = database["conversation_summaries"]
+def get_client():
+    return get_db_connection().client
 
 def get_database():
-    """
-    Get database instance
-    
-    Returns:
-        Database: MongoDB database instance
-    """
-    return database
+    return get_db_connection().database
+
+class LazyCollection:
+    """Proxy that fetches the real collection on first attribute access."""
+    def __init__(self, name: str):
+        self._name = name
+    def _col(self):
+        return get_database()[self._name]
+    def __getattr__(self, item):
+        return getattr(self._col(), item)
+    def __repr__(self):
+        return f"<LazyCollection name={self._name}>"
+
+# Lazy collection proxies to avoid connecting at import time
+chat_collection = LazyCollection("chat_sessions")
+session_titles_collection = LazyCollection("session_titles")
+users_collection = LazyCollection("users")
+conversation_summaries_collection = LazyCollection("conversation_summaries")
+
+def get_database_legacy():
+    """Legacy alias; prefer get_database()."""
+    return get_database()
 
 def get_collection(collection_name: str):
     """
@@ -130,7 +143,7 @@ def get_collection(collection_name: str):
     Returns:
         Collection: MongoDB collection instance
     """
-    return database[collection_name]
+    return get_database()[collection_name]
 
 def check_database_health():
     """
@@ -141,19 +154,18 @@ def check_database_health():
     """
     try:
         # Test connection
-        client.admin.command('ping')
-        
+        get_client().admin.command('ping')
+
         # Get database stats
-        stats = database.command("dbstats")
-        
+        stats = get_database().command("dbstats")
+
         return {
             "status": "healthy",
             "connected": True,
             "database": DATABASE_NAME,
-            "collections": len(database.list_collection_names()),
+            "collections": len(get_database().list_collection_names()),
             "size_mb": round(stats.get("dataSize", 0) / (1024 * 1024), 2)
         }
-        
     except Exception as e:
         logger.error(f"Database health check failed: {str(e)}")
         return {
