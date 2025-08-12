@@ -29,13 +29,20 @@ export default function WorkspaceV2() {
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const chatManagerRef = useRef(new ChatSessionManager());
 
+  // Debug message
+  useEffect(() => {
+    console.log('🏗️ WorkspaceV2 component mounted');
+  }, []);
+
   // Handle chat item drag start
   const handleDragStart = useCallback((chatId: string) => {
+    console.log('🎯 Setting dragged chat ID:', chatId);
     setDraggedChatId(chatId);
   }, []);
 
   // Handle chat item drag end
   const handleDragEnd = useCallback(() => {
+    console.log('🛑 Clearing dragged chat ID');
     setDraggedChatId(null);
   }, []);
 
@@ -249,7 +256,9 @@ export default function WorkspaceV2() {
           initial={{ x: -300 }}
           animate={{ x: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="w-80 bg-card border-r flex flex-col"
+          className={`w-80 bg-card border-r flex flex-col ${
+            draggedChatId ? 'opacity-75 border-primary border-2' : ''
+          }`}
         >
           {/* Sidebar Header */}
           <div className="p-4 border-b">
@@ -273,6 +282,8 @@ export default function WorkspaceV2() {
                 lastMessage={chat.lastMessage}
                 timestamp={Date.parse(chat.timestamp) || Date.now()}
                 isActive={openChats.some(c => c.id === chat.id)}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
               />
             ))}
           </div>
@@ -283,29 +294,39 @@ export default function WorkspaceV2() {
               <MessageSquare className="w-4 h-4" />
               <span>{openChats.length} chat{openChats.length !== 1 ? 's' : ''} open</span>
             </div>
+            {draggedChatId && (
+              <div className="mb-2 text-primary font-medium">
+                🎯 Dragging: {mockChats.find(c => c.id === draggedChatId)?.title}
+              </div>
+            )}
             <p>Drag chats to workspace areas to start conversations</p>
           </div>
         </motion.div>
 
         {/* Main Workspace */}
-        <div className="flex-1 relative" ref={workspaceRef}>
+        <div className={`flex-1 relative ${
+          draggedChatId ? 'bg-primary/5 border-2 border-dashed border-primary' : ''
+        }`} ref={workspaceRef}>
           {/* Drop Zones */}
           <WorkspaceDropZone
             target="left"
-            active={!!draggedChatId}
+            active={true}
             onDropChat={handleDrop}
+            className="inset-y-0 left-0 w-1/2"
           />
           
           <WorkspaceDropZone
             target="right"
-            active={!!draggedChatId}
+            active={true}
             onDropChat={handleDrop}
+            className="inset-y-0 right-0 w-1/2"
           />
           
           <WorkspaceDropZone
             target="floating"
-            active={!!draggedChatId}
+            active={true}
             onDropChat={handleDrop}
+            className="inset-0"
           />
 
           {/* Chat Windows for Left/Right */}

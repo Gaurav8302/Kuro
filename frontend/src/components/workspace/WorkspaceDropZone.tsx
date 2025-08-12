@@ -20,11 +20,17 @@ export default function WorkspaceDropZone({
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
       accept: DRAG_TYPE_CHAT,
-      drop: (item: { chatId: string }) => onDropChat(item.chatId, target),
+      drop: (item: { chatId: string }) => {
+        console.log('📥 Drop received on', target, 'for chat:', item.chatId);
+        onDropChat(item.chatId, target);
+      },
       collect: (monitor) => ({
         isOver: monitor.isOver({ shallow: true }),
         canDrop: monitor.canDrop()
-      })
+      }),
+      hover: (item: { chatId: string }) => {
+        console.log('👆 Hovering over', target, 'with chat:', item.chatId);
+      }
     }),
     [target, onDropChat]
   );
@@ -32,7 +38,10 @@ export default function WorkspaceDropZone({
   const isActive = isOver && canDrop;
 
   return (
-    <div ref={drop} className={`absolute ${className}`}>
+    <div 
+      ref={drop} 
+      className={`absolute z-10 ${className}`}
+    >
       <AnimatePresence>
         {isActive && (
           <motion.div
@@ -68,6 +77,7 @@ export default function WorkspaceDropZone({
                 {target === 'full' && 'Drop to open fullscreen'}
                 {target === 'left' && 'Drop to open on left'}
                 {target === 'right' && 'Drop to open on right'}
+                {target === 'floating' && 'Drop to create floating window'}
               </div>
             </motion.div>
           </motion.div>

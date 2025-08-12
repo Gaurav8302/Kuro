@@ -11,6 +11,8 @@ export type SidebarChatItemProps = {
   lastMessage?: string;
   timestamp?: number;
   isActive?: boolean;
+  onDragStart?: (chatId: string) => void;
+  onDragEnd?: () => void;
 };
 
 export const DRAG_TYPE_CHAT = 'CHAT_ITEM';
@@ -56,7 +58,9 @@ export default function SidebarChatItem({
   onClick, 
   lastMessage,
   timestamp,
-  isActive 
+  isActive,
+  onDragStart,
+  onDragEnd,
 }: SidebarChatItemProps) {
   const ref = useRef<HTMLDivElement>(null);
   
@@ -65,8 +69,16 @@ export default function SidebarChatItem({
     item: { chatId, title },
     collect: (monitor) => ({ 
       isDragging: monitor.isDragging() 
-    })
-  }), [chatId, title]);
+    }),
+    begin: () => {
+      console.log('🚀 Drag started for chat:', chatId, title);
+      onDragStart?.(chatId);
+    },
+    end: (item, monitor) => {
+      console.log('✅ Drag ended for chat:', item?.chatId, 'dropped:', monitor.didDrop());
+      onDragEnd?.();
+    }
+  }), [chatId, title, onDragStart, onDragEnd]);
 
   // Use empty image for drag preview - we'll use our custom one
   useEffect(() => {
@@ -102,23 +114,21 @@ export default function SidebarChatItem({
     <>
       <DragPreview />
       <motion.div
-        ref={(node) => {
-          ref.current = node;
-          drag(node);
-        }}
+        ref={drag}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         tabIndex={0}
         role="button"
         aria-label={`Chat: ${title}. ${lastMessage ? `Last message: ${lastMessage}` : ''}`}
+        draggable={true}
         className={`
-          group relative px-3 py-3 rounded-lg cursor-pointer select-none
+          group relative px-3 py-3 rounded-lg cursor-grab active:cursor-grabbing select-none
           border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary
           ${isActive 
             ? 'bg-primary/10 border-primary/20' 
             : 'bg-card border-border hover:bg-accent hover:border-accent-foreground/20'
           }
-          ${isDragging ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}
+          ${isDragging ? 'opacity-50 scale-95 cursor-grabbing' : 'opacity-100 scale-100'}
         `}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
