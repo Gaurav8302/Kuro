@@ -66,6 +66,13 @@ export default function SidebarChatItem({
   const [clickCount, setClickCount] = useState(0);
   const [isDoubleTapReady, setIsDoubleTapReady] = useState(false);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+    const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints);
+    setIsTouchDevice(!!coarse || (touchCap ?? 0) > 0);
+  }, []);
   
   const [{ isDragging }, drag, preview] = useDrag(() => ({
     type: DRAG_TYPE_CHAT,
@@ -74,20 +81,18 @@ export default function SidebarChatItem({
       isDragging: monitor.isDragging() 
     }),
     begin: (monitor) => {
-      console.log('🚀 DRAG BEGIN - Chat ID:', chatId, 'Title:', title);
       onDragStart?.(chatId);
       return { chatId, title };
     },
     end: (item, monitor) => {
-      console.log('✅ DRAG END - Chat:', item?.chatId, 'Was dropped:', monitor.didDrop());
       onDragEnd?.();
       setIsDoubleTapReady(false); // Reset double tap state
     },
     canDrag: () => {
-      console.log('🤔 CAN DRAG check for:', chatId, 'Double tap ready:', isDoubleTapReady);
-      return isDoubleTapReady; // Only allow drag after double tap
+      // On desktop allow immediate drag; on touch require double tap
+      return isTouchDevice ? isDoubleTapReady : true;
     }
-  }), [chatId, title, onDragStart, onDragEnd, isDoubleTapReady]);
+  }), [chatId, title, onDragStart, onDragEnd, isDoubleTapReady, isTouchDevice]);
 
   // Connect drag to the ref
   useEffect(() => {
@@ -109,21 +114,17 @@ export default function SidebarChatItem({
   }, [preview]);
 
   const handleClick = () => {
-    console.log('🖱️ CLICK detected for chat:', chatId, 'Click count:', clickCount + 1);
-    
     if (!isDragging) {
       setClickCount(prev => prev + 1);
       
       if (clickCount === 0) {
         // First click - start timer for double click detection
         clickTimeoutRef.current = setTimeout(() => {
-          console.log('⏰ Single click timeout - opening chat');
           onClick?.(); // Single click opens the chat
           setClickCount(0);
         }, 300); // 300ms window for double click
       } else if (clickCount === 1) {
         // Second click within timeout - this is a double click
-        console.log('🎯 Double click detected - enabling drag mode');
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current);
         }
@@ -133,19 +134,13 @@ export default function SidebarChatItem({
         // Reset double tap ready state after 3 seconds if no drag occurs
         setTimeout(() => {
           setIsDoubleTapReady(false);
-          console.log('⏰ Double tap timeout - disabling drag mode');
         }, 3000);
       }
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    console.log('🖱️ MOUSE DOWN detected for chat:', chatId, 'Double tap ready:', isDoubleTapReady);
-  };
-
-  const handleMouseUp = (e: React.MouseEvent) => {
-    console.log('🖱️ MOUSE UP detected for chat:', chatId);
-  };
+  const handleMouseDown = (e: React.MouseEvent) => {};
+  const handleMouseUp = (e: React.MouseEvent) => {};
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {

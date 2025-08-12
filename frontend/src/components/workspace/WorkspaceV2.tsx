@@ -142,9 +142,9 @@ function WorkspaceInner() {
             )}
             <div className="text-xs space-y-1">
               <p>💡 <strong>How to use:</strong></p>
-              <p>• Single tap: Opens chat</p>
-              <p>• Double tap: Enables drag mode</p>
-              <p>• Then drag to workspace area</p>
+              <p>• Desktop: Click and drag a chat into the workspace</p>
+              <p>• Touch: Double-tap to enable drag, then drag into a zone</p>
+              <p>• Drop center for full, left/right for split, or anywhere for floating</p>
             </div>
           </div>
         </motion.div>
