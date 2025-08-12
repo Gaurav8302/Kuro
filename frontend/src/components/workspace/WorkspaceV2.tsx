@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Plus, Grid3X3, MessageSquare } from 'lucide-react';
@@ -9,9 +9,9 @@ import SidebarChatItem from './SidebarChatItem';
 import WorkspaceDropZone from './WorkspaceDropZone';
 import ChatWindow from './ChatWindow';
 import FloatingChat from './FloatingChat';
-import { ChatSessionManager } from '@/lib/ChatSessionManager';
-import type { DropTarget, ChatPosition, OpenChat, FloatingRect } from '@/types/workspace';
+import type { DropTarget } from '@/types/workspace';
 import { toast } from '@/hooks/use-toast';
+import { ChatWorkspaceProvider, useChatWorkspace } from '@/state/ChatWorkspaceContext';
 
 // Mock chat list - replace with real data from your API
 const mockChats = [
@@ -23,11 +23,10 @@ const mockChats = [
   { id: '6', title: 'UI/UX Feedback', lastMessage: 'The new design looks great!', timestamp: '1 day ago' },
 ];
 
-export default function WorkspaceV2() {
+function WorkspaceInner() {
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const [openChats, setOpenChats] = useState<OpenChat[]>([]);
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
-  const chatManagerRef = useRef(new ChatSessionManager());
+  const { state, dropChatTo, closeChat, sendMessage, setFloatingRect, closeWindow } = useChatWorkspace();
 
   // Debug message
   useEffect(() => {
@@ -50,203 +49,45 @@ export default function WorkspaceV2() {
   const handleDrop = useCallback(async (chatId: string, target: DropTarget) => {
     const chat = mockChats.find(c => c.id === chatId);
     if (!chat) return;
-
-    // Check if chat is already open
-    const existingChat = openChats.find(c => c.id === chatId);
-    if (existingChat) {
-      toast({
-        title: 'Chat Already Open',
-        description: `"${chat.title}" is already open in the workspace.`,
-      });
+    const bounds = workspaceRef.current?.getBoundingClientRect();
+    const res = dropChatTo(chatId, target, bounds);
+    if (!res.ok) {
+      if ('reason' in res && res.reason === 'limit') {
+        toast({ title: 'Limit reached', description: 'Max 2 chats can be open at once.' });
+      } else if ('reason' in res && res.reason === 'duplicate') {
+        toast({ title: 'Already there', description: 'That chat is already in that position.' });
+      }
       return;
     }
-
-    let position: ChatPosition;
-    let rect: FloatingRect | undefined;
-
-    if (target === 'floating') {
-      // Position floating window near center with slight offset
-      const workspaceRect = workspaceRef.current?.getBoundingClientRect();
-      if (workspaceRect) {
-        const openFloatingChats = openChats.filter(c => c.position === 'floating').length;
-        rect = {
-          x: Math.max(20, (workspaceRect.width - 400) / 2 + openFloatingChats * 30),
-          y: Math.max(20, (workspaceRect.height - 300) / 2 + openFloatingChats * 30),
-          width: 400,
-          height: 300,
-        };
-      } else {
-        rect = { x: 100, y: 100, width: 400, height: 300 };
-      }
-      position = 'floating';
-    } else {
-      position = target;
-      // If dropping on left/right and there's already a chat there, close it
-      const existingPositionChat = openChats.find(c => c.position === target);
-      if (existingPositionChat) {
-        handleCloseChat(existingPositionChat.id);
-      }
-    }
-
-    const newChat: OpenChat = {
-      id: chatId,
-      title: chat.title,
-      position,
-      rect,
-      messages: [
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: `Hello! I'm ready to help you with "${chat.title}". What would you like to discuss?`,
-          timestamp: new Date(),
-        }
-      ],
-      isLoading: false,
-    };
-
-    setOpenChats(prev => [...prev, newChat]);
-
-    // Start chat session
-    try {
-      const sessionId = chatManagerRef.current.openSession(chatId, `ws://localhost:8000/ws/${chatId}`);
-      
-      // Set up message handler
-      const unsubscribe = chatManagerRef.current.onMessage(sessionId, ({ type, payload }) => {
-        if (type === 'chunk' || type === 'done') {
-          setOpenChats(prev => 
-            prev.map(openChat => 
-              openChat.id === chatId 
-                ? { 
-                    ...openChat, 
-                    messages: [...openChat.messages, {
-                      id: Date.now().toString(),
-                      role: 'assistant',
-                      content: String(payload || ''),
-                      timestamp: new Date(),
-                    }],
-                    isLoading: false
-                  }
-                : openChat
-            )
-          );
-        } else if (type === 'error') {
-          console.error('Chat session error:', payload);
-          toast({
-            title: 'Connection Error',
-            description: 'Failed to connect to chat service. Please try again.',
-            variant: 'destructive',
-          });
-          setOpenChats(prev => 
-            prev.map(openChat => 
-              openChat.id === chatId ? { ...openChat, isLoading: false } : openChat
-            )
-          );
-        }
-      });
-
-      // Store the session ID and unsubscribe function
-      setOpenChats(prev => 
-        prev.map(openChat => 
-          openChat.id === chatId ? { ...openChat, sessionId } : openChat
-        )
-      );
-
-      toast({
-        title: 'Chat Opened',
-        description: `"${chat.title}" is now active in ${position} mode.`,
-      });
-
-    } catch (error) {
-      console.error('Failed to start chat session:', error);
-      toast({
-        title: 'Session Error',
-        description: 'Failed to start chat session. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  }, [openChats]);
+    toast({ title: 'Chat Opened', description: `"${chat.title}" placed in ${target}.` });
+  }, [dropChatTo]);
 
   // Handle sending message
   const handleSendMessage = useCallback(async (chatId: string, message: string) => {
-    // Add user message immediately
-    setOpenChats(prev => 
-      prev.map(chat => 
-        chat.id === chatId 
-          ? { 
-              ...chat, 
-              messages: [...chat.messages, {
-                id: Date.now().toString(),
-                role: 'user',
-                content: message,
-                timestamp: new Date(),
-              }],
-              isLoading: true
-            }
-          : chat
-      )
-    );
-
-    // Send message through session manager
     try {
-      await chatManagerRef.current.sendMessage(chatId, message);
+      await sendMessage(chatId, message);
     } catch (error) {
-      console.error('Failed to send message:', error);
-      toast({
-        title: 'Message Error',
-        description: 'Failed to send message. Please try again.',
-        variant: 'destructive',
-      });
-      setOpenChats(prev => 
-        prev.map(chat => 
-          chat.id === chatId ? { ...chat, isLoading: false } : chat
-        )
-      );
+      toast({ title: 'Message Error', description: 'Failed to send message.', variant: 'destructive' });
     }
-  }, []);
+  }, [sendMessage]);
 
   // Handle closing chat
   const handleCloseChat = useCallback((chatId: string) => {
-    const chat = openChats.find(c => c.id === chatId);
-    if (chat?.sessionId) {
-      chatManagerRef.current.closeSession(chat.sessionId);
-    }
-    
-    setOpenChats(prev => prev.filter(chat => chat.id !== chatId));
-    
+    closeChat(chatId);
     const chatInfo = mockChats.find(c => c.id === chatId);
     if (chatInfo) {
-      toast({
-        title: 'Chat Closed',
-        description: `"${chatInfo.title}" has been closed.`,
-      });
+      toast({ title: 'Chat Closed', description: `"${chatInfo.title}" has been closed.` });
     }
-  }, [openChats]);
+  }, [closeChat]);
 
-  // Handle floating chat position/size change
-  const handleFloatingChatChange = useCallback((chatId: string, rect: FloatingRect) => {
-    setOpenChats(prev => 
-      prev.map(chat => 
-        chat.id === chatId ? { ...chat, rect } : chat
-      )
-    );
-  }, []);
+  // Memoized selectors
+  const leftDock = useMemo(() => state.windows.find(w => w.kind === 'left'), [state.windows]);
+  const rightDock = useMemo(() => state.windows.find(w => w.kind === 'right'), [state.windows]);
+  const fullDock = useMemo(() => state.windows.find(w => w.kind === 'full'), [state.windows]);
+  const floatingWins = useMemo(() => state.windows.filter(w => w.kind === 'floating'), [state.windows]);
+  const openCount = useMemo(() => new Set(state.windows.map(w => w.chatId)).size, [state.windows]);
 
-  // Clean up sessions on unmount
-  useEffect(() => {
-    const chatManager = chatManagerRef.current;
-    return () => {
-      // Close all open sessions
-      openChats.forEach(chat => {
-        if (chat.sessionId) {
-          chatManager.closeSession(chat.sessionId);
-        }
-      });
-    };
-  }, [openChats]);
-
-  const leftChat = openChats.find(chat => chat.position === 'left');
-  const rightChat = openChats.find(chat => chat.position === 'right');
-  const floatingChats = openChats.filter(chat => chat.position === 'floating');
+  // sessions are managed by provider
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -274,14 +115,14 @@ export default function WorkspaceV2() {
 
           {/* Chat List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {mockChats.map(chat => (
+      {mockChats.map(chat => (
               <SidebarChatItem
                 key={chat.id}
                 chatId={chat.id}
                 title={chat.title}
                 lastMessage={chat.lastMessage}
                 timestamp={Date.parse(chat.timestamp) || Date.now()}
-                isActive={openChats.some(c => c.id === chat.id)}
+        isActive={state.windows.some(w => w.chatId === chat.id)}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               />
@@ -292,7 +133,7 @@ export default function WorkspaceV2() {
           <div className="p-4 border-t text-sm text-muted-foreground">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="w-4 h-4" />
-              <span>{openChats.length} chat{openChats.length !== 1 ? 's' : ''} open</span>
+              <span>{openCount} chat{openCount !== 1 ? 's' : ''} open</span>
             </div>
             {draggedChatId && (
               <div className="mb-2 text-primary font-medium">
@@ -328,6 +169,13 @@ export default function WorkspaceV2() {
           />
           
           <WorkspaceDropZone
+            target="full"
+            active={true}
+            onDropChat={handleDrop}
+            className="inset-14"
+          />
+
+          <WorkspaceDropZone
             target="floating"
             active={true}
             onDropChat={handleDrop}
@@ -335,38 +183,45 @@ export default function WorkspaceV2() {
           />
 
           {/* Chat Windows for Left/Right */}
-          {leftChat && (
+          {!fullDock && leftDock && (
             <div className="absolute left-0 top-0 w-1/2 h-full p-4">
               <ChatWindow
-                title={leftChat.title}
-                messages={leftChat.messages.map(msg => ({
-                  ...msg,
-                  timestamp: msg.timestamp.getTime()
-                }))}
-                onSendMessage={(message) => handleSendMessage(leftChat.id, message)}
-                onClose={() => handleCloseChat(leftChat.id)}
-                isLoading={leftChat.isLoading}
+                title={mockChats.find(c => c.id === leftDock.chatId)?.title || 'Chat'}
+                messages={(state.messages[leftDock.chatId] || [])}
+                onSendMessage={(message) => handleSendMessage(leftDock.chatId, message)}
+                onClose={() => handleCloseChat(leftDock.chatId)}
+                isLoading={!!state.isLoading[leftDock.chatId]}
               />
             </div>
           )}
 
-          {rightChat && (
+          {!fullDock && rightDock && (
             <div className="absolute right-0 top-0 w-1/2 h-full p-4">
               <ChatWindow
-                title={rightChat.title}
-                messages={rightChat.messages.map(msg => ({
-                  ...msg,
-                  timestamp: msg.timestamp.getTime()
-                }))}
-                onSendMessage={(message) => handleSendMessage(rightChat.id, message)}
-                onClose={() => handleCloseChat(rightChat.id)}
-                isLoading={rightChat.isLoading}
+                title={mockChats.find(c => c.id === rightDock.chatId)?.title || 'Chat'}
+                messages={(state.messages[rightDock.chatId] || [])}
+                onSendMessage={(message) => handleSendMessage(rightDock.chatId, message)}
+                onClose={() => handleCloseChat(rightDock.chatId)}
+                isLoading={!!state.isLoading[rightDock.chatId]}
+              />
+            </div>
+          )}
+
+          {/* Full-screen dock */}
+          {fullDock && (
+            <div className="absolute inset-0 p-4">
+              <ChatWindow
+                title={mockChats.find(c => c.id === fullDock.chatId)?.title || 'Chat'}
+                messages={(state.messages[fullDock.chatId] || [])}
+                onSendMessage={(message) => handleSendMessage(fullDock.chatId, message)}
+                onClose={() => handleCloseChat(fullDock.chatId)}
+                isLoading={!!state.isLoading[fullDock.chatId]}
               />
             </div>
           )}
 
           {/* Empty State */}
-          {openChats.length === 0 && !draggedChatId && (
+          {state.windows.length === 0 && !draggedChatId && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -387,25 +242,32 @@ export default function WorkspaceV2() {
 
           {/* Floating Chats */}
           <AnimatePresence>
-            {floatingChats.map(chat => (
-              <FloatingChat
-                key={chat.id}
-                rect={chat.rect!}
-                title={chat.title}
-                messages={chat.messages.map(msg => ({
-                  ...msg,
-                  timestamp: msg.timestamp.getTime()
-                }))}
-                boundsRef={workspaceRef}
-                onChange={(rect) => handleFloatingChatChange(chat.id, rect)}
-                onClose={() => handleCloseChat(chat.id)}
-                onSendMessage={(message) => handleSendMessage(chat.id, message)}
-                isLoading={chat.isLoading}
-              />
+            {floatingWins.map(win => (
+              win.rect && (
+                <FloatingChat
+                  key={win.id}
+                  rect={win.rect}
+                  title={mockChats.find(c => c.id === win.chatId)?.title || 'Chat'}
+                  messages={(state.messages[win.chatId] || [])}
+                  boundsRef={workspaceRef}
+                  onChange={(rect) => setFloatingRect(win.id, rect)}
+                  onClose={() => closeWindow(win.id)}
+                  onSendMessage={(message) => handleSendMessage(win.chatId, message)}
+                  isLoading={!!state.isLoading[win.chatId]}
+                />
+              )
             ))}
           </AnimatePresence>
         </div>
       </div>
     </DndProvider>
+  );
+}
+
+export default function WorkspaceV2() {
+  return (
+    <ChatWorkspaceProvider>
+      <WorkspaceInner />
+    </ChatWorkspaceProvider>
   );
 }
