@@ -1,25 +1,34 @@
-export type DropTarget = 'full' | 'left' | 'right';
+export type DropTarget = 'full' | 'left' | 'right' | 'floating';
 
-export type ChatPosition = DropTarget | 'floating';
+export type ChatPosition = DropTarget;
 
 export type FloatingRect = {
-  id: string;
   x: number;
   y: number;
   width: number;
   height: number;
 };
 
-export type OpenChat = {
-  chatId: string;
-  sessionId: string | null;
-  position: ChatPosition;
-  floating?: FloatingRect[]; // up to 2 floating windows per chat
-};
-
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  timestamp: number;
+  timestamp: Date;
+};
+
+export type OpenChat = {
+  id: string;
+  title: string;
+  position: ChatPosition;
+  rect?: FloatingRect; // for floating windows
+  messages: ChatMessage[];
+  isLoading?: boolean;
+  sessionId?: string | null;
+};
+
+export type ChatItem = {
+  id: string;
+  title: string;
+  lastMessage: string;
+  timestamp: string;
 };

@@ -13,7 +13,7 @@ const MAX_OPEN = 2;
 
 export default function Workspace() {
   const [openChats, setOpenChats] = useState<OpenChat[]>([]);
-  const [messages, setMessages] = useState<Record<string, { id: string; role: 'user' | 'assistant'; content: string }[]>>({});
+  const [messages, setMessages] = useState<Record<string, { id: string; role: 'user' | 'assistant'; content: string; timestamp: number }[]>>({});
   const boundsRef = useRef<HTMLDivElement>(null);
   const sessionManager = useMemo(() => ChatSessionManager.getInstance(), []);
 
@@ -24,7 +24,12 @@ export default function Workspace() {
       if (type === 'chunk' || type === 'done') {
         setMessages((prev) => ({
           ...prev,
-          [chatId]: [...(prev[chatId] || []), { id: crypto.randomUUID(), role: 'assistant', content: String(payload || '') }]
+          [chatId]: [...(prev[chatId] || []), { 
+            id: crypto.randomUUID(), 
+            role: 'assistant', 
+            content: String(payload || ''),
+            timestamp: Date.now()
+          }]
         }));
       }
     });
@@ -34,7 +39,7 @@ export default function Workspace() {
   const placeChat = useCallback((chatId: string, position: ChatPosition) => {
     setOpenChats((prev) => {
       let next = [...prev];
-      const existingIdx = next.findIndex((c) => c.chatId === chatId);
+      const existingIdx = next.findIndex((c) => c.id === chatId);
 
       // Apply max-2 policy
       if (next.length >= MAX_OPEN && existingIdx === -1) {
@@ -46,8 +51,15 @@ export default function Workspace() {
         }
       }
 
-      const item: OpenChat = { chatId, sessionId: null, position };
+      const item: OpenChat = { 
+        id: chatId, 
+        title: `Chat ${chatId}`,
+        position,
+        messages: [],
+        sessionId: null
+      };
       if (existingIdx !== -1) next.splice(existingIdx, 1, item); else next.push(item);
+      
       // Normalize split layout
       if (position === 'full') next = [item];
       if (position === 'left' && next.length === 2) next[1].position = 'right';
@@ -55,30 +67,36 @@ export default function Workspace() {
     });
 
     const { sessionId } = attachSession(chatId);
-    setOpenChats((prev) => prev.map((c) => c.chatId === chatId ? { ...c, sessionId } : c));
+    setOpenChats((prev) => prev.map((c) => c.id === chatId ? { ...c, sessionId } : c));
   }, [attachSession]);
 
   const onDropChat = useCallback((chatId: string, target: DropTarget) => {
     if (target === 'full') placeChat(chatId, 'full');
     if (target === 'left') placeChat(chatId, 'left');
     if (target === 'right') placeChat(chatId, 'right');
+    if (target === 'floating') {
+      // For floating, we'll add it as a floating window to the first open chat or create a new one
+      setOpenChats((prev) => {
+        if (prev.length === 0) {
+          const newChat: OpenChat = {
+            id: chatId,
+            title: `Chat ${chatId}`,
+            position: 'floating',
+            rect: { x: 100, y: 100, width: 400, height: 300 },
+            messages: [],
+            sessionId: null
+          };
+          return [newChat];
+        }
+        return prev;
+      });
+    }
   }, [placeChat]);
-
-  const addFloating = useCallback((chatId: string) => {
-    setOpenChats((prev) => prev.map((c) => {
-      if (c.chatId !== chatId) return c;
-      const floats = c.floating || [];
-      if (floats.length >= 2) return c; // limit 2
-      const rect: FloatingRect = { id: crypto.randomUUID(), x: 40 + floats.length * 20, y: 40 + floats.length * 20, width: 360, height: 280 };
-      return { ...c, floating: [...floats, rect], position: c.position };
-    }));
-  }, []);
 
   const updateFloating = useCallback((chatId: string, nextRect: FloatingRect) => {
     setOpenChats((prev) => prev.map((c) => {
-      if (c.chatId !== chatId) return c;
-      const floats = (c.floating || []).map((r) => r.id === nextRect.id ? nextRect : r);
-      return { ...c, floating: floats };
+      if (c.id !== chatId) return c;
+      return { ...c, rect: nextRect };
     }));
   }, []);
 
@@ -87,6 +105,9 @@ export default function Workspace() {
     if (openChats.length === 1 && openChats[0].position === 'full') return 'full';
     return 'split';
   }, [openChats]);
+
+  const floatingChats = openChats.filter(chat => chat.position === 'floating');
+  const nonFloatingChats = openChats.filter(chat => chat.position !== 'floating');
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -109,6 +130,9 @@ export default function Workspace() {
             <div className="absolute inset-y-0 right-0 w-1/2">
               <WorkspaceDropZone target="right" onDropChat={onDropChat} />
             </div>
+            <div className="absolute inset-0">
+              <WorkspaceDropZone target="floating" onDropChat={onDropChat} />
+            </div>
           </div>
 
           {/* Layout */}
@@ -116,43 +140,44 @@ export default function Workspace() {
             <div className="h-full flex items-center justify-center text-muted-foreground">Drag a chat here</div>
           )}
 
-          {layout === 'full' && (
+          {layout === 'full' && nonFloatingChats.length > 0 && (
             <div className="p-4 h-full">
-              <ChatWindow title={openChats[0].chatId} messages={messages[openChats[0].chatId] || []} />
-              <button className="mt-3 text-xs text-primary" onClick={() => addFloating(openChats[0].chatId)}>Open floating window</button>
-              {(openChats[0].floating || []).map((rect) => (
-                <FloatingChat
-                  key={rect.id}
-                  rect={rect}
-                  title={`${openChats[0].chatId} (Floating)`}
-                  messages={messages[openChats[0].chatId] || []}
-                  boundsRef={boundsRef}
-                  onChange={(r) => updateFloating(openChats[0].chatId, r)}
-                />
-              ))}
+              <ChatWindow 
+                title={nonFloatingChats[0].title} 
+                messages={messages[nonFloatingChats[0].id] || []} 
+              />
             </div>
           )}
 
           {layout === 'split' && (
             <div className="grid grid-cols-2 gap-4 p-4 h-full">
-              {openChats.slice(0, 2).map((c) => (
-                <div key={c.chatId} className="relative h-full">
-                  <ChatWindow title={c.chatId} messages={messages[c.chatId] || []} />
-                  <button className="mt-2 text-xs text-primary" onClick={() => addFloating(c.chatId)}>Open floating window</button>
-                  {(c.floating || []).map((rect) => (
-                    <FloatingChat
-                      key={rect.id}
-                      rect={rect}
-                      title={`${c.chatId} (Floating)`}
-                      messages={messages[c.chatId] || []}
-                      boundsRef={boundsRef}
-                      onChange={(r) => updateFloating(c.chatId, r)}
-                    />
-                  ))}
+              {nonFloatingChats.slice(0, 2).map((c) => (
+                <div key={c.id} className="relative h-full">
+                  <ChatWindow 
+                    title={c.title} 
+                    messages={messages[c.id] || []} 
+                  />
                 </div>
               ))}
             </div>
           )}
+
+          {/* Floating Windows */}
+          <AnimatePresence>
+            {floatingChats.map((chat) => (
+              <FloatingChat
+                key={chat.id}
+                rect={chat.rect || { x: 100, y: 100, width: 400, height: 300 }}
+                title={chat.title}
+                messages={messages[chat.id] || []}
+                boundsRef={boundsRef}
+                onChange={(r) => updateFloating(chat.id, r)}
+                onClose={() => {
+                  setOpenChats(prev => prev.filter(c => c.id !== chat.id));
+                }}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       </div>
     </DndProvider>

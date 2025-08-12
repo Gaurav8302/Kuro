@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import Landing from "./pages/Landing";
 import Chat from "./pages/Chat";
+import WorkspacePage from "./pages/Workspace";
 import SignInPage from "./pages/SignIn";
 import SignUpPage from "./pages/SignUp";
 import SSOCallback from "./pages/SSOCallback";
@@ -83,6 +84,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <Chat />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/workspace" 
+              element={
+                <ProtectedRoute>
+                  <WorkspacePage />
                 </ProtectedRoute>
               } 
             />

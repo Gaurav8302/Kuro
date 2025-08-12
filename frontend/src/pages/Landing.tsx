@@ -178,7 +178,16 @@ const Landing = () => {
                   onClick={() => navigate('/chat')}
                   className="w-full sm:w-auto"
                 >
+                  <MessageSquare className="w-4 h-4 mr-2" />
                   Go to Chat
+                </Button>
+                <Button 
+                  variant="default"
+                  onClick={() => navigate('/workspace')}
+                  className="w-full sm:w-auto bg-primary/90 hover:bg-primary"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Workspace
                 </Button>
                 <Button 
                   variant="outline" 
