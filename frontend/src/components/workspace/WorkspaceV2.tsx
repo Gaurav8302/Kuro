@@ -299,7 +299,12 @@ export default function WorkspaceV2() {
                 🎯 Dragging: {mockChats.find(c => c.id === draggedChatId)?.title}
               </div>
             )}
-            <p>Drag chats to workspace areas to start conversations</p>
+            <div className="text-xs space-y-1">
+              <p>💡 <strong>How to use:</strong></p>
+              <p>• Single tap: Opens chat</p>
+              <p>• Double tap: Enables drag mode</p>
+              <p>• Then drag to workspace area</p>
+            </div>
           </div>
         </motion.div>
 

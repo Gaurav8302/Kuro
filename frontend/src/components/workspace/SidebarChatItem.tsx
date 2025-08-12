@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useDrag, useDragLayer } from 'react-dnd';
 import { motion } from 'framer-motion';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -63,6 +63,9 @@ export default function SidebarChatItem({
   onDragEnd,
 }: SidebarChatItemProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [clickCount, setClickCount] = useState(0);
+  const [isDoubleTapReady, setIsDoubleTapReady] = useState(false);
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [{ isDragging }, drag, preview] = useDrag(() => ({
     type: DRAG_TYPE_CHAT,
@@ -70,15 +73,35 @@ export default function SidebarChatItem({
     collect: (monitor) => ({ 
       isDragging: monitor.isDragging() 
     }),
-    begin: () => {
-      console.log('🚀 Drag started for chat:', chatId, title);
+    begin: (monitor) => {
+      console.log('🚀 DRAG BEGIN - Chat ID:', chatId, 'Title:', title);
       onDragStart?.(chatId);
+      return { chatId, title };
     },
     end: (item, monitor) => {
-      console.log('✅ Drag ended for chat:', item?.chatId, 'dropped:', monitor.didDrop());
+      console.log('✅ DRAG END - Chat:', item?.chatId, 'Was dropped:', monitor.didDrop());
       onDragEnd?.();
+      setIsDoubleTapReady(false); // Reset double tap state
+    },
+    canDrag: () => {
+      console.log('🤔 CAN DRAG check for:', chatId, 'Double tap ready:', isDoubleTapReady);
+      return isDoubleTapReady; // Only allow drag after double tap
     }
-  }), [chatId, title, onDragStart, onDragEnd]);
+  }), [chatId, title, onDragStart, onDragEnd, isDoubleTapReady]);
+
+  // Connect drag to the ref
+  useEffect(() => {
+    drag(ref.current);
+  }, [drag]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Use empty image for drag preview - we'll use our custom one
   useEffect(() => {
@@ -86,9 +109,42 @@ export default function SidebarChatItem({
   }, [preview]);
 
   const handleClick = () => {
+    console.log('🖱️ CLICK detected for chat:', chatId, 'Click count:', clickCount + 1);
+    
     if (!isDragging) {
-      onClick?.();
+      setClickCount(prev => prev + 1);
+      
+      if (clickCount === 0) {
+        // First click - start timer for double click detection
+        clickTimeoutRef.current = setTimeout(() => {
+          console.log('⏰ Single click timeout - opening chat');
+          onClick?.(); // Single click opens the chat
+          setClickCount(0);
+        }, 300); // 300ms window for double click
+      } else if (clickCount === 1) {
+        // Second click within timeout - this is a double click
+        console.log('🎯 Double click detected - enabling drag mode');
+        if (clickTimeoutRef.current) {
+          clearTimeout(clickTimeoutRef.current);
+        }
+        setIsDoubleTapReady(true);
+        setClickCount(0);
+        
+        // Reset double tap ready state after 3 seconds if no drag occurs
+        setTimeout(() => {
+          setIsDoubleTapReady(false);
+          console.log('⏰ Double tap timeout - disabling drag mode');
+        }, 3000);
+      }
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    console.log('🖱️ MOUSE DOWN detected for chat:', chatId, 'Double tap ready:', isDoubleTapReady);
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    console.log('🖱️ MOUSE UP detected for chat:', chatId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -114,33 +170,48 @@ export default function SidebarChatItem({
     <>
       <DragPreview />
       <motion.div
-        ref={drag}
+        ref={ref}
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onKeyDown={handleKeyDown}
         tabIndex={0}
         role="button"
         aria-label={`Chat: ${title}. ${lastMessage ? `Last message: ${lastMessage}` : ''}`}
-        draggable={true}
+        draggable={false}
         className={`
-          group relative px-3 py-3 rounded-lg cursor-grab active:cursor-grabbing select-none
+          group relative px-3 py-3 rounded-lg select-none
           border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary
           ${isActive 
             ? 'bg-primary/10 border-primary/20' 
             : 'bg-card border-border hover:bg-accent hover:border-accent-foreground/20'
           }
           ${isDragging ? 'opacity-50 scale-95 cursor-grabbing' : 'opacity-100 scale-100'}
+          ${isDoubleTapReady 
+            ? 'cursor-grab border-green-400 bg-green-50 dark:bg-green-950' 
+            : 'cursor-pointer'
+          }
         `}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ scale: isDragging ? 0.95 : 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Drag handle */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <GripVertical className="w-3 h-3 text-muted-foreground" />
+        {/* Drag handle - more visible when drag ready */}
+        <div className={`absolute left-1 top-1/2 -translate-y-1/2 transition-all ${
+          isDoubleTapReady 
+            ? 'opacity-100 text-green-600' 
+            : 'opacity-60 group-hover:opacity-100'
+        }`}>
+          <GripVertical className="w-4 h-4 text-current" />
         </div>
 
         <div className="ml-4">
+          {isDoubleTapReady && (
+            <div className="absolute top-1 right-1 text-xs text-green-600 font-medium bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+              🎯 Drag Ready
+            </div>
+          )}
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-medium truncate pr-2">{title}</h3>
             {timestamp && (
