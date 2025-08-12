@@ -129,6 +129,26 @@ session_titles_collection = LazyCollection("session_titles")
 users_collection = LazyCollection("users")
 conversation_summaries_collection = LazyCollection("conversation_summaries")
 
+class LazyDatabase:
+    """Proxy to the actual Database object (for backward-compatible import)."""
+    def __getattr__(self, item):
+        return getattr(get_database(), item)
+    def __getitem__(self, key):
+        return get_database()[key]
+    def __repr__(self):
+        return "<LazyDatabase proxy>"
+
+class LazyClient:
+    """Proxy to the actual MongoClient (for backward-compatible import)."""
+    def __getattr__(self, item):
+        return getattr(get_client(), item)
+    def __repr__(self):
+        return "<LazyClient proxy>"
+
+# Backward-compatible exports
+database = LazyDatabase()
+client = LazyClient()
+
 def get_database_legacy():
     """Legacy alias; prefer get_database()."""
     return get_database()
