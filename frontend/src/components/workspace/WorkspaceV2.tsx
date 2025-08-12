@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import { Plus, Grid3X3, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,6 +13,7 @@ import FloatingChat from './FloatingChat';
 import type { DropTarget } from '@/types/workspace';
 import { toast } from '@/hooks/use-toast';
 import { ChatWorkspaceProvider, useChatWorkspace } from '@/state/ChatWorkspaceContext';
+import { getDebugDnd, setDebugDnd } from '@/state/debug';
 
 // Mock chat list - replace with real data from your API
 const mockChats = [
@@ -27,11 +29,47 @@ function WorkspaceInner() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [draggedChatId, setDraggedChatId] = useState<string | null>(null);
   const { state, dropChatTo, closeChat, sendMessage, setFloatingRect, closeWindow } = useChatWorkspace();
+  const [debug, setDebug] = useState(getDebugDnd());
+  useEffect(() => setDebugDnd(debug), [debug]);
 
-  // Debug message
-  useEffect(() => {
-    console.log('🏗️ WorkspaceV2 component mounted');
+  // Choose DnD backend dynamically (touch vs mouse)
+  const isTouch = useMemo(() => {
+    try {
+      const coarse = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
+      const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints);
+      return !!coarse || (touchCap ?? 0) > 0;
+    } catch {
+      return false;
+    }
   }, []);
+
+  // Debug + native drag event taps
+  useEffect(() => {
+    if (!debug) return;
+    console.log('🏗️ WorkspaceV2 component mounted');
+    const log = (e: Event) => {
+      const evt = e as DragEvent;
+      const types = evt.dataTransfer?.types ? Array.from(evt.dataTransfer.types) : [];
+      console.log(`[native:${e.type}]`, { target: (e.target as HTMLElement)?.dataset?.dropTarget, types });
+    };
+    const preventOver = (e: Event) => {
+      const evt = e as DragEvent;
+      evt.preventDefault();
+      log(e);
+    };
+    window.addEventListener('dragstart', log, true);
+    window.addEventListener('dragend', log, true);
+    window.addEventListener('dragleave', log, true);
+    window.addEventListener('drop', log, true);
+    window.addEventListener('dragover', preventOver, true);
+    return () => {
+      window.removeEventListener('dragstart', log, true);
+      window.removeEventListener('dragend', log, true);
+      window.removeEventListener('dragleave', log, true);
+      window.removeEventListener('drop', log, true);
+      window.removeEventListener('dragover', preventOver, true);
+    };
+  }, [debug]);
 
   // Handle chat item drag start
   const handleDragStart = useCallback((chatId: string) => {
@@ -50,6 +88,7 @@ function WorkspaceInner() {
     const chat = mockChats.find(c => c.id === chatId);
     if (!chat) return;
     const bounds = workspaceRef.current?.getBoundingClientRect();
+  if (debug) console.log('[DnD] drop', { chatId, target, bounds });
     const res = dropChatTo(chatId, target, bounds);
     if (!res.ok) {
       if ('reason' in res && res.reason === 'limit') {
@@ -65,6 +104,7 @@ function WorkspaceInner() {
   // Handle sending message
   const handleSendMessage = useCallback(async (chatId: string, message: string) => {
     try {
+  if (debug) console.log('[Chat] send', { chatId, message });
       await sendMessage(chatId, message);
     } catch (error) {
       toast({ title: 'Message Error', description: 'Failed to send message.', variant: 'destructive' });
@@ -90,8 +130,14 @@ function WorkspaceInner() {
   // sessions are managed by provider
 
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={isTouch ? (TouchBackend as any) : HTML5Backend} options={isTouch ? { enableMouseEvents: true } : undefined}>
       <div className="h-screen flex bg-background">
+        {/* Debug toggle */}
+        {debug && (
+          <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[1000] bg-amber-50 text-amber-900 border border-amber-300 px-3 py-1 rounded shadow">
+            DnD Debug ON
+          </div>
+        )}
         {/* Sidebar */}
         <motion.div 
           initial={{ x: -300 }}
@@ -107,10 +153,15 @@ function WorkspaceInner() {
               <Grid3X3 className="w-5 h-5 text-primary" />
               <h1 className="font-semibold text-lg">Chat Workspace</h1>
             </div>
-            <Button size="sm" className="w-full">
+            <div className="flex gap-2">
+              <Button size="sm" className="w-full">
               <Plus className="w-4 h-4 mr-2" />
               New Chat
-            </Button>
+              </Button>
+              <Button variant={debug ? 'destructive' : 'outline'} size="sm" onClick={() => setDebug(v => !v)}>
+                {debug ? 'Debug: On' : 'Debug: Off'}
+              </Button>
+            </div>
           </div>
 
           {/* Chat List */}
@@ -152,7 +203,29 @@ function WorkspaceInner() {
         {/* Main Workspace */}
         <div className={`flex-1 relative ${
           draggedChatId ? 'bg-primary/5 border-2 border-dashed border-primary' : ''
-        }`} ref={workspaceRef}>
+        }`} ref={workspaceRef}
+          onDragOver={(e) => { if (debug) console.log('[native:onDragOver] workspace'); e.preventDefault(); }}
+          onDrop={() => { if (debug) console.log('[native:onDrop] workspace'); }}
+        >
+          {debug && (
+            <div className="absolute top-2 right-2 z-[1000] bg-card border rounded p-2 text-xs max-w-sm shadow">
+              <div className="font-medium mb-1">State Snapshot</div>
+              <pre className="whitespace-pre-wrap max-h-64 overflow-auto">
+{JSON.stringify({
+  windows: state.windows,
+  chats: Array.from(new Set(state.windows.map(w => w.chatId))),
+  isLoading: state.isLoading,
+}, null, 2)}
+              </pre>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {/* Programmatic drop helpers for debugging */}
+                <button className="px-2 py-1 text-xs border rounded" onClick={() => handleDrop('1', 'left')}>Open 1 Left</button>
+                <button className="px-2 py-1 text-xs border rounded" onClick={() => handleDrop('2', 'right')}>Open 2 Right</button>
+                <button className="px-2 py-1 text-xs border rounded" onClick={() => handleDrop('3', 'full')}>Open 3 Full</button>
+                <button className="px-2 py-1 text-xs border rounded" onClick={() => handleDrop('4', 'floating')}>Open 4 Float</button>
+              </div>
+            </div>
+          )}
           {/* Drop Zones */}
           <WorkspaceDropZone
             target="left"

@@ -81,6 +81,8 @@ export default function SidebarChatItem({
       isDragging: monitor.isDragging() 
     }),
     begin: (monitor) => {
+      // Log drag begin for diagnostics
+      console.log('[DnD] begin drag chat', chatId);
       onDragStart?.(chatId);
       return { chatId, title };
     },
@@ -174,6 +176,7 @@ export default function SidebarChatItem({
         role="button"
         aria-label={`Chat: ${title}. ${lastMessage ? `Last message: ${lastMessage}` : ''}`}
         draggable={false}
+        data-chat-id={chatId}
         className={`
           group relative px-3 py-3 rounded-lg select-none
           border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary
