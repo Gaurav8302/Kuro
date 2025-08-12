@@ -3,7 +3,7 @@ services:
     name: canvas-chat-backend
     runtime: python3
     buildCommand: "./build.sh"
-    startCommand: "gunicorn chatbot:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+  startCommand: "gunicorn chatbot:app -w 1 -k uvicorn.workers.UvicornWorker --timeout 120 --bind 0.0.0.0:$PORT"
     plan: free
     env: python
     envVars:
