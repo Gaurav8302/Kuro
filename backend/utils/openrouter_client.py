@@ -13,6 +13,7 @@ import logging
 from typing import Dict, Any, List, Optional
 import requests
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -104,7 +105,21 @@ class OpenRouterClient:
         messages = self._prepare_messages(prompt, system_instruction)
         model_slug = self._map_model(model_id)
         params = {"temperature": 0.7, "max_tokens": 1024, "top_p": 1, "stream": False}
-        data = self._call_api(model_slug, messages, params)
+        start = time.perf_counter()
+        try:
+            data = self._call_api(model_slug, messages, params)
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            # Log model usage and latency to Render logs
+            logger.info(
+                f"openrouter_call provider=OpenRouter canonical_model={model_id or 'auto'} model_slug={model_slug} intent={intent or ''} latency_ms={latency_ms}"
+            )
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            logger.warning(
+                f"openrouter_call_failed provider=OpenRouter canonical_model={model_id or 'auto'} model_slug={model_slug} intent={intent or ''} latency_ms={latency_ms} error={str(e)}"
+            )
+            raise
+
         if data and "choices" in data and data["choices"]:
             return data["choices"][0]["message"]["content"]
         raise Exception("No choices in OpenRouter API response")
