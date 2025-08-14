@@ -55,6 +55,33 @@ class _UnifiedClient:
 # Backward-compatible alias for tests that patch llm_orchestrator.client
 client = _UnifiedClient(client_groq, client_openrouter)
 
+# Simple in-process cache for last successful model per intent for a session
+_last_model_by_intent: Dict[str, Dict[str, str]] = {}
+
+def _get_session_key(session_id: Optional[str]) -> str:
+    return session_id or "anon"
+
+def _remember_model(session_id: Optional[str], intent: Optional[str], model_id: str) -> None:
+    if not intent:
+        return
+    sk = _get_session_key(session_id)
+    _last_model_by_intent.setdefault(sk, {})[intent] = model_id
+
+def _recall_model(session_id: Optional[str], intent: Optional[str]) -> Optional[str]:
+    if not intent:
+        return None
+    return _last_model_by_intent.get(_get_session_key(session_id), {}).get(intent)
+
+def _write_jsonl(log_obj: Dict[str, Any]) -> None:
+    try:
+        import json, os, datetime
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d")
+        path = os.path.join(os.getcwd(), f"routing_logs_{ts}.jsonl")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_obj, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
 async def orchestrate(
     user_message: str,
     system_prompt: Optional[str] = None,
@@ -76,19 +103,35 @@ async def orchestrate(
     # New hybrid router (fast, with 5s cap). Falls back to legacy if needed.
     selection_reason = None
     cache_hit = False
+    # Router thresholds and weighted confidence
+    RULE_MIN = 0.75
+    LLM_MIN = 0.65
     try:
         v2 = await get_best_model_v2(user_message)
         model_id = v2["chosen_model"]
         selection_reason = v2.get("reason")
         cache_hit = selection_reason == "cache_hit"
+        router_conf = float(v2.get("confidence", 0.6))
     except Exception:
         routing = route_model(user_message, ctx_tokens, intents=intents, forced_model=developer_forced_model)
         model_id = routing["model_id"]
         selection_reason = routing.get("rule")
+        router_conf = 0.6
     fallbacks: List[str] = []
     attempts = 0
     last_error: Optional[Exception] = None
     reply: Optional[str] = None
+    # Try to reuse last successful model for this primary intent within session
+    primary_intent = next(iter(intents)) if intents else None
+    sticky = _recall_model(None, primary_intent)
+    if sticky:
+        model_id = sticky
+
+    # Exponential backoff helper
+    import random
+    def _backoff(i: int) -> float:
+        return min(2 ** i + random.random(), 8.0)
+
     while attempts < 4 and model_id:
         attempts += 1
         if not allow_request(model_id):
@@ -105,13 +148,26 @@ async def orchestrate(
             full_system = system_prompt or "You are Kuro, a helpful AI assistant."
             if combined_context:
                 full_system += "\n\nContext:\n" + combined_context
-            reply = client.generate_content(
-                prompt=user_message,
-                system_instruction=full_system,
-                intent=next(iter(intents)) if intents else None,
-                model_id=model_id,
-            )
+            # Retry transient errors with backoff
+            retries = 0
+            while True:
+                try:
+                    reply = client.generate_content(
+                        prompt=user_message,
+                        system_instruction=full_system,
+                        intent=primary_intent,
+                        model_id=model_id,
+                    )
+                    break
+                except Exception as e_inner:
+                    msg = str(e_inner)
+                    transient = any(k in msg for k in ("timeout", "429", "temporar", "Retry after", "rate"))
+                    if not transient or retries >= 2:
+                        raise
+                    time.sleep(_backoff(retries))
+                    retries += 1
             record_success(model_id)
+            _remember_model(None, primary_intent, model_id)
             break
         except Exception as e:
             record_failure(model_id)
@@ -147,7 +203,24 @@ async def orchestrate(
     except Exception:
         pass
     try:
-        observe_routing(latency_ms, used_fallback=bool(fallbacks), via=("rule" if selection_reason and "rule:" in selection_reason else "router"), cache_hit=cache_hit)
+        via = ("rule" if selection_reason and "rule:" in selection_reason else "router")
+        observe_routing(latency_ms, used_fallback=bool(fallbacks), via=via, cache_hit=cache_hit)
+    except Exception:
+        pass
+
+    # Structured JSON logging to file for offline analysis
+    try:
+        from config.model_config import get_model_source
+        log_obj = {
+            "query": user_message[:500],
+            "chosen_model": model_id,
+            "source": get_model_source(model_id or ""),
+            "reason": selection_reason,
+            "confidence": router_conf,
+            "fallback_used": bool(fallbacks),
+            "latency_ms": latency_ms,
+        }
+        _write_jsonl(log_obj)
     except Exception:
         pass
     return result

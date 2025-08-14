@@ -28,10 +28,17 @@ except Exception:  # metrics optional during early boot
         def dec(self): pass
     LLM_ACTIVE_REQUESTS = _Dummy()
 
-from motor.motor_asyncio import AsyncIOMotorClient
+try:
+    from motor.motor_asyncio import AsyncIOMotorClient  # type: ignore
+except Exception:
+    AsyncIOMotorClient = None  # type: ignore
 
 LOG_RAW = os.getenv("LOG_RAW_CONTENT", "false").lower() in {"1", "true", "yes"}
-_mongo_client: AsyncIOMotorClient | None = None
+try:
+    from typing import Optional
+    _mongo_client: Optional[AsyncIOMotorClient] = None  # type: ignore
+except Exception:
+    _mongo_client = None  # type: ignore
 _db = None
 _collection = None
 
@@ -42,6 +49,9 @@ async def init_motor(uri: str | None = None, db_name: str | None = None):
     """Initialize Motor client inside the running event loop (post-fork)."""
     global _mongo_client, _db, _collection
     try:
+        if AsyncIOMotorClient is None:
+            _logger.info("observability_motor_skipped", reason="motor_not_installed")
+            return
         uri = uri or os.getenv("MONGODB_URI", "mongodb://localhost:27017")
         db_name = db_name or os.getenv("MONGO_DB", "chatbot_db")
         _mongo_client = AsyncIOMotorClient(uri)

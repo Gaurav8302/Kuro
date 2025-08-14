@@ -58,13 +58,13 @@ FALLBACK_CHAINS: Dict[str, List[str]] = {
 
 # Rule-based intent keyword mapping → preferred primary model
 RULE_KEYWORDS: List[Tuple[str, List[str], str]] = [
-    ("summarize", [r"\bsummariz(e|ing)\b", r"\bsummaris(e|ing)\b", r"\btldr\b", r"\bcondense\b"], CLAUDE_SONNET),
-    ("translate", [r"\btranslate\b", r"\binto (english|spanish|french|german)\b"], GEMINI_15_PRO),
-    ("code", [r"\bcode\b", r"\bdebug\b", r"```"], GPT_4_TURBO),
-    ("math", [r"\b\d+\s*[\+\-\*\/\^]\s*\d+\b", r"\bsolve\b", r"\bmath\b"], GPT_4_TURBO),
-    ("fast", [r"\bfast\b", r"real-time", r"realtime"], MIXTRAL_8x7B_GROQ),
-    ("creative", [r"\bcreative\b", r"\bstory\b", r"\bpoem\b", r"\bimagine\b"], CLAUDE_OPUS),
-    ("vision", [r"\bimage\b", r"\bvision\b", r"\bpicture\b"], GPT_4O),  # GPT-4o has vision
+    ("summarize", [r"\bsummariz(e|ing|ation)\b", r"\bsummaris(e|ing|ation)\b", r"\btldr\b", r"\bcondense\b", r"\babstract\b", r"\bshorten\b"], CLAUDE_SONNET),
+    ("translate", [r"\btranslate\b", r"\binto (english|spanish|french|german|hindi|japanese|korean|chinese)\b", r"\b(in|to) (en|es|fr|de|hi|ja|ko|zh)\b"], GEMINI_15_PRO),
+    ("code", [r"\bcode\b", r"\bdebug(ging)?\b", r"```", r"\bfunction\b", r"\bclass\b", r"\berror\b", r"\bstacktrace\b"], GPT_4_TURBO),
+    ("math", [r"\b\d+\s*[\+\-\*\/\^]\s*\d+\b", r"\bsolve\b", r"\bmath(ematics)?\b", r"\bderivative\b", r"\bintegral\b"], GPT_4_TURBO),
+    ("fast", [r"\bfast\b", r"real-?time\b", r"\brealtime\b", r"\blatency\b", r"\bquick\b"], MIXTRAL_8x7B_GROQ),
+    ("creative", [r"\bcreative\b", r"\bstory\b", r"\bpoem\b", r"\bimagine\b", r"\bcharacter\b", r"\bscene\b", r"\bnarrative\b"], CLAUDE_OPUS),
+    ("vision", [r"\bimage\b", r"\bvision\b", r"\bpicture\b", r"\bphoto\b", r"\bscreenshot\b"], GPT_4O),  # GPT-4o has vision
 ]
 
 
