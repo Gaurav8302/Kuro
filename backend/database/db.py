@@ -98,11 +98,160 @@ class DatabaseConnection:
             logger.info("Database connection closed")
 
 # Create a global database connection instance
-db_connection = DatabaseConnection()
+if os.getenv("DISABLE_MEMORY_INIT") == "1":
+    # In-memory fallback for tests / local minimal runs
+    import uuid
+    class _InsertResult:
+        def __init__(self, _id):
+            self.inserted_id = _id
+    def _get_nested(doc: dict, dotted: str):
+        cur = doc
+        for part in dotted.split('.'):
+            if isinstance(cur, dict):
+                cur = cur.get(part)
+            else:
+                return None
+        return cur
+    class _Cursor:
+        def __init__(self, docs):
+            self._docs = list(docs)
+        def sort(self, key, direction=None):
+            items = self._docs
+            if isinstance(key, list):
+                keys = key
+            else:
+                keys = [(key, direction or 1)]
+            # Apply sorts in reverse for stable multi-key
+            for k, dirn in reversed(keys):
+                rev = dirn == -1
+                self._docs = sorted(self._docs, key=lambda d: _get_nested(d, k) if _get_nested(d, k) is not None else 0, reverse=rev)
+            return self
+        def limit(self, n: int):
+            self._docs = self._docs[:n]
+            return self
+        def __iter__(self):
+            return iter(self._docs)
+    class InMemoryCollection:
+        def __init__(self):
+            self._docs = []
+        def create_index(self, *args, **kwargs):
+            return None
+        def find_one(self, query=None, sort=None):
+            query = query or {}
+            matches = [d for d in self._docs if _match(d, query)]
+            if sort:
+                # sort can be list of tuples
+                cur = _Cursor(matches).sort(sort)
+                matches = list(cur)
+            return matches[0] if matches else None
+        def find(self, query=None):
+            query = query or {}
+            return _Cursor([d for d in self._docs if _match(d, query)])
+        def insert_one(self, doc):
+            if "_id" not in doc:
+                doc["_id"] = uuid.uuid4().hex
+            self._docs.append(dict(doc))
+            return _InsertResult(doc["_id"])
+        def delete_one(self, query):
+            for i, d in enumerate(self._docs):
+                if _match(d, query):
+                    self._docs.pop(i)
+                    return {"deleted_count": 1}
+            return {"deleted_count": 0}
+        def delete_many(self, query):
+            to_keep = []
+            deleted = 0
+            for d in self._docs:
+                if _match(d, query):
+                    deleted += 1
+                else:
+                    to_keep.append(d)
+            self._docs = to_keep
+            return {"deleted_count": deleted}
+        def update_one(self, query, update):
+            for d in self._docs:
+                if _match(d, query):
+                    if "$set" in update:
+                        d.update(update["$set"])
+                    if "$inc" in update:
+                        for k, v in update["$inc"].items():
+                            d[k] = d.get(k, 0) + v
+                    return {"matched_count": 1, "modified_count": 1}
+            return {"matched_count": 0, "modified_count": 0}
+        def count_documents(self, query):
+            return len([d for d in self._docs if _match(d, query)])
+    def _match(doc, query):
+        # Supports equality, nested dotted keys, $or, regex, and basic comparison ops
+        if not query:
+            return True
+        if "$or" in query:
+            return any(_match(doc, q) for q in query["$or"])
+        for k, v in query.items():
+            if k == "$or":
+                continue
+            field_val = _get_nested(doc, k)
+            if isinstance(v, dict):
+                # Regex
+                if "$regex" in v:
+                    import re
+                    pattern = v.get("$regex", "")
+                    flags = re.I if v.get("$options") == "i" else 0
+                    if not re.search(pattern, str(field_val or ""), flags):
+                        return False
+                # Comparisons
+                if "$gt" in v and not (field_val is not None and field_val > v["$gt"]):
+                    return False
+                if "$gte" in v and not (field_val is not None and field_val >= v["$gte"]):
+                    return False
+                if "$lt" in v and not (field_val is not None and field_val < v["$lt"]):
+                    return False
+                if "$lte" in v and not (field_val is not None and field_val <= v["$lte"]):
+                    return False
+                if "$in" in v and field_val not in v["$in"]:
+                    return False
+                if "$nin" in v and field_val in v["$nin"]:
+                    return False
+            else:
+                if field_val != v:
+                    return False
+        return True
+    class InMemoryDatabase:
+        def __init__(self, name: str):
+            self._name = name
+            self._cols = {}
+        def __getitem__(self, name: str):
+            if name not in self._cols:
+                self._cols[name] = InMemoryCollection()
+            return self._cols[name]
+        def list_collection_names(self):
+            return list(self._cols.keys())
+        def command(self, name: str):
+            if name == "dbstats":
+                return {"dataSize": 0}
+            return {}
+    class _DummyClient:
+        def __init__(self, dbname: str):
+            self._db = InMemoryDatabase(dbname)
+        def __getitem__(self, name: str):
+            return InMemoryDatabase(name)
+        @property
+        def admin(self):
+            class _A:
+                def command(self, *a, **k):
+                    return {"ok": 1}
+            return _A()
 
-# Export the client and database for easy importing
-client = db_connection.client
-database = db_connection.database
+    database = InMemoryDatabase(DATABASE_NAME)
+    client = _DummyClient(DATABASE_NAME)
+    chat_collection = database["chat_sessions"]
+    session_titles_collection = database["session_titles"]
+    users_collection = database["users"]
+    conversation_summaries_collection = database["conversation_summaries"]
+else:
+    db_connection = DatabaseConnection()
+    # Export the client and database for easy importing
+    client = db_connection.client
+    database = db_connection.database
 
 # Collection shortcuts for common use
 chat_collection = database["chat_sessions"]

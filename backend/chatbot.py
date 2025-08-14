@@ -30,7 +30,7 @@ if missing_vars:
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import logging
@@ -38,7 +38,7 @@ import os
 
 # Import our custom modules
 from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
-from memory.chat_manager import chat_with_memory
+from memory import chat_manager
 from memory.chat_database import (
     get_sessions_by_user, 
     get_chat_by_session, 
@@ -118,8 +118,13 @@ frontend_urls = [
     "https://kuro-tau.vercel.app/",
 ]
 
-# Add additional production frontend URL if specified via environment variable
+"""
+Allow dynamic CORS for Vercel preview deployments and custom domains:
+- FRONTEND_URL: single canonical prod domain (e.g., https://your-app.vercel.app)
+- FRONTEND_URL_PATTERN: optional substring to match (e.g., .vercel.app) for preview URLs
+"""
 frontend_prod_url = os.getenv("FRONTEND_URL")
+frontend_url_pattern = os.getenv("FRONTEND_URL_PATTERN")
 if frontend_prod_url:
     frontend_urls.extend([
         frontend_prod_url,
@@ -132,11 +137,18 @@ async def cors_middleware(request: Request, call_next):
     """Handle CORS requests with manual headers for reliability"""
     origin = request.headers.get("origin")
     method = request.method
-    
+    # Precompute allow_origin for this request
+    allow_origin = False
+    if origin:
+        if origin in frontend_urls:
+            allow_origin = True
+        elif frontend_url_pattern and frontend_url_pattern in origin:
+            allow_origin = True
+
     # Handle preflight OPTIONS requests
     if method == "OPTIONS":
         response = Response(status_code=200)
-        if origin and origin in frontend_urls:
+        if allow_origin:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
@@ -147,7 +159,7 @@ async def cors_middleware(request: Request, call_next):
     response = await call_next(request)
     
     # Add CORS headers to all responses
-    if origin and origin in frontend_urls:
+    if allow_origin:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
@@ -443,7 +455,7 @@ async def chat_endpoint(payload: ChatInput):
     try:
         # Add timeout protection to prevent worker timeout
         def sync_chat():
-            return chat_with_memory(
+            return chat_manager.chat_with_memory(
                 user_id=payload.user_id,
                 message=payload.message,
                 session_id=payload.session_id
@@ -654,19 +666,19 @@ async def health_check():
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions"""
     logger.warning(f"HTTP {exc.status_code} error: {exc.detail}")
-    return {"error": exc.detail, "status_code": exc.status_code}
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail, "status_code": exc.status_code})
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 errors"""
     logger.warning(f"404 Not Found: {request.url}")
-    return {"error": "Endpoint not found", "detail": "The requested resource was not found"}
+    return JSONResponse(status_code=404, content={"error": "Endpoint not found", "detail": "The requested resource was not found"})
 
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc: Exception):
     """Handle 500 errors"""
     logger.error(f"Internal server error: {str(exc)}", exc_info=True)
-    return {"error": "Internal server error", "detail": "Something went wrong on our end"}
+    return JSONResponse(status_code=500, content={"error": "Internal server error", "detail": "Something went wrong on our end"})
 
 if __name__ == "__main__":
     import uvicorn

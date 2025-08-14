@@ -82,7 +82,7 @@ class GroqClient:
         response.raise_for_status()
         return response.json()
 
-    def generate_content(self, prompt: str, system_instruction: Optional[str] = None, intent: Optional[str] = None) -> str:
+    def generate_content(self, prompt: str, system_instruction: Optional[str] = None, intent: Optional[str] = None, model_id: Optional[str] = None) -> str:
         """
         Generate content using Groq's LLaMA 3 70B model
         
@@ -103,6 +103,8 @@ class GroqClient:
             messages = self._prepare_messages(prompt, system_instruction)
             # Routing selection
             selected_model, rule = self._select_model(messages, intent)
+            if model_id:
+                selected_model = model_id
             model_cfg = get_model(selected_model) or {}
             max_ctx = int(model_cfg.get("max_context_tokens", 8192))
             messages = trim_messages(messages, max_ctx - 1024)  # leave headroom for completion

@@ -3,7 +3,11 @@ import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 
 // Use environment-specific API base URL
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Prefer VITE_API_URL; fallback to VITE_API_BASE_URL; default to local dev
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://localhost:8000';
 
 console.log('🔗 API Base URL:', API_BASE, '| Environment:', import.meta.env.VITE_ENVIRONMENT || 'development');
 

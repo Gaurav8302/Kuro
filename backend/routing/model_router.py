@@ -58,7 +58,10 @@ def _score_model(m: Dict[str,Any], intents: Set[str], context_tokens: int) -> fl
         score -= float(m.get("cost_score", 1))*0.2
     return score
 
-def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] = None, forced_model: Optional[str] = None) -> Dict[str, Any]:
+def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] = None, forced_model: Optional[str] = None, intent: Optional[str] = None) -> Dict[str, Any]:
+    # Back-compat: some callers pass 'intent' singular; merge into intents set
+    if intent and not intents:
+        intents = {intent}
     # Forced override
     if forced_model and get_model(forced_model):
         return {"model_id": forced_model, "rule": "forced_override"}

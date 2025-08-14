@@ -12,6 +12,14 @@ Add these environment variables to your Render service (replace with your actual
 # AI Configuration
 GROQ_API_KEY=your_groq_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
+# Optional: OpenRouter (enables Anthropic/OpenAI via OpenRouter)
+OPENROUTER_API_KEY=your_openrouter_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+# Optional overrides (JSON mapping of canonical IDs to OpenRouter slugs)
+# OPENROUTER_MODEL_MAP={"claude-3.5-sonnet":"anthropic/claude-3.5-sonnet-20241022"}
+# Optional headers recommended by OpenRouter
+# OPENROUTER_REFERER=https://your-frontend-domain.vercel.app
+# OPENROUTER_SITE_NAME=Kuro AI
 
 # Authentication
 CLERK_SECRET_KEY=your_clerk_secret_key_here
@@ -24,13 +32,15 @@ PINECONE_API_KEY=your_pinecone_api_key_here
 PINECONE_INDEX=my-chatbot-memory
 PINECONE_ENV=us-east-1
 
-# Frontend URL
-FRONTEND_URL=https://kuro-tau.vercel.app
+# Frontend URL(s) and patterns (for Vercel preview domains)
+FRONTEND_URL=https://your-frontend-domain.vercel.app
+# Optionally allow all Vercel preview URLs:
+FRONTEND_URL_PATTERN=.vercel.app
 
-# Production Settings
+// Production Settings
 ENVIRONMENT=production
 DEBUG=False
-PORT=8000
+# Render sets PORT automatically
 
 # Optional Performance Tuning
 # Cache RAG index readiness probe results (seconds)
@@ -47,8 +57,8 @@ Add these environment variables to your Vercel project (replace with your actual
 # Authentication
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 
-# Backend API
-VITE_API_URL=https://kuro-cemr.onrender.com
+# Backend API (Render backend URL)
+VITE_API_URL=https://your-backend-service.onrender.com
 ```
 
 ## 🔧 **Migration Summary**
@@ -91,10 +101,10 @@ After deployment, test with:
 
 ```bash
 # Test backend health
-curl -X GET "https://kuro-cemr.onrender.com/health"
+curl -sSf "https://your-backend-service.onrender.com/healthz"
 
-# Test AI endpoint  
-curl -X POST "https://kuro-cemr.onrender.com/api/ai/status"
+# Check metrics (if exposed)
+curl -sSf "https://your-backend-service.onrender.com/metrics"
 ```
 
 ### 🎯 **Key Changes Made:**

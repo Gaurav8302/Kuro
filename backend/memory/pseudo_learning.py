@@ -170,7 +170,11 @@ def retrieve_relevant_corrections(
     # Fallback if empty
     if not results:
         try:
-            regex = {"$regex": query.split(" ")[0], "$options": "i"}
+            import re
+            token = query.strip().split(" ")[0]
+            # Escape special regex chars to avoid invalid patterns like 2+2
+            token = re.escape(token)
+            regex = {"$regex": token, "$options": "i"}
             for doc in corrections_collection.find(
                 {"user_id": user_id, "$or": [
                     {"correction_text": regex},

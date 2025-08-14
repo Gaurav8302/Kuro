@@ -2,22 +2,26 @@ services:
   - type: web
     name: canvas-chat-backend
     runtime: python3
-  # Run service from backend/ so module imports like 'chatbot:app' resolve
-  rootDir: backend
-  buildCommand: "bash build.sh"
-  startCommand: "gunicorn chatbot:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+    rootDir: backend
     plan: free
-    env: python
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG  
-        value: false
-      - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: canvas-chat-frontend
-          property: url
+    autoDeploy: true
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
+    healthCheckPath: /healthz
     scaling:
       minInstances: 1
       maxInstances: 3
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: FRONTEND_URL
+        value: https://your-frontend-domain.vercel.app
+      # Optional observability
+      - key: SENTRY_DSN
+        value: ""
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.0"
+      - key: SENTRY_ENABLE_TRACING
+        value: "false"
