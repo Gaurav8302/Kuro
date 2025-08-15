@@ -1,12 +1,11 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-interface HolographicButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface HolographicButtonProps extends HTMLMotionProps<'button'> {
   variant?: 'primary' | 'secondary' | 'accent' | 'ghost';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   glow?: boolean;
-  children: React.ReactNode;
 }
 
 export const HolographicButton: React.FC<HolographicButtonProps> = ({
@@ -15,7 +14,7 @@ export const HolographicButton: React.FC<HolographicButtonProps> = ({
   glow = true,
   className,
   children,
-  disabled,
+  disabled: disabledProp,
   ...props
 }) => {
   const variants = {
@@ -53,11 +52,11 @@ export const HolographicButton: React.FC<HolographicButtonProps> = ({
         className
       )}
       whileHover={{ 
-        scale: disabled ? 1 : 1.05,
-        boxShadow: disabled ? undefined : '0 0 30px rgba(0, 230, 214, 0.4)'
+        scale: disabledProp ? 1 : 1.05,
+        boxShadow: disabledProp ? undefined : '0 0 30px rgba(0, 230, 214, 0.4)'
       }}
-      whileTap={{ scale: disabled ? 1 : 0.95 }}
-      disabled={disabled}
+      whileTap={{ scale: disabledProp ? 1 : 0.95 }}
+      disabled={disabledProp}
       {...props}
     >
       {/* Shimmer effect */}
@@ -79,7 +78,7 @@ export const HolographicButton: React.FC<HolographicButtonProps> = ({
       
       {/* Content */}
       <span className="relative z-10 flex items-center justify-center gap-2">
-        {children}
+        {children as React.ReactNode}
       </span>
     </motion.button>
   );

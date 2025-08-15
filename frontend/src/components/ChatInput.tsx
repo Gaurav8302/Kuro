@@ -25,6 +25,7 @@ export const ChatInput = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const isDisabled = !message.trim() || sending;
 
   const handleSend = () => {
     if (message.trim() && !sending) {
@@ -158,7 +159,7 @@ export const ChatInput = ({
           >
             <motion.button
               onClick={handleSend}
-              disabled={!message.trim() || sending}
+              disabled={isDisabled}
               className={cn(
                 "w-12 h-12 rounded-full relative overflow-hidden",
                 "bg-gradient-to-br from-holo-cyan-500 to-holo-blue-500",
@@ -168,7 +169,7 @@ export const ChatInput = ({
                 "transition-all duration-300 flex items-center justify-center",
                 "glass-panel backdrop-blur-md"
               )}
-              whileHover={!disabled ? {
+              whileHover={!isDisabled ? {
                 boxShadow: '0 0 40px rgba(0, 230, 214, 0.6)',
                 scale: 1.1
               } : undefined}
@@ -176,7 +177,7 @@ export const ChatInput = ({
               {/* Pulse ring effect */}
               <motion.div
                 className="absolute inset-0 rounded-full border-2 border-holo-cyan-400"
-                animate={!disabled ? {
+                animate={!isDisabled ? {
                   scale: [1, 1.2, 1],
                   opacity: [0.5, 0, 0.5]
                 } : {}}
