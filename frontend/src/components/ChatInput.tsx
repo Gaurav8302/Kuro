@@ -17,7 +17,7 @@ interface ChatInputProps {
 
 export const ChatInput = ({ 
   onSendMessage, 
-  placeholder = "TRANSMIT YOUR QUERY...",
+  placeholder = "Type a message...",
   sending = false
 }: ChatInputProps) => {
   const [message, setMessage] = useState('');
@@ -201,9 +201,9 @@ export const ChatInput = ({
 
         {/* Helper text */}
         <p className="text-xs text-holo-cyan-400/60 text-center mt-3 select-none font-orbitron tracking-wide">
-          Press <kbd className="px-2 py-1 text-xs bg-holo-cyan-500/20 border border-holo-cyan-400/30 rounded font-orbitron">ENTER</kbd> to transmit
+          Press <kbd className="px-2 py-1 text-xs bg-holo-cyan-500/20 border border-holo-cyan-400/30 rounded font-orbitron">Enter</kbd> to send
           <span className="mx-1">•</span>
-          <kbd className="px-2 py-1 text-xs bg-holo-cyan-500/20 border border-holo-cyan-400/30 rounded font-orbitron">SHIFT + ENTER</kbd> = newline
+          <kbd className="px-2 py-1 text-xs bg-holo-cyan-500/20 border border-holo-cyan-400/30 rounded font-orbitron">Shift + Enter</kbd> for a new line
         </p>
       </div>
     </motion.div>

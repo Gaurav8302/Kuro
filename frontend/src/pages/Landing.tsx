@@ -203,7 +203,7 @@ const Landing = () => {
                 >
                   <HoloSparklesIcon size={16} />
                 </motion.div>
-                <span className="text-sm font-medium font-orbitron tracking-wide">POWERED BY GROQ LLAMA 3 70B</span>
+                <span className="text-sm font-medium font-orbitron tracking-wide">MULTI‑MODEL: GROQ + GEMINI</span>
                 <motion.div
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
@@ -242,10 +242,10 @@ const Landing = () => {
                 transition={{ duration: 0.8, delay: 0.9 }}
               >
                 <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Kuro is a modern AI assistant powered by Groq LLaMA 3 70B for chat and Gemini embeddings for memory.
+                  Kuro uses multiple models: Groq LLaMA 3 70B for chat and Gemini embeddings for semantic memory.
                 </p>
                 <p className="text-lg text-holo-cyan-200 mb-8 font-space">
-                  Get fast, helpful answers with context from your past conversations.
+                  Fast, helpful answers with context from your past conversations.
                 </p>
                 <motion.div
                   className="inline-flex items-center gap-2 glass-panel border-holo-green-400/30 px-4 py-2 rounded-full"
@@ -465,7 +465,7 @@ const Landing = () => {
               {
                 icon: Brain,
                 title: "GROQ LLAMA 3 70B",
-                description: "Fast, high-quality responses for chat generation",
+                description: "Fast, high-quality responses for chat (generation)",
                 color: "holo-purple"
               },
               {
@@ -477,7 +477,7 @@ const Landing = () => {
               {
                 icon: Shield,
                   title: "RENDER BACKEND",
-                  description: "FastAPI + MongoDB Atlas + Pinecone integration",
+                  description: "FastAPI + MongoDB Atlas + Pinecone + Gemini embeddings",
                 color: "holo-blue"
               }
             ].map((spec, index) => (

@@ -338,11 +338,12 @@ export const Sidebar = ({
                 
                 <motion.button
                   onClick={onSignOut}
-                  className="w-8 h-8 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 hover:shadow-holo-magenta transition-all duration-300 flex items-center justify-center"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+                  className="inline-flex items-center gap-2 px-3 h-8 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 hover:shadow-holo-magenta transition-all duration-300"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <LogOut className="w-4 h-4 text-holo-magenta-400" />
+                  <span className="text-xs font-orbitron text-holo-magenta-300 tracking-wide">LOG OUT</span>
                 </motion.button>
               </>
             )}
