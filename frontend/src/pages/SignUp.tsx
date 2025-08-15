@@ -3,20 +3,21 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSignUp, useSignIn } from '@clerk/clerk-react';
 import { 
-  Brain, 
   Mail, 
   Lock, 
   Eye, 
   EyeOff, 
   ArrowLeft,
-  Sparkles,
   AlertCircle,
-  User
+  User,
+  Zap
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { HolographicButton } from '@/components/HolographicButton';
+import { HolographicCard } from '@/components/HolographicCard';
+import { HolographicBackground } from '@/components/HolographicBackground';
+import { HoloSparklesIcon } from '@/components/HolographicIcons';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -38,10 +39,17 @@ const SignUp = () => {
   // Show loading if Clerk is not ready
   if (!signUpLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
+        <HolographicBackground variant="subtle" />
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/80">Loading sign up...</p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="w-16 h-16 mx-auto mb-6"
+          >
+            <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
+          </motion.div>
+          <p className="text-holo-cyan-400 font-orbitron tracking-wide">LOADING REGISTRATION...</p>
         </div>
       </div>
     );
@@ -133,141 +141,136 @@ const SignUp = () => {
   const isFormValid = formData.firstName && formData.lastName && formData.email && formData.password;
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute top-20 left-10 w-20 h-20 bg-gradient-secondary rounded-full opacity-20"
-          animate={{ 
-            y: [0, -20, 0],
-            rotate: [0, 360]
-          }}
-          transition={{ 
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-20 right-20 w-16 h-16 bg-gradient-accent rounded-full opacity-20"
-          animate={{ 
-            y: [0, 20, 0],
-            x: [0, -10, 0]
-          }}
-          transition={{ 
-            duration: 6,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1
-          }}
-        />
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <HolographicBackground variant="default" />
 
       <div className="relative z-10 w-full max-w-md">
         {/* Back button */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, x: -30, filter: 'blur(5px)' }}
+          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 0.5 }}
           className="mb-6"
         >
-          <Button
+          <HolographicButton
             variant="ghost"
+            size="md"
             onClick={() => navigate('/')}
-            className="text-white hover:bg-white/10 p-2"
+            className="font-orbitron tracking-wide"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+            RETURN TO BASE
+          </HolographicButton>
         </motion.div>
 
         {/* Sign Up Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          initial={{ opacity: 0, y: 30, scale: 0.8, filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
         >
-          <Card className="bg-black/20 backdrop-blur-lg border-white/10">
-            <CardHeader className="text-center pb-6">
+          <HolographicCard variant="intense" className="overflow-hidden">
+            <div className="text-center p-8 pb-6 relative">
+              {/* Header scan line */}
+              <motion.div
+                className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+                animate={{ opacity: [0.3, 0.8, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+              
               <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center overflow-hidden">
+                <motion.div 
+                  className="w-20 h-20 glass-panel border-holo-cyan-400/50 rounded-full flex items-center justify-center overflow-hidden shadow-holo-glow"
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
                   <img src="/kuroai.png" alt="Kuro AI" className="w-full h-full object-cover rounded-full" />
-                </div>
+                </motion.div>
               </div>
-              <CardTitle className="text-2xl font-handwriting text-white mb-2">
-                Join Kuro AI
-              </CardTitle>
-              <p className="text-white/70 text-sm">
-                Create your account and start your AI journey
+              <h2 className="text-3xl font-bold text-holo-cyan-300 mb-3 font-orbitron tracking-wide text-holo-glow">
+                NEURAL REGISTRATION
+              </h2>
+              <p className="text-holo-cyan-100/70 text-sm font-space">
+                Initialize your neural profile and begin AI interface training
               </p>
-            </CardHeader>
+            </div>
 
-            <CardContent className="space-y-6">
+            <div className="space-y-6 p-8 pt-0">
               {error && (
-                <Alert className="bg-red-500/10 border-red-500/20">
-                  <AlertCircle className="h-4 w-4 text-red-400" />
-                  <AlertDescription className="text-red-400">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Alert className="bg-holo-magenta-500/10 border-holo-magenta-400/30 glass-panel">
+                  <AlertCircle className="h-4 w-4 text-holo-magenta-400" />
+                  <AlertDescription className="text-holo-magenta-200 font-space">
                     {error}
                   </AlertDescription>
                 </Alert>
+                </motion.div>
               )}
 
               {!pendingVerification ? (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Google Sign Up Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                  <HolographicButton
+                    variant="ghost"
+                    size="lg"
+                    className="w-full font-orbitron tracking-wide"
                     onClick={handleGoogleSignUp}
                     disabled={isLoading}
                   >
                     <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      <path fill="#00e6d6" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#1a8cff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#8c1aff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#ff1ab1" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
-                    Continue with Google
-                  </Button>
+                    GOOGLE REGISTRATION
+                  </HolographicButton>
 
                   {/* Divider */}
                   <div className="relative my-6">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/20"></div>
+                      <div className="w-full border-t border-holo-cyan-500/30"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="bg-black/20 px-4 text-white/70">Or continue with email</span>
+                      <span className="glass-panel px-6 py-2 text-holo-cyan-400/70 font-orbitron tracking-wide">OR MANUAL REGISTRATION</span>
                     </div>
                   </div>
 
                   {/* Name Fields */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-white/90">
-                        First Name
+                      <label className="text-sm font-medium text-holo-cyan-300 font-orbitron tracking-wide">
+                        FIRST ID
                       </label>
                       <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-holo-cyan-400/60" />
                         <Input
                           type="text"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          placeholder="First name"
-                          className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                          placeholder="Neural"
+                          className="pl-10 glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow font-space"
                           required
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-white/90">
-                        Last Name
+                      <label className="text-sm font-medium text-holo-cyan-300 font-orbitron tracking-wide">
+                        LAST ID
                       </label>
                       <Input
                         type="text"
                         value={formData.lastName}
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        placeholder="Last name"
-                        className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                        placeholder="Operator"
+                        className="glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow font-space"
                         required
                       />
                     </div>
@@ -275,17 +278,17 @@ const SignUp = () => {
 
                   {/* Email */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white/90">
-                      Email Address
+                    <label className="text-sm font-medium text-holo-cyan-300 font-orbitron tracking-wide">
+                      EMAIL IDENTIFIER
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-holo-cyan-400/60" />
                       <Input
                         type="email"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        placeholder="Enter your email"
-                        className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                        placeholder="neural.interface@domain.net"
+                        className="pl-10 glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow font-space"
                         required
                       />
                     </div>
@@ -293,102 +296,123 @@ const SignUp = () => {
 
                   {/* Password */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white/90">
-                      Password
+                    <label className="text-sm font-medium text-holo-cyan-300 font-orbitron tracking-wide">
+                      ACCESS CODE
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-holo-cyan-400/60" />
                       <Input
                         type={showPassword ? 'text' : 'password'}
                         value={formData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        placeholder="Create a password"
-                        className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary"
+                        placeholder="Create neural access code"
+                        className="pl-10 pr-10 glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow font-orbitron"
                         required
                       />
-                      <button
+                      <motion.button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/70"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-holo-cyan-400/60 hover:text-holo-cyan-400 transition-colors duration-300"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
 
                   {/* Sign Up Button */}
-                  <Button
-                    type="submit"
+                  <HolographicButton
+                    variant="primary"
+                    size="lg"
+                    className="w-full font-orbitron tracking-wide"
                     disabled={isLoading || !isFormValid}
-                    className="w-full bg-gradient-primary hover:opacity-90 text-white font-medium py-3"
+                    onClick={handleSubmit}
                   >
                     {isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Creating Account...
-                      </div>
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          className="mr-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                        </motion.div>
+                        CREATING PROFILE...
+                      </>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4" />
-                        Create Account
-                      </div>
+                      <>
+                        <HoloSparklesIcon size={16} className="mr-2" />
+                        CREATE NEURAL PROFILE
+                      </>
                     )}
-                  </Button>
+                  </HolographicButton>
                 </form>
               ) : (
                 <form onSubmit={onPressVerify} className="space-y-6">
                   <div className="text-center space-y-2">
-                    <h3 className="text-lg font-medium text-white">Verify your email</h3>
-                    <p className="text-white/70 text-sm">
-                      We sent a verification code to {formData.email}
+                    <h3 className="text-lg font-medium text-holo-cyan-300 font-orbitron tracking-wide">VERIFY NEURAL LINK</h3>
+                    <p className="text-holo-cyan-100/70 text-sm font-space">
+                      Verification code transmitted to {formData.email}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white/90">
-                      Verification Code
+                    <label className="text-sm font-medium text-holo-cyan-300 font-orbitron tracking-wide">
+                      VERIFICATION SEQUENCE
                     </label>
                     <Input
                       type="text"
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
-                      placeholder="Enter verification code"
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-primary text-center"
+                      placeholder="Enter neural verification code"
+                      className="glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow text-center font-orbitron tracking-wider"
                       required
                     />
                   </div>
 
-                  <Button
-                    type="submit"
+                  <HolographicButton
+                    variant="primary"
+                    size="lg"
+                    className="w-full font-orbitron tracking-wide"
                     disabled={isLoading || !code}
-                    className="w-full bg-gradient-primary hover:opacity-90 text-white font-medium py-3"
+                    onClick={onPressVerify}
                   >
                     {isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Verifying...
-                      </div>
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          className="mr-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                        </motion.div>
+                        VERIFYING...
+                      </>
                     ) : (
-                      'Verify Email'
+                      <>
+                        <HoloSparklesIcon size={16} className="mr-2" />
+                        VERIFY NEURAL LINK
+                      </>
                     )}
-                  </Button>
+                  </HolographicButton>
                 </form>
               )}
 
               {/* Sign In Link */}
-              <div className="text-center pt-4 border-t border-white/10">
-                <p className="text-white/70 text-sm">
+              <div className="text-center pt-6 border-t border-holo-cyan-500/20">
+                <p className="text-holo-cyan-100/70 text-sm font-space">
                   Already have an account?{' '}
                   <Link 
                     to="/auth/signin" 
-                    className="text-primary hover:text-primary-glow font-medium"
+                    className="text-holo-cyan-400 hover:text-holo-cyan-300 font-medium font-orbitron tracking-wide hover:text-holo-glow transition-all duration-300"
                   >
-                    Sign in here
+                    AUTHENTICATE HERE
                   </Link>
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </HolographicCard>
         </motion.div>
       </div>
     </div>

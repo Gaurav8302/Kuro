@@ -1,8 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Home, Search, ArrowLeft, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Home, ArrowLeft, AlertTriangle, Zap } from "lucide-react";
+import { HolographicButton } from "@/components/HolographicButton";
+import { HolographicCard } from "@/components/HolographicCard";
+import { HolographicBackground } from "@/components/HolographicBackground";
+import { HoloSparklesIcon } from "@/components/HolographicIcons";
 
 const NotFound = () => {
   const location = useLocation();
@@ -16,78 +19,87 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-4">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute top-1/4 left-1/4 w-32 h-32 bg-gradient-secondary rounded-full opacity-10"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 w-24 h-24 bg-gradient-accent rounded-full opacity-10"
-          animate={{ y: [0, -30, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <HolographicBackground variant="intense" />
 
       <div className="relative z-10 text-center max-w-lg">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <div className="text-8xl font-handwriting font-bold text-gradient-rainbow mb-4">
-            4🤖4
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-4">
-            Oops! Page Not Found
-          </h1>
-          <p className="text-xl text-white/80 mb-2">
-            Looks like this page went on its own creative adventure!
-          </p>
-          <p className="text-white/60 font-handwriting text-lg">
-            Don't worry, even AI gets lost sometimes ✨
-          </p>
-        </motion.div>
+        <HolographicCard variant="intense" className="p-12 mb-8">
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.8, ease: 'backOut' }}
+            className="mb-8"
+          >
+            <motion.div 
+              className="text-8xl font-bold mb-6 font-orbitron"
+              animate={{ 
+                textShadow: [
+                  '0 0 20px #ff1ab1',
+                  '0 0 40px #00e6d6',
+                  '0 0 20px #8c1aff',
+                  '0 0 20px #ff1ab1'
+                ]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
+              <span className="holo-text">4</span>
+              <motion.span
+                animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="inline-block mx-2"
+              >
+                <AlertTriangle className="w-16 h-16 text-holo-magenta-400 inline" />
+              </motion.span>
+              <span className="holo-text">4</span>
+            </motion.div>
+            <h1 className="text-4xl font-bold text-holo-cyan-300 mb-4 font-orbitron tracking-wide text-holo-glow">
+              NEURAL PATHWAY NOT FOUND
+            </h1>
+            <p className="text-xl text-holo-cyan-100/80 mb-3 font-space">
+              This transmission route has been disconnected from the neural network.
+            </p>
+            <p className="text-holo-cyan-400/60 font-rajdhani text-lg tracking-wide">
+              Even quantum systems experience navigation anomalies.
+            </p>
+          </motion.div>
+        </HolographicCard>
 
         <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          initial={{ y: 50, opacity: 0, scale: 0.8 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
           className="flex flex-col sm:flex-row gap-4 justify-center"
         >
-          <Button
-            variant="hero"
+          <HolographicButton
+            variant="primary"
             size="lg"
             onClick={() => navigate('/')}
-            className="group"
+            className="group font-orbitron tracking-wide"
           >
-            <Home className="w-5 h-5 mr-2 group-hover:animate-wiggle" />
-            Return Home
-            <Sparkles className="w-5 h-5 ml-2" />
-          </Button>
+            <Home className="w-5 h-5 mr-2" />
+            RETURN TO BASE
+            <HoloSparklesIcon size={16} className="ml-2" />
+          </HolographicButton>
           
-          <Button
-            variant="outline"
+          <HolographicButton
+            variant="ghost"
             size="lg"
             onClick={() => navigate(-1)}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            className="font-orbitron tracking-wide"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            Go Back
-          </Button>
+            PREVIOUS ROUTE
+          </HolographicButton>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.8 }}
           className="mt-12 text-center"
         >
-          <p className="text-white/60 text-sm">
-            Lost route: <code className="bg-white/10 px-2 py-1 rounded text-white/80">{location.pathname}</code>
+          <p className="text-holo-cyan-400/60 text-sm font-space">
+            DISCONNECTED ROUTE: <code className="glass-panel px-3 py-1 rounded text-holo-cyan-300 font-orbitron border border-holo-cyan-400/20">{location.pathname}</code>
           </p>
         </motion.div>
       </div>

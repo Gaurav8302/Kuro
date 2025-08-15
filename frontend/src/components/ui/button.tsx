@@ -5,25 +5,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 font-rajdhani tracking-wide",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary",
+        default: "glass-panel border-holo-cyan-400/30 text-holo-cyan-300 hover:shadow-holo-glow hover:border-holo-cyan-400/50",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "glass-panel border-holo-magenta-400/30 text-holo-magenta-300 hover:shadow-holo-magenta hover:border-holo-magenta-400/50",
         outline:
-          "border border-input bg-card hover:bg-accent hover:text-accent-foreground",
+          "glass-panel border-holo-cyan-400/20 text-holo-cyan-400 hover:bg-holo-cyan-500/10 hover:border-holo-cyan-400/40",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-secondary",
+          "glass-panel border-holo-purple-400/30 text-holo-purple-300 hover:shadow-holo-purple hover:border-holo-purple-400/50",
         accent:
-          "bg-accent text-accent-foreground hover:bg-accent/80 shadow-accent",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        gradient: "bg-gradient-primary text-white hover:shadow-glow transform hover:scale-105",
-        hero: "bg-gradient-hero text-white shadow-glow hover:shadow-primary transform hover:scale-105 transition-bounce font-semibold",
-        chat: "bg-gradient-accent text-white hover:bg-accent/90 shadow-accent",
-        fun: "bg-gradient-rainbow text-white hover:shadow-glow animate-pulse-glow font-handwriting text-lg",
+          "glass-panel border-holo-blue-400/30 text-holo-blue-300 hover:shadow-holo-blue hover:border-holo-blue-400/50",
+        ghost: "bg-transparent text-holo-cyan-400 hover:bg-holo-cyan-500/10 hover:shadow-holo-glow",
+        link: "text-holo-cyan-400 underline-offset-4 hover:underline hover:text-holo-glow",
       },
       size: {
         default: "h-10 px-4 py-2",

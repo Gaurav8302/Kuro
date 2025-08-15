@@ -26,14 +26,14 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
 
   // Pre-generate particles once
   const particles: Particle[] = useMemo(() => (
-    Array.from({ length: 28 }).map((_, i) => ({
+    Array.from({ length: 40 }).map((_, i) => ({
       id: i,
       left: Math.random() * 100,
       top: Math.random() * 100,
-      size: 4 + Math.random() * 8,
+      size: 2 + Math.random() * 6,
       delay: Math.random() * 8,
-      duration: 12 + Math.random() * 18,
-      opacity: 0.15 + Math.random() * 0.25
+      duration: 8 + Math.random() * 12,
+      opacity: 0.2 + Math.random() * 0.4
     }))
   ), []);
 
@@ -63,35 +63,62 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
         ? 'fixed inset-0 z-[9999]'
         : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden shadow-glow'
       , 'overflow-hidden select-none', className].filter(Boolean).join(' ')}>
-      {/* Base gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0d0d1a] to-[#1a0033]" />
+      {/* Holographic base background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20" />
 
-      {/* Animated hue-shift radial glow */}
-      <div className="absolute inset-0 mix-blend-screen opacity-60 animate-kuro-hue">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(120,40,255,0.35),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(0,140,255,0.25),transparent_65%)]" />
+      {/* Holographic radial glows */}
+      <div className="absolute inset-0 mix-blend-screen opacity-70">
+        <motion.div 
+          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(0,230,214,0.4),transparent_60%)]"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        />
+        <motion.div 
+          className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(140,26,255,0.3),transparent_65%)]"
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 5, repeat: Infinity }}
+        />
+        <motion.div 
+          className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(26,140,255,0.25),transparent_70%)]"
+          animate={{ scale: [1, 1.3, 1], opacity: [0.25, 0.5, 0.25] }}
+          transition={{ duration: 6, repeat: Infinity }}
+        />
       </div>
 
-      {/* Subtle moving gradient veil */}
-      <div className="pointer-events-none absolute inset-0 animate-kuro-wave opacity-[0.35]" style={{
-        background: 'linear-gradient(120deg, rgba(147,51,234,0.15), rgba(59,130,246,0.12), rgba(147,51,234,0.15))',
-        backgroundSize: '300% 300%'
+      {/* Holographic grid overlay */}
+      <div className="pointer-events-none absolute inset-0 opacity-30" style={{
+        background: `
+          linear-gradient(rgba(0,230,214,0.1) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,230,214,0.1) 1px, transparent 1px)
+        `,
+        backgroundSize: '50px 50px'
       }} />
 
       {/* Particle / bokeh layer */}
       <div className="absolute inset-0">
         {particles.map(p => (
-          <span
+          <motion.span
             key={p.id}
-            className="absolute rounded-full bg-purple-400/30 blur-[2px] animate-kuro-float"
+            className="absolute rounded-full blur-[1px]"
             style={{
               left: `${p.left}vw`,
               top: `${p.top}vh`,
               width: p.size,
               height: p.size,
-              animationDelay: `${p.delay}s`,
-              animationDuration: `${p.duration}s`,
-              opacity: p.opacity
+              backgroundColor: ['#00e6d6', '#8c1aff', '#1a8cff', '#ff1ab1'][p.id % 4],
+              boxShadow: `0 0 ${p.size * 2}px currentColor`
+            }}
+            animate={{
+              y: [0, -50, 0],
+              x: [0, 20, 0],
+              scale: [1, 1.2, 1],
+              opacity: [p.opacity, p.opacity * 1.5, p.opacity]
+            }}
+            transition={{
+              duration: p.duration,
+              repeat: Infinity,
+              delay: p.delay,
+              ease: 'easeInOut'
             }}
           />
         ))}
@@ -104,55 +131,62 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
             <AnimatePresence mode="wait">
               <motion.h1
                 key={phrase}
-                initial={{ opacity: 0, scale: 0.94, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -8 }}
-                transition={{ duration: 0.7, ease: [0.25, 0.8, 0.25, 1] }}
+                initial={{ opacity: 0, scale: 0.8, y: 20, filter: 'blur(10px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.9, y: -20, filter: 'blur(5px)' }}
+                transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
                 className={fullscreen
-                  ? 'font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 drop-shadow-[0_0_10px_rgba(147,51,234,0.8)] text-5xl md:text-7xl'
-                  : 'font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 drop-shadow-[0_0_8px_rgba(147,51,234,0.7)] text-4xl md:text-6xl'
+                  ? 'font-bold tracking-wider holo-text text-holo-glow text-6xl md:text-8xl font-orbitron'
+                  : 'font-bold tracking-wider holo-text text-holo-glow text-5xl md:text-7xl font-orbitron'
                 }
+                animate={{
+                  textShadow: [
+                    '0 0 20px #00e6d6, 0 0 40px #00e6d6',
+                    '0 0 30px #8c1aff, 0 0 60px #8c1aff',
+                    '0 0 25px #1a8cff, 0 0 50px #1a8cff',
+                    '0 0 20px #00e6d6, 0 0 40px #00e6d6'
+                  ]
+                }}
+                transition={{ duration: 4, repeat: Infinity }}
               >
                 {phrase}
               </motion.h1>
             </AnimatePresence>
 
-            {/* Underline pulse accent */}
+            {/* Holographic underline */}
             <motion.div
               key={`underline-${phrase}`}
-              initial={{ opacity: 0, scaleX: 0.3 }}
-              animate={{ opacity: 0.85, scaleX: 1 }}
-              exit={{ opacity: 0, scaleX: 0.2 }}
-              transition={{ duration: 0.8, delay: 0.15 }}
-              className="mx-auto mt-4 h-[3px] w-32 origin-center rounded-full bg-gradient-to-r from-purple-500 via-fuchsia-400 to-indigo-400 shadow-[0_0_12px_rgba(147,51,234,0.8)]"
+              initial={{ opacity: 0, scaleX: 0.2, filter: 'blur(5px)' }}
+              animate={{ opacity: 1, scaleX: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, scaleX: 0.3, filter: 'blur(3px)' }}
+              transition={{ duration: 1, delay: 0.2 }}
+              className="mx-auto mt-6 h-1 w-40 origin-center rounded-full bg-gradient-to-r from-holo-cyan-500 via-holo-purple-400 to-holo-blue-500 shadow-holo-glow"
             />
           </div>
 
           {fullscreen && (
             <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 0.6, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="mt-10 max-w-xl text-sm md:text-base text-white/60 leading-relaxed"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              transition={{ delay: 0.6, duration: 1 }}
+              className="mt-12 max-w-xl text-sm md:text-base text-holo-cyan-100/70 leading-relaxed font-space"
             >
-              A creative co‑pilot for builders, dreamers & problem solvers.
+              Advanced neural interface for creators, innovators & quantum problem solvers.
             </motion.p>
           )}
         </div>
       </div>
 
       {fullscreen && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-black/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background via-background/60 to-transparent" />
       )}
 
-      <style>{`
-        .animate-kuro-hue { animation: kuroHue 12s linear infinite; }
-        .animate-kuro-wave { animation: kuroWave 18s ease-in-out infinite; }
-  .animate-kuro-float { animation: kuroFloat linear infinite; }
-        @keyframes kuroHue { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
-        @keyframes kuroWave { 0%,100%{transform:translate3d(0,0,0)} 50%{transform:translate3d(-8%,4%,0)} }
-        @keyframes kuroFloat { 0% { transform: translateY(0) translateX(0) scale(1); } 25% { transform: translateY(-12vh) translateX(4vw) scale(1.15); } 50% { transform: translateY(-24vh) translateX(-2vw) scale(0.9); } 75% { transform: translateY(-36vh) translateX(3vw) scale(1.1); } 100% { transform: translateY(-48vh) translateX(0) scale(1); } }
-      `}</style>
+      {/* Scan line effect */}
+      <motion.div
+        className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+        animate={{ y: ['0vh', '100vh'] }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+      />
     </div>
   );
 };

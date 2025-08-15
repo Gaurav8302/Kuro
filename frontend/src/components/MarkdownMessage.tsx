@@ -2,8 +2,10 @@ import React, { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github-dark.css';
+import 'highlight.js/styles/atom-one-dark.css';
 import hljs from 'highlight.js';
+import { motion } from 'framer-motion';
+import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Threshold (number of lines) beyond which code blocks become collapsible
 const COLLAPSE_LINE_THRESHOLD = 14;
@@ -31,24 +33,31 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
   const prepared = useMemo(() => preprocess(content), [content]);
 
   return (
-    <div className="markdown-body prose prose-invert max-w-none text-sm leading-relaxed">
+    <div className="markdown-body prose prose-invert max-w-none text-sm leading-relaxed font-space">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
-          p: ({ node, ...props }) => <p className="mb-3 last:mb-0" {...props} />,
-          h1: (p) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-border pb-1" {...p} />,
-          h2: (p) => <h2 className="mt-4 mb-2 text-xl font-bold" {...p} />,
-          h3: (p) => <h3 className="mt-3 mb-2 text-lg font-semibold" {...p} />,
-          ul: (p) => <ul className="list-disc ml-5 mb-3 space-y-1" {...p} />,
-          ol: (p) => <ol className="list-decimal ml-5 mb-3 space-y-1" {...p} />,
-          li: (p) => <li className="marker:text-muted-foreground" {...p} />,
-          strong: (p) => <strong className="font-semibold text-foreground" {...p} />,
+          p: ({ node, ...props }) => <p className="mb-3 last:mb-0 text-holo-cyan-100" {...props} />,
+          h1: (p) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
+          h2: (p) => <h2 className="mt-4 mb-2 text-xl font-bold text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
+          h3: (p) => <h3 className="mt-3 mb-2 text-lg font-semibold text-holo-cyan-300 font-rajdhani" {...props} />,
+          ul: (p) => <ul className="list-disc ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
+          ol: (p) => <ol className="list-decimal ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
+          li: (p) => <li className="marker:text-holo-cyan-400/60 text-holo-cyan-100" {...props} />,
+          strong: (p) => <strong className="font-semibold text-holo-cyan-200 text-holo-glow" {...props} />,
           code(codeProps: any) {
             const { inline, className = '', children, ...props } = codeProps;
             const raw = String(children).replace(/\n+$/, '');
             if (inline) {
-              return <code className="px-1 py-0.5 rounded bg-muted text-primary font-mono" {...props}>{raw}</code>;
+              return (
+                <code 
+                  className="px-2 py-1 rounded bg-holo-cyan-500/20 text-holo-cyan-300 font-orbitron border border-holo-cyan-400/30 text-holo-glow" 
+                  {...props}
+                >
+                  {raw}
+                </code>
+              );
             }
             const lines = raw.split('\n');
             const isLong = lines.length > COLLAPSE_LINE_THRESHOLD;
@@ -106,38 +115,97 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
             const [copied, setCopied] = useState(false);
 
             return (
-              <div className="group/code relative border border-border rounded-md bg-[#0f1115]">
-                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover/code:opacity-100 transition-opacity">
-                  <button
+              <motion.div 
+                className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/40 backdrop-blur-md overflow-hidden"
+                whileHover={{ scale: 1.01 }}
+                transition={{ duration: 0.2 }}
+              >
+                {/* Code block header */}
+                <div className="flex items-center justify-between px-3 py-2 bg-holo-cyan-500/10 border-b border-holo-cyan-400/20">
+                  <span className="text-xs text-holo-cyan-400 font-orbitron tracking-wider">
+                    {language ? language.toUpperCase() : 'CODE'}
+                  </span>
+                  <div className="flex gap-1 opacity-0 group-hover/code:opacity-100 transition-opacity">
+                    <motion.button
                     type="button"
                     onClick={handleCopy}
-                    className="px-2 h-7 text-[10px] rounded bg-muted/60 hover:bg-muted text-foreground border border-border/40"
-                  >{copied ? 'Copied' : 'Copy'}</button>
+                    className="px-2 h-6 text-[10px] rounded bg-holo-cyan-500/20 hover:bg-holo-cyan-500/30 text-holo-cyan-300 border border-holo-cyan-400/30 font-orbitron tracking-wide hover:shadow-holo-glow transition-all duration-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3 mr-1 inline" />
+                        COPIED
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 mr-1 inline" />
+                        COPY
+                      </>
+                    )}
+                  </motion.button>
                   {isLong && (
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => setCollapsed(c => !c)}
-                      className="px-2 h-7 text-[10px] rounded bg-muted/60 hover:bg-muted text-foreground border border-border/40"
-                    >{collapsed ? `Expand (${hiddenCount} more)` : 'Collapse'}</button>
+                      className="px-2 h-6 text-[10px] rounded bg-holo-blue-500/20 hover:bg-holo-blue-500/30 text-holo-blue-300 border border-holo-blue-400/30 font-orbitron tracking-wide hover:shadow-holo-blue transition-all duration-300"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {collapsed ? (
+                        <>
+                          <ChevronDown className="w-3 h-3 mr-1 inline" />
+                          EXPAND ({hiddenCount})
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="w-3 h-3 mr-1 inline" />
+                          COLLAPSE
+                        </>
+                      )}
+                    </motion.button>
                   )}
+                  </div>
                 </div>
-                <pre className="p-3 overflow-auto max-h-[32rem] text-xs rounded-md with-line-numbers" aria-live="polite">
-                  <code className={className} {...props}>
+                
+                <pre className="p-4 overflow-auto max-h-[32rem] text-xs with-line-numbers bg-black/20 font-orbitron" aria-live="polite">
+                  <code className={cn(className, "text-holo-cyan-300")} {...props}>
                     {visibleLines.map((l, i) => (
-                      <span key={i} className="code-line" dangerouslySetInnerHTML={{ __html: l || ' ' }} />
+                      <motion.span 
+                        key={i} 
+                        className="code-line block hover:bg-holo-cyan-500/10 transition-colors duration-200" 
+                        dangerouslySetInnerHTML={{ __html: l || ' ' }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.02, duration: 0.3 }}
+                      />
                     ))}
                   </code>
                 </pre>
                 {collapsed && (
-                  <div className="text-[10px] px-3 pb-2 -mt-2 text-muted-foreground">
-                    …truncated ({hiddenCount} more line{hiddenCount === 1 ? '' : 's'})
+                  <div className="text-[10px] px-4 pb-2 text-holo-cyan-400/50 font-orbitron tracking-wide bg-holo-cyan-500/5">
+                    TRUNCATED ({hiddenCount} MORE LINE{hiddenCount === 1 ? '' : 'S'})
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           },
-          blockquote: (p) => <blockquote className="border-l-4 border-border pl-3 italic opacity-90 mb-3" {...p} />,
-          hr: (p) => <hr className="my-6 border-border/60" {...p} />
+          blockquote: (p) => (
+            <blockquote 
+              className="border-l-4 border-holo-purple-400/50 pl-4 italic opacity-90 mb-3 bg-holo-purple-500/10 py-2 rounded-r-lg text-holo-purple-200" 
+              {...p} 
+            />
+          ),
+          hr: (p) => (
+            <motion.hr 
+              className="my-6 border-holo-cyan-500/30 border-t-2"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: 0.5 }}
+              {...p} 
+            />
+          )
         }}
       >
         {prepared}

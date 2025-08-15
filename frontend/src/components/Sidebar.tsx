@@ -10,8 +10,7 @@ import {
   Menu,
   X,
   Sparkles,
-  Brain,
-  Heart
+  Brain
 } from 'lucide-react';
 import { ChatSession, User } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { HolographicCard } from '@/components/HolographicCard';
+import { HolographicButton } from '@/components/HolographicButton';
+import { HoloMessageIcon, HoloDeleteIcon, HoloSparklesIcon } from '@/components/HolographicIcons';
+import HolographicParticles from '@/components/HolographicParticles';
 
 interface SidebarProps {
   sessions: ChatSession[];
@@ -87,84 +90,102 @@ export const Sidebar = ({
   return (
     <motion.div
       className={cn(
-        "h-full bg-gradient-chat border-r border-border/50 flex flex-col",
-        isCollapsed ? "w-16" : "w-80",
+        "h-full bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl border-r border-holo-cyan-500/20 flex flex-col relative overflow-hidden",
+        isCollapsed ? "w-20" : "w-80",
         className
       )}
-      initial={{ x: -320 }}
-      animate={{ x: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={{ x: -320, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
     >
+      {/* Holographic background effects */}
+      <HolographicParticles count={15} size="sm" className="opacity-30" />
+      
+      {/* Vertical scan line */}
+      <motion.div
+        className="absolute right-0 top-0 w-0.5 h-full bg-gradient-to-b from-transparent via-holo-cyan-400 to-transparent"
+        animate={{ opacity: [0.3, 0.8, 0.3] }}
+        transition={{ duration: 3, repeat: Infinity }}
+      />
+      
       {/* Header */}
-      <div className="p-4 border-b border-border/50">
+      <div className="p-4 border-b border-holo-cyan-500/20 relative">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center overflow-hidden">
+              <motion.div 
+                className="w-10 h-10 bg-gradient-to-br from-holo-purple-500 to-holo-magenta-500 rounded-full flex items-center justify-center overflow-hidden border-2 border-holo-purple-400/50 shadow-holo-purple"
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ duration: 0.2 }}
+              >
                 <img src="/kuroai.png" alt="Kuro AI" className="w-full h-full object-cover rounded-full" />
-              </div>
+              </motion.div>
               <div>
-                <h2 className="font-handwriting text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">
+                <h2 className="font-orbitron text-xl font-bold text-holo-cyan-400 text-holo-glow">
                   Kuro
                 </h2>
-                <p className="text-xs text-muted-foreground">Your AI Assistant</p>
+                <p className="text-xs text-holo-cyan-400/60 font-rajdhani tracking-wider">NEURAL INTERFACE</p>
               </div>
             </div>
           )}
           
-          <Button
-            variant="ghost"
-            size="icon"
+          <motion.button
             onClick={handleCloseClick}
-            className="hover:bg-accent/20"
+            className="w-8 h-8 rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
           >
-            {isCollapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
-          </Button>
+            {isCollapsed ? 
+              <Menu className="w-4 h-4 text-holo-cyan-400" /> : 
+              <X className="w-4 h-4 text-holo-cyan-400" />
+            }
+          </motion.button>
         </div>
 
         {/* New Chat Button */}
         {!isCollapsed && (
           <motion.div
             className="mt-4"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
           >
-            <Button
+            <HolographicButton
               onClick={onNewChat}
-              variant="hero"
-              className="w-full"
+              variant="primary"
               size="lg"
+              className="w-full font-orbitron tracking-wide"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              New Chat
-              <Sparkles className="w-4 h-4 ml-2" />
-            </Button>
+              <Plus className="w-5 h-5 mr-2" />
+              NEW TRANSMISSION
+              <HoloSparklesIcon size={16} className="ml-2" />
+            </HolographicButton>
           </motion.div>
         )}
 
         {isCollapsed && (
           <motion.div
             className="mt-4"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
           >
-            <Button
+            <HolographicButton
               onClick={onNewChat}
-              variant="hero"
-              size="icon"
+              variant="primary"
               className="w-full aspect-square"
             >
-              <Plus className="w-4 h-4" />
-            </Button>
+              <Plus className="w-5 h-5" />
+            </HolographicButton>
           </motion.div>
         )}
       </div>
 
       {/* Sessions List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
         {!isCollapsed && (
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-            Recent Chats
+          <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
+            TRANSMISSION LOG
           </h3>
         )}
         
@@ -172,25 +193,31 @@ export const Sidebar = ({
           {sessions.map((session, index) => (
             <motion.div
               key={session.session_id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ delay: index * 0.05 }}
+              initial={{ opacity: 0, x: -50, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -50, scale: 0.9 }}
+              transition={{ delay: index * 0.08, duration: 0.4, ease: 'easeOut' }}
               className="group"
             >
-              <div className={cn(
-                "flex items-center gap-2 p-3 rounded-lg transition-all duration-200 cursor-pointer",
-                currentSessionId === session.session_id
-                  ? "bg-primary/10 border border-primary/20"
-                  : "hover:bg-accent/20 hover:shadow-sm",
-                isCollapsed && "justify-center"
-              )}
-              onClick={() => onSelectSession(session.session_id)}
+              <HolographicCard
+                variant={currentSessionId === session.session_id ? 'glow' : 'default'}
+                hover={true}
+                scanLine={currentSessionId === session.session_id}
+                className={cn(
+                  "cursor-pointer transition-all duration-300",
+                  currentSessionId === session.session_id && "border-holo-cyan-400/50 shadow-holo-glow",
+                  isCollapsed && "flex justify-center"
+                )}
+                onClick={() => onSelectSession(session.session_id)}
               >
-                <MessageSquare className={cn(
-                  "w-4 h-4 flex-shrink-0",
-                  currentSessionId === session.session_id ? "text-primary" : "text-muted-foreground"
-                )} />
+                <div className="flex items-center gap-3 p-3">
+                  <HoloMessageIcon 
+                    size={18}
+                    className={cn(
+                      "flex-shrink-0",
+                      currentSessionId === session.session_id ? "text-holo-cyan-400" : "text-holo-cyan-400/60"
+                    )} 
+                  />
                 
                 {!isCollapsed && (
                   <>
@@ -204,15 +231,15 @@ export const Sidebar = ({
                             if (e.key === 'Escape') handleCancelRename();
                           }}
                           onBlur={handleSaveRename}
-                          className="h-6 text-sm border-none p-0 focus-visible:ring-0"
+                          className="h-6 text-sm border-none p-0 focus-visible:ring-0 bg-transparent text-holo-cyan-100 font-space"
                           autoFocus
                         />
                       ) : (
-                        <p className="text-sm font-medium truncate group-hover:text-foreground">
+                        <p className="text-sm font-medium truncate text-holo-cyan-100 group-hover:text-holo-cyan-200 font-space">
                           {session.title}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-holo-cyan-400/50 truncate font-orbitron">
                         {(() => {
                           const dateStr = session.updated_at || session.created_at;
                           if (!dateStr) return '';
@@ -225,40 +252,42 @@ export const Sidebar = ({
                     {/* Session Actions */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-6 h-6 opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
+                        <motion.button
+                          className="w-6 h-6 rounded-md bg-holo-cyan-500/10 border border-holo-cyan-400/20 hover:bg-holo-cyan-500/20 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center flex-shrink-0"
                           onClick={(e) => e.stopPropagation()}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
                         >
-                          <MoreHorizontal className="w-3 h-3" />
-                        </Button>
+                          <MoreHorizontal className="w-3 h-3 text-holo-cyan-400" />
+                        </motion.button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="glass-panel border-holo-cyan-500/20">
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRename(session.session_id, session.title);
                           }}
+                          className="text-holo-cyan-300 hover:text-holo-cyan-100 hover:bg-holo-cyan-500/20 font-rajdhani"
                         >
                           <Edit3 className="w-3 h-3 mr-2" />
-                          Rename
+                          RENAME
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteSession(session.session_id);
                           }}
-                          className="text-destructive"
+                          className="text-holo-magenta-400 hover:text-holo-magenta-300 hover:bg-holo-magenta-500/20 font-rajdhani"
                         >
-                          <Trash2 className="w-3 h-3 mr-2" />
-                          Delete
+                          <HoloDeleteIcon size={12} className="mr-2" />
+                          DELETE
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
                 )}
-              </div>
+                </div>
+              </HolographicCard>
             </motion.div>
           ))}
         </AnimatePresence>
@@ -266,50 +295,67 @@ export const Sidebar = ({
 
       {/* User Profile */}
       {user && (
-        <div className="p-4 border-t border-border/50">
+        <div className="p-4 border-t border-holo-cyan-500/20 relative">
+          {/* Horizontal scan line */}
+          <motion.div
+            className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+            animate={{ opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          
           <div className={cn(
             "flex items-center gap-3 mb-3",
             isCollapsed && "justify-center"
           )}>
-            <Avatar className="w-8 h-8 border-2 border-primary/20">
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50 shadow-holo-blue">
               <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="bg-gradient-to-br from-purple-600 to-purple-700 text-white text-sm font-medium">
+              <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-sm font-medium font-orbitron">
                 {user.name.split(' ').map(n => n[0]).join('')}
               </AvatarFallback>
-            </Avatar>
+              </Avatar>
+            </motion.div>
             
             {!isCollapsed && (
               <>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  <p className="text-sm font-medium truncate text-holo-cyan-100 font-space">{user.name}</p>
+                  <p className="text-xs text-holo-cyan-400/60 truncate font-orbitron">{user.email}</p>
                 </div>
                 
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <motion.button
                   onClick={onSignOut}
-                  className="w-8 h-8 hover:bg-destructive/10 hover:text-destructive"
+                  className="w-8 h-8 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 hover:shadow-holo-magenta transition-all duration-300 flex items-center justify-center"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  <LogOut className="w-4 h-4" />
-                </Button>
+                  <LogOut className="w-4 h-4 text-holo-magenta-400" />
+                </motion.button>
               </>
             )}
           </div>
           
-          {/* Donate Button - Always below user info */}
+          {/* Support Button - Always below user info */}
           {!isCollapsed && (
-            <div className="w-full">
-              <Button
-                variant="outline"
+            <motion.div 
+              className="w-full"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <HolographicButton
+                variant="ghost"
                 size="sm"
-                className="w-full text-xs"
+                className="w-full text-xs font-orbitron tracking-wide"
                 onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
               >
-                <Heart className="w-3 h-3 mr-2" />
-                Help Make Kuro Smarter
-              </Button>
-            </div>
+                <Brain className="w-3 h-3 mr-2" />
+                ENHANCE NEURAL NET
+              </HolographicButton>
+            </motion.div>
           )}
         </div>
       )}

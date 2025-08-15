@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, User, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { User, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { HolographicButton } from '@/components/HolographicButton';
+import { HolographicCard } from '@/components/HolographicCard';
+import { HoloSparklesIcon } from '@/components/HolographicIcons';
 
 interface NameSetupModalProps {
   isOpen: boolean;
@@ -36,65 +37,105 @@ const NameSetupModal = ({ isOpen, onComplete, onSkip }: NameSetupModalProps) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
+        initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md"
       >
-        <Card className="shadow-2xl border-0">
-          <CardHeader className="text-center pb-4">
+        <HolographicCard variant="intense" className="overflow-hidden">
+          <div className="text-center p-8 pb-4 relative">
+            {/* Header scan line */}
+            <motion.div
+              className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+              animate={{ opacity: [0.3, 0.8, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            
             <div className="flex justify-center mb-4">
               <div className="relative">
-                <User className="w-12 h-12 text-indigo-600" />
-                <Sparkles className="w-6 h-6 text-purple-500 absolute -top-1 -right-1" />
+                <motion.div
+                  className="w-16 h-16 glass-panel border-holo-cyan-400/50 rounded-full flex items-center justify-center shadow-holo-glow"
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
+                  <User className="w-8 h-8 text-holo-cyan-400" />
+                </motion.div>
+                <motion.div
+                  className="absolute -top-2 -right-2"
+                  animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <HoloSparklesIcon size={20} className="text-holo-purple-400" />
+                </motion.div>
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              Welcome to Kuro AI!
-            </CardTitle>
-            <p className="text-gray-600 text-sm">
-              What would you like me to call you?
+            <h2 className="text-2xl font-bold text-holo-cyan-300 mb-3 font-orbitron tracking-wide text-holo-glow">
+              NEURAL PROFILE SETUP
+            </h2>
+            <p className="text-holo-cyan-100/70 text-sm font-space">
+              How should the neural interface address you?
             </p>
-          </CardHeader>
+          </div>
           
-          <CardContent className="space-y-6">
+          <div className="space-y-6 p-8 pt-0">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="text-center text-lg"
+                  placeholder="Neural Operator"
+                  className="text-center text-lg glass-panel border-holo-cyan-400/30 text-holo-cyan-100 placeholder:text-holo-cyan-400/40 focus:border-holo-cyan-400 focus:shadow-holo-glow font-space"
                   maxLength={50}
                   autoFocus
                 />
               </div>
 
               <div className="flex flex-col gap-3">
-                <Button 
-                  type="submit" 
-                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                <HolographicButton
+                  variant="primary"
+                  size="lg"
+                  className="w-full font-orbitron tracking-wide"
                   disabled={!name.trim() || isSubmitting}
+                  onClick={handleSubmit}
                 >
-                  {isSubmitting ? 'Setting up...' : 'Continue'}
-                </Button>
+                  {isSubmitting ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="mr-2"
+                      >
+                        <Zap className="w-4 h-4" />
+                      </motion.div>
+                      INITIALIZING...
+                    </>
+                  ) : (
+                    <>
+                      <HoloSparklesIcon size={16} className="mr-2" />
+                      INITIALIZE PROFILE
+                    </>
+                  )}
+                </HolographicButton>
                 
-                <Button 
-                  type="button"
+                <HolographicButton
                   variant="ghost"
+                  size="md"
+                  className="w-full font-orbitron tracking-wide"
                   onClick={handleSkip}
-                  className="w-full text-gray-600 hover:text-gray-800"
                   disabled={isSubmitting}
                 >
-                  Skip for now
-                </Button>
+                  SKIP INITIALIZATION
+                </HolographicButton>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </HolographicCard>
       </motion.div>
     </div>
   );

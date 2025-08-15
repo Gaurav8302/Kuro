@@ -6,7 +6,6 @@ import KuroIntro from '@/components/KuroIntro';
 import { ChatBubble } from '@/components/ChatBubble';
 import { ChatInput } from '@/components/ChatInput';
 import NameSetupModal from '@/components/NameSetupModal';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Edit3,
@@ -14,15 +13,20 @@ import {
   X,
   AlertTriangle,
   Loader2,
-  Menu
+  Menu,
+  Zap,
+  Brain
 } from 'lucide-react';
 import { Message, ChatSession } from '@/types';
-// import { mockSessions, mockApiCalls } from '@/data/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useClerkApi, setUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { HolographicCard } from '@/components/HolographicCard';
+import { HolographicButton } from '@/components/HolographicButton';
+import { HolographicBackground } from '@/components/HolographicBackground';
+import { HoloMenuIcon, HoloSparklesIcon } from '@/components/HolographicIcons';
 
 const Chat = () => {
   const { sessionId } = useParams();
@@ -683,29 +687,47 @@ const Chat = () => {
   // Show loading screen while user data loads or during initialization (with timeout)
   if (!isLoaded || !user || (isInitializing && user)) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
+      <div className="h-screen flex items-center justify-center bg-background relative overflow-hidden">
+        <HolographicBackground variant="subtle" />
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="w-16 h-16 mx-auto mb-6"
+          >
+            <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <h3 className="text-xl font-orbitron text-holo-cyan-400 text-holo-glow mb-2">
+              INITIALIZING NEURAL INTERFACE
+            </h3>
+            <p className="text-holo-cyan-400/60 font-rajdhani tracking-wide">
             {!isLoaded ? "Loading..." : !user ? "Loading chat..." : "Setting up your session..."}
           </p>
           {isInitializing && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Having trouble connecting? <button 
+            <p className="text-xs text-holo-cyan-400/50 mt-4 font-orbitron">
+              HAVING TROUBLE CONNECTING? <button 
                 onClick={() => setIsInitializing(false)} 
-                className="text-primary underline"
+                className="text-holo-cyan-400 underline hover:text-holo-cyan-300 transition-colors"
               >
-                Skip and continue
+                SKIP AND CONTINUE
               </button>
             </p>
           )}
+          </motion.div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex bg-background">
+    <div className="h-screen flex bg-background relative overflow-hidden">
+      <HolographicBackground variant="default" />
+      
       <AnimatePresence>
         {showFirstTimeIntro && (
           <motion.div
@@ -728,15 +750,18 @@ const Chat = () => {
               onFinish={() => {/* keep visible until user closes or timeout */}}
             />
             {/* Skip / Close button */}
-            <button
+            <motion.button
               onClick={() => setShowFirstTimeIntro(false)}
-              className="absolute top-4 right-4 z-[10000] px-4 py-2 rounded-full bg-black/40 backdrop-blur-md text-white/80 hover:text-white hover:bg-black/60 text-sm border border-white/10 transition"
+              className="absolute top-6 right-6 z-[10000] px-6 py-3 rounded-full glass-panel border-holo-cyan-400/30 text-holo-cyan-300 hover:text-holo-cyan-100 hover:shadow-holo-glow text-sm font-orbitron tracking-wide transition-all duration-300"
+              whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(0, 230, 214, 0.4)' }}
+              whileTap={{ scale: 0.95 }}
             >
-              Skip
-            </button>
+              SKIP TRANSMISSION
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
+      
       {/* Name Setup Modal */}
       <NameSetupModal
         isOpen={showNameModal}
@@ -748,22 +773,25 @@ const Chat = () => {
         {error && (
           <motion.div 
             className="fixed top-4 right-4 z-50 max-w-md"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -30, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -30, scale: 0.8 }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
           >
-            <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5" />
-              <p className="text-sm">{error}</p>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="ml-auto" 
+            <HolographicCard variant="intense" className="bg-holo-magenta-500/10 border-holo-magenta-400/30">
+              <div className="px-4 py-3 flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-holo-magenta-400" />
+                <p className="text-sm text-holo-magenta-200 font-space">{error}</p>
+                <motion.button
+                className="ml-auto w-6 h-6 rounded bg-holo-magenta-500/20 hover:bg-holo-magenta-500/30 border border-holo-magenta-400/30 flex items-center justify-center transition-all duration-300"
                 onClick={() => setError(null)}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+                <X className="h-3 w-3 text-holo-magenta-400" />
+              </motion.button>
+              </div>
+            </HolographicCard>
           </motion.div>
         )}
       </AnimatePresence>
@@ -772,7 +800,7 @@ const Chat = () => {
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
           <motion.div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -788,18 +816,18 @@ const Chat = () => {
         {isSidebarOpen && (
           <motion.div
             className={cn(
-              "z-50 bg-background",
+              "z-50 bg-background/95 backdrop-blur-xl",
               isMobile 
-                ? "fixed left-0 top-0 h-full w-80 shadow-xl" 
-                : "relative w-80 border-r border-border"
+                ? "fixed left-0 top-0 h-full w-80 shadow-holo-glow border-r border-holo-cyan-500/30" 
+                : "relative w-80 border-r border-holo-cyan-500/20"
             )}
-            initial={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 1, x: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 0, x: 0 }}
+            initial={isMobile ? { x: "-100%", opacity: 0, filter: 'blur(10px)' } : { opacity: 1, x: 0 }}
+            animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
+            exit={isMobile ? { x: "-100%", opacity: 0, filter: 'blur(10px)' } : { opacity: 0, x: 0 }}
             transition={{ 
-              duration: 0.3, 
+              duration: 0.5, 
               ease: "easeInOut",
-              opacity: { duration: isMobile ? 0.2 : 0.3 }
+              opacity: { duration: isMobile ? 0.3 : 0.5 }
             }}
           >
             <Sidebar
@@ -824,28 +852,35 @@ const Chat = () => {
 
       {/* Main Chat Area */}
       <div className={cn(
-        "flex flex-col h-full min-h-0",
+        "flex flex-col h-full min-h-0 relative",
         isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
       )}>
         {/* Chat Header */}
         <motion.header 
-          className="p-4 border-b border-border/50 bg-card/50 backdrop-blur-sm"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.3 }}
+          className="p-4 border-b border-holo-cyan-500/20 glass-panel backdrop-blur-xl relative overflow-hidden"
+          initial={{ y: -50, opacity: 0, filter: 'blur(10px)' }}
+          animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
         >
+          {/* Header scan line */}
+          <motion.div
+            className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+            animate={{ opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Mobile Menu Button */}
               {isMobile && (
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <motion.button
                   onClick={toggleSidebar}
-                  className="shrink-0"
+                  className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  <Menu className="h-5 w-5" />
-                </Button>
+                  <HoloMenuIcon size={20} />
+                </motion.button>
               )}
               
               {isEditingTitle ? (
@@ -857,40 +892,63 @@ const Chat = () => {
                       if (e.key === 'Enter') handleSaveTitle();
                       if (e.key === 'Escape') setIsEditingTitle(false);
                     }}
-                    className="h-8 min-w-[200px]"
+                    className="h-8 min-w-[200px] glass-panel border-holo-cyan-400/30 text-holo-cyan-100 font-space"
                     autoFocus
                   />
-                  <Button variant="ghost" size="icon" onClick={handleSaveTitle}>
-                    <Check className="w-4 h-4 text-green-600" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setIsEditingTitle(false)}>
-                    <X className="w-4 h-4 text-destructive" />
-                  </Button>
+                  <motion.button 
+                    onClick={handleSaveTitle}
+                    className="w-8 h-8 rounded glass-panel border-holo-green-400/30 hover:shadow-holo-green transition-all duration-300 flex items-center justify-center"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <Check className="w-4 h-4 text-holo-green-400" />
+                  </motion.button>
+                  <motion.button 
+                    onClick={() => setIsEditingTitle(false)}
+                    className="w-8 h-8 rounded glass-panel border-holo-magenta-400/30 hover:shadow-holo-magenta transition-all duration-300 flex items-center justify-center"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <X className="w-4 h-4 text-holo-magenta-400" />
+                  </motion.button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold text-foreground">
+                  <h1 className="text-xl font-semibold text-holo-cyan-300 text-holo-glow font-orbitron tracking-wide">
                     {currentSession?.title || 'New Chat'}
                   </h1>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
+                  <motion.button
                     onClick={() => setIsEditingTitle(true)}
-                    className="w-6 h-6"
+                    className="w-6 h-6 rounded glass-panel border-holo-cyan-400/20 hover:border-holo-cyan-400/40 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
                   >
-                    <Edit3 className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="outline"
+                    <Edit3 className="w-3 h-3 text-holo-cyan-400" />
+                  </motion.button>
+                  <HolographicButton
+                    variant="ghost"
                     size="sm"
                     disabled={isGeneratingTitle || !currentSession}
                     onClick={handleGenerateTitle}
-                    className="h-7 px-2 text-xs"
+                    className="h-7 px-3 text-xs font-orbitron tracking-wide"
                   >
                     {isGeneratingTitle ? (
-                      <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Generating…</span>
-                    ) : 'Generate Title'}
-                  </Button>
+                      <span className="flex items-center gap-1">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        >
+                          <Zap className="h-3 w-3" />
+                        </motion.div>
+                        GENERATING...
+                      </span>
+                    ) : (
+                      <>
+                        <Brain className="w-3 h-3 mr-1" />
+                        GENERATE TITLE
+                      </>
+                    )}
+                  </HolographicButton>
                 </div>
               )}
             </div>
@@ -899,46 +957,68 @@ const Chat = () => {
 
         {/* Messages Area */}
         <div className={cn(
-          "flex-1 overflow-y-auto bg-gradient-chat min-h-0",
+          "flex-1 overflow-y-auto min-h-0 relative",
           isMobile && "pb-28 px-1" // extra bottom padding so last message not hidden behind keyboard / input
         )}>
+          {/* Chat area background effects */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background/60" />
+          <div className="absolute inset-0 holo-grid-bg opacity-20" />
+          
           <div className={cn(
-            "py-8 space-y-4 min-h-full",
+            "py-8 space-y-6 min-h-full relative z-10",
             isMobile && "space-y-3 py-6" // tighter vertical rhythm on mobile
           )}>
             <AnimatePresence mode="wait">
               {messages.length === 0 && isLoading ? (
                 <motion.div
                   key="loading"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  initial={{ opacity: 0, y: 30, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -30, scale: 0.8 }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
                   className="text-center py-16"
                 >
                   <div className="max-w-md mx-auto">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-                    <h3 className="text-xl font-semibold mb-2 text-foreground">
-                      Loading chat...
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                      className="w-16 h-16 mx-auto mb-6"
+                    >
+                      <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
+                    </motion.div>
+                    <h3 className="text-xl font-semibold mb-2 text-holo-cyan-300 text-holo-glow font-orbitron">
+                      LOADING TRANSMISSION...
                     </h3>
                   </div>
                 </motion.div>
               ) : messages.length === 0 && !isLoading ? (
                 <motion.div
                   key="empty"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
+                  initial={{ opacity: 0, y: 30, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -30, scale: 0.8 }}
+                  transition={{ duration: 0.6, ease: 'easeOut' }}
                   className="text-center py-16"
                 >
-                  <div className="max-w-md mx-auto">
-                    <h3 className="text-xl font-semibold mb-2 text-foreground">
-                      Start chatting with Kuro
+                  <div className="max-w-lg mx-auto">
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                      className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-holo-cyan-500 to-holo-purple-500 rounded-full flex items-center justify-center shadow-holo-glow"
+                    >
+                      <HoloSparklesIcon size={32} className="text-white" />
+                    </motion.div>
+                    <h3 className="text-2xl font-semibold mb-4 text-holo-cyan-300 text-holo-glow font-orbitron tracking-wide">
+                      NEURAL INTERFACE READY
                     </h3>
-                    <p className="text-muted-foreground text-lg mb-2">
-                      How can I help you today?
+                    <p className="text-holo-cyan-100 text-lg mb-3 font-space">
+                      How may I assist your mission today?
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Powered by Groq LLaMA 3 70B
+                    <p className="text-xs text-holo-cyan-400/60 font-orbitron tracking-wider">
+                      POWERED BY GROQ LLAMA 3 70B NEURAL CORE
                     </p>
                   </div>
                 </motion.div>
@@ -948,14 +1028,14 @@ const Chat = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="space-y-4"
+                  className="space-y-6"
                 >
                   {messages.map((message, idx) => (
                     <motion.div
                       key={message.timestamp + idx}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1 }}
+                      initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(5px)' }}
+                      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                      transition={{ delay: idx * 0.1, duration: 0.5, ease: 'easeOut' }}
                     >
                       <ChatBubble
                         message={message}
@@ -966,17 +1046,22 @@ const Chat = () => {
                   ))}
                   {isTyping && (
                     <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      className="flex items-center gap-2 px-4 py-2"
+                      initial={{ opacity: 0, y: 30, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 30, scale: 0.8 }}
+                      transition={{ duration: 0.4 }}
+                      className="flex items-center justify-center"
                     >
-                      <div className="flex space-x-2">
-                        <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]"></div>
-                        <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]"></div>
-                        <div className="w-2 h-2 rounded-full bg-primary/40 animate-bounce"></div>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Kuro is typing...</span>
+                      <HolographicCard variant="glow" scanLine={true} className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-holo-cyan-400 shadow-holo-glow animate-typing-dots"></div>
+                            <div className="w-3 h-3 rounded-full bg-holo-blue-400 shadow-holo-blue animate-typing-dots [animation-delay:0.2s]"></div>
+                            <div className="w-3 h-3 rounded-full bg-holo-purple-400 shadow-holo-purple animate-typing-dots [animation-delay:0.4s]"></div>
+                          </div>
+                          <span className="text-sm text-holo-cyan-300 font-orbitron tracking-wide">KURO IS PROCESSING...</span>
+                        </div>
+                      </HolographicCard>
                     </motion.div>
                   )}
                 </motion.div>
@@ -993,8 +1078,8 @@ const Chat = () => {
           showTypingIndicator={isTyping}
           placeholder={
             (isTyping || isLoading)
-              ? "Kuro is responding..." 
-              : "Type your message..."
+              ? "KURO IS RESPONDING..." 
+              : "TRANSMIT YOUR QUERY..."
           }
         />
       </div>
