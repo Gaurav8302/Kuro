@@ -6,6 +6,7 @@ import 'highlight.js/styles/atom-one-dark.css';
 import hljs from 'highlight.js';
 import { motion } from 'framer-motion';
 import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Threshold (number of lines) beyond which code blocks become collapsible
 const COLLAPSE_LINE_THRESHOLD = 14;
@@ -38,14 +39,14 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
-          p: ({ node, ...props }) => <p className="mb-3 last:mb-0 text-holo-cyan-100" {...props} />,
-          h1: (p) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
-          h2: (p) => <h2 className="mt-4 mb-2 text-xl font-bold text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
-          h3: (p) => <h3 className="mt-3 mb-2 text-lg font-semibold text-holo-cyan-300 font-rajdhani" {...props} />,
-          ul: (p) => <ul className="list-disc ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
-          ol: (p) => <ol className="list-decimal ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
-          li: (p) => <li className="marker:text-holo-cyan-400/60 text-holo-cyan-100" {...props} />,
-          strong: (p) => <strong className="font-semibold text-holo-cyan-200 text-holo-glow" {...props} />,
+          p: ({ node, ...props }: any) => <p className="mb-3 last:mb-0 text-holo-cyan-100" {...props} />,
+          h1: (props: any) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
+          h2: (props: any) => <h2 className="mt-4 mb-2 text-xl font-bold text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
+          h3: (props: any) => <h3 className="mt-3 mb-2 text-lg font-semibold text-holo-cyan-300 font-rajdhani" {...props} />,
+          ul: (props: any) => <ul className="list-disc ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
+          ol: (props: any) => <ol className="list-decimal ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
+          li: (props: any) => <li className="marker:text-holo-cyan-400/60 text-holo-cyan-100" {...props} />,
+          strong: (props: any) => <strong className="font-semibold text-holo-cyan-200 text-holo-glow" {...props} />,
           code(codeProps: any) {
             const { inline, className = '', children, ...props } = codeProps;
             const raw = String(children).replace(/\n+$/, '');
@@ -197,7 +198,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
               {...p} 
             />
           ),
-          hr: (p) => (
+          hr: (p: any) => (
             <motion.hr 
               className="my-6 border-holo-cyan-500/30 border-t-2"
               initial={{ scaleX: 0 }}

@@ -21,6 +21,8 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
 from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
+from memory.memory_trigger import is_memory_trigger
+from memory.memory_recall import build_recall_context
 from memory.rolling_memory import rolling_memory_manager
 from retrieval import get_rag_pipeline, ingest_document, rag_retrieval_enabled
 from memory.chat_database import save_chat_to_db
@@ -445,9 +447,15 @@ Instructions for responding:
                     return "I didn't find anything matching to forget."  # early return
                 # fallthrough on error to normal handling
 
-            # 4. Advanced RAG retrieval (hybrid multi-pass)
+            # 4. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
             relevant_memories = []
             rag_context = None
+            recall_context_text = None
+            # Memory trigger detection (phrase/regex + optional semantic)
+            try:
+                triggered, conf, reason = is_memory_trigger(message, manager=memory_manager)
+            except Exception:
+                triggered, conf, reason = (False, 0.0, "err")
             try:
                 if rag_retrieval_enabled():
                     rag_pipeline = get_rag_pipeline()
@@ -471,14 +479,24 @@ Instructions for responding:
                     logger.info(
                         f"RAG retrieval: broad={rag_result.get('broad_count')} focus={rag_result.get('focus_count')} final={len(relevant_memories)}"
                     )
+                    # If memory trigger detected but RAG is keyword-focused and returns little, fetch recall bundle
+                    if triggered and (not relevant_memories or len(relevant_memories) < 2):
+                        recall = build_recall_context(user_id, session_id)
+                        recall_context_text = recall.get("context_text")
                 else:
                     logger.debug("RAG retrieval skipped (index not ready / empty).")
+                    if triggered:
+                        recall = build_recall_context(user_id, session_id)
+                        recall_context_text = recall.get("context_text")
             except Exception as e:
                 logger.warning(f"RAG retrieval failed, falling back to basic memory: {str(e)}")
                 try:
                     relevant_memories = get_relevant_memories_detailed(
                         query=message, user_filter=user_id, top_k=3
                     )
+                    if triggered and not relevant_memories:
+                        recall = build_recall_context(user_id, session_id)
+                        recall_context_text = recall.get("context_text")
                 except Exception:
                     relevant_memories = []
             
@@ -529,6 +547,11 @@ Instructions for responding:
                     memory_snippets.append(text)
                 context_parts.append("Past context: " + " | ".join(memory_snippets))
 
+            # If recall context is built due to memory trigger, prepend explicit recall section
+            if recall_context_text:
+                # Place recall context early to increase salience
+                context_parts.insert(0, "MemoryRecall:\n" + recall_context_text)
+
             # Add summarized long-term memory
             if rolling_context and rolling_context.get("long_term_summaries"):
                 summaries_joined = " \n".join(rolling_context["long_term_summaries"][:3])
@@ -556,6 +579,14 @@ Instructions for responding:
             ):
                 context_parts.append(f"User: {user_name}")
             
+            # Add explicit instruction if this is a recall-triggered query
+            if recall_context_text:
+                context_parts.append(
+                    (
+                        "INSTRUCTION: If the user's message is asking about identity or memory, use PROFILE, PAST_SUMMARIES, and RECENT_TURNS to answer first. "
+                        "If profile name exists, address the user by name. If unsure, state what you remember explicitly."
+                    )
+                )
             context = " | ".join(context_parts) if context_parts else None
             
             # 8. Generate response using Kuro system

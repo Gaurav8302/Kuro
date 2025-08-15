@@ -1,8 +1,8 @@
-# 🤖 Kuro AI - Production-Ready Chatbot
+# 🤖 Kuro AI — Production-Ready Chatbot
 
 ![Kuro AI Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=Kuro+AI+-+Your+Intelligent+Assistant)
 
-> **A modern, production-grade AI chatbot powered by Google Gemini 1.5 Flash with advanced memory management, safety guardrails, personalized onboarding, and enterprise-ready architecture.**
+> A modern, production-grade AI chatbot with Groq LLaMA 3 70B generation, Gemini embeddings, Pinecone memory, Clerk auth, MongoDB persistence, and robust observability.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -13,8 +13,9 @@
 
 ## ✨ Features
 
-### 🧠 **Intelligent Conversation**
-- **Advanced AI Reasoning** - Powered by Google Gemini 1.5 Flash
+### 🧠 Intelligent Conversation
+- **Advanced AI Reasoning** — Powered by Groq LLaMA 3 70B for chat generation
+- **Free Embeddings** — Google Gemini embeddings for semantic memory (cost-effective)
 - **Contextual Memory** - Remembers conversations and user preferences
 - **Personality Consistency** - Maintains "Kuro" identity across all interactions
 - **Smart Prompt Engineering** - Production-ready system instructions with safety guardrails
@@ -25,13 +26,17 @@
 - **Auto-Retry Mechanism** - Regenerates poor quality responses
 - **Response Quality Scoring** - Ensures helpful, well-structured answers
 
-### 🧠 **Advanced Memory System**
-- **Vector-Based Search** - Semantic memory retrieval using embeddings
+### 🧠 Advanced Memory System
+- **Vector-Based Search** - Semantic memory retrieval (Gemini embeddings → Pinecone)
 - **User Profiling** - Persistent user preferences and context
 - **Session Management** - Maintains conversation continuity
 - **Intelligent Pruning** - Optimized memory usage for production
 - **Layered Compression** - Short / medium / long summaries + verbatim fact anchors
 - **Context Rehydration** - Deterministic assembly (facts → summaries → recent turns) under token budget
+  
+Notes:
+- Full chat history is persisted in MongoDB (by session).
+- Session titles stored in a dedicated `session_titles` collection; if missing, sessions are inferred from chat history.
 
 ### 🔐 **Authentication & Security**
 - **Clerk Integration** - Secure user authentication and management
@@ -55,11 +60,11 @@
 │   Frontend      │    │    Backend      │    │   AI & Data     │
 │   (React)       │◄──►│   (FastAPI)     │◄──►│   Services      │
 │                 │    │                 │    │                 │
-│ • React 18      │    │ • FastAPI       │    │ • Gemini 1.5    │
-│ • TypeScript    │    │ • Python 3.11   │    │ • MongoDB       │
-│ • Tailwind CSS │    │ • Uvicorn       │    │ • Pinecone      │
-│ • Framer Motion │    │ • Clerk Auth    │    │ • Vector Search │
-│ • Vite Build    │    │ • Safety System │    │ • Memory Mgmt   │
+│ • React 18      │    │ • FastAPI       │    │ • Groq LLaMA 3  │
+│ • TypeScript    │    │ • Python 3.11   │    │ • Gemini Embed  │
+│ • Tailwind CSS  │    │ • Uvicorn       │    │ • MongoDB       │
+│ • Framer Motion │    │ • Clerk Auth    │    │ • Pinecone      │
+│ • Vite Build    │    │ • Observability │    │ • Vector Search │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -71,9 +76,11 @@
 - **Python** 3.11+
 - **MongoDB** database
 - **API Keys** for:
-  - Google Gemini AI
-  - Clerk Authentication
-  - Pinecone Vector Database
+  - Groq (chat generation)
+  - Google Gemini (embeddings only)
+  - Pinecone (vector DB)
+  - Clerk (auth)
+  - MongoDB (Atlas connection string)
 
 ### 1. Clone Repository
 
@@ -88,15 +95,26 @@ cd Kuro
 # Navigate to backend
 cd backend
 
+# Create & activate virtual environment (Windows PowerShell)
+python -m venv venv
+./venv/Scripts/Activate.ps1
+
+# Or on macOS/Linux
+# python3 -m venv venv
+# source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
 # Configure environment variables
-cp .env.example .env
-# Edit .env with your API keys
+# Create a .env and set the variables listed below (Backend .env)
 
 # Start development server
 uvicorn chatbot:app --reload --host 0.0.0.0 --port 8000
+
+# Optional: use helper script (Windows)
+# From repo root
+# powershell -ExecutionPolicy Bypass -File .\scripts\start-local-backend.ps1
 ```
 
 ### 3. Frontend Setup
@@ -108,9 +126,8 @@ cd frontend
 # Install dependencies
 npm install
 
-# Configure environment variables
-cp .env.example .env.local
-# Edit .env.local with your API keys
+# Configure environment variables (Frontend .env)
+# Set VITE_CLERK_PUBLISHABLE_KEY and VITE_API_BASE_URL (or VITE_API_URL)
 
 # Start development server
 npm run dev
@@ -128,37 +145,39 @@ npm run dev
 
 #### Backend (.env)
 ```env
-# Google Gemini AI
-GEMINI_API_KEY=your_gemini_api_key_here
+# Core model & memory
+GROQ_API_KEY=your_groq_api_key                # Chat generation (LLaMA 3 70B)
+GEMINI_API_KEY=your_gemini_api_key            # Embeddings for memory
 
-# Groq (chat model)
-GROQ_API_KEY=your_groq_api_key_here
-
-# Authentication
-CLERK_SECRET_KEY=your_clerk_secret_key
-
-# Database
-MONGO_URI=your_mongodb_connection_string
-
-# Vector Database
+# Vector database
 PINECONE_API_KEY=your_pinecone_api_key
-PINECONE_INDEX=your_pinecone_index_name
+PINECONE_INDEX_NAME=your_pinecone_index_name
 PINECONE_ENV=your_pinecone_environment
 
-# Performance / Retrieval Tuning (optional)
-# Skip frequent readiness probes: seconds to cache empty/non-empty state (default 300)
-RAG_INDEX_CHECK_INTERVAL=300
-# Disable periodic skill file auto-reload to save I/O on constrained hosts
-SKILL_AUTO_RELOAD_DISABLED=1
+# Persistence
+MONGODB_URI=your_mongodb_connection_string
 
-# Production
+# Auth
+CLERK_SECRET_KEY=your_clerk_secret_key
+
+# CORS / Frontend
 FRONTEND_URL=https://your-frontend-domain.com
+# Optional: allow dynamic preview domains (e.g., Vercel)
+FRONTEND_URL_PATTERN=.vercel.app
+
+# Dev toggles
+DEBUG=True
+ENVIRONMENT=development
+
+# Optional: in-memory DB fallback (tests/dev only)
+DISABLE_MEMORY_INIT=1
 ```
 
 #### Frontend (.env.local)
 ```env
-# API Configuration
-VITE_API_URL=http://localhost:8000
+# API configuration
+VITE_API_BASE_URL=http://localhost:8000    # or VITE_API_URL
+VITE_ENVIRONMENT=development
 
 # Authentication
 VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
@@ -167,29 +186,22 @@ VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 ## 📂 Project Structure
 
 ```
-kuro/
-├── backend/                    # Python FastAPI backend
-│   ├── utils/                 # Core utilities
-│   │   ├── kuro_prompt.py     # AI prompt engineering system
-│   │   └── safety.py          # Safety validation system
-│   ├── memory/                # Memory management
-│   │   ├── chat_manager.py    # Main chat logic
-│   │   ├── memory_manager.py  # Vector memory system
-│   │   └── chat_database.py   # Database operations
-│   ├── routes/                # API endpoints
-│   ├── database/              # Database configuration
-│   ├── requirements.txt       # Python dependencies
-│   └── chatbot.py            # Main application
-├── frontend/                  # React TypeScript frontend
-│   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   ├── pages/            # Page components
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── lib/              # Utility functions
-│   │   └── types/            # TypeScript definitions
-│   ├── package.json          # Node.js dependencies
-│   └── vite.config.ts        # Build configuration
-└── docs/                     # Documentation
+Kuro/
+├── backend/                         # FastAPI backend
+│   ├── chatbot.py                   # Main application
+│   ├── database/                    # MongoDB connection & in-memory fallback
+│   ├── memory/                      # Chat logic & memory
+│   │   ├── chat_manager.py          # Main chat orchestration (Groq)
+│   │   ├── ultra_lightweight_memory.py # Embeddings + Pinecone
+│   │   └── chat_database.py         # Session/message persistence
+│   ├── observability/               # Instrumentation & metrics
+│   ├── admin/                       # Admin API (if enabled)
+│   ├── utils/                       # Clients, prompts, helpers
+│   └── requirements.txt             # Python deps
+├── frontend/                        # React + Vite frontend
+│   ├── src/                         # Components, pages, hooks, lib, types
+│   └── vite.config.ts               # Build config
+└── docs/                            # Project docs
 ```
 
 ## 🤖 Kuro AI System
@@ -203,14 +215,17 @@ Kuro is designed with a consistent, helpful personality:
 - **Communication**: Clear, concise, and kind responses
 - **Expertise**: Technical knowledge with practical examples
 
-### Safety System
+### Safety & Observability
 
-Multi-layered safety validation ensures:
+Multi-layered validation and visibility:
 
 - ✅ **Content Safety** - Blocks harmful or inappropriate content
 - ✅ **Accuracy** - Prevents hallucinations and false information
 - ✅ **Quality** - Ensures helpful, well-structured responses
 - ✅ **Privacy** - Respects user privacy and data protection
+ - 📈 **Metrics** - `/metrics` endpoint exposes Prometheus metrics
+ - 🔎 **Instrumentation** - Request tracing persisted to MongoDB (if Motor installed)
+ - 🔁 **Health** - `/healthz`, `/live`, `/ready`, `/ping` endpoints
 
 ### Memory Management
 
@@ -228,7 +243,7 @@ Advanced memory system provides:
 #### Backend (Render)
 ```bash
 # Automatic deployment from GitHub
-# Uses build.sh for dependencies
+# Uses start.sh / build.sh
 # Environment variables configured in Render dashboard
 ```
 
@@ -259,8 +274,7 @@ python -m pytest
 cd frontend
 npm test
 
-# System integration test
-python test_kuro_system.py
+# Selected integration tests reside in backend/ (pytest)
 ```
 
 ### Demo System
@@ -273,11 +287,9 @@ python demo_kuro_system.py
 ## 📊 Performance
 
 ### Metrics
-- **Response Time**: < 2s average
-- **Memory Usage**: Optimized for 512MB deployment
-- **Uptime**: 99.9% availability target
-- **Safety**: 100% harmful content blocked
- - **Cold Start Optimization**: RAG retrieval skipped when vector index empty (memoized readiness)
+- Response time depends on model & host. Use metrics to track P95.
+- Memory usage optimized via summarization and indexing.
+- Cold start mitigation: `/ping` is used by the frontend to auto-warm the API.
 
 ### Monitoring
 - Real-time error tracking
@@ -319,12 +331,28 @@ Component props:
 - `fullscreen: boolean` – layout mode (only fullscreen used now)
 - `onFinish?: () => void` – optional callback after a full cycle
 
-### New User Intro Persistence API
+### Key API Endpoints (selection)
+
+Chat & Sessions:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/chat` | Send a message to the AI (Groq) |
+| POST | `/session/create?user_id=...` | Create or reuse an empty session |
+| GET | `/sessions/{user_id}` | List sessions for a user |
+| GET | `/chat/{session_id}` | Get full chat history for a session |
+| PUT | `/session/{session_id}` | Rename a session |
+| DELETE | `/session/{session_id}` | Delete a session |
+
+User profile & intro:
 
 | Method | Endpoint | Description | Response |
 |--------|----------|-------------|----------|
 | GET | `/user/{user_id}/intro-shown` | Returns whether intro was shown | `{ user_id, intro_shown: bool }` |
 | POST | `/user/{user_id}/intro-shown` | Marks intro as shown (expects `{ "shown": true }`) | `{ status, user_id, intro_shown: true }` |
+| POST | `/user/{user_id}/set-name` | Persist display name | `{ status, message }` |
+| GET | `/user/{user_id}/name` | Fetch display name | `{ user_id, name }` |
+| GET | `/user/{user_id}/has-name` | Has display name | `{ user_id, has_name }` |
 
 Idempotent: Multiple POSTs are safe.
 
@@ -353,7 +381,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Google Gemini** - Advanced AI capabilities
+- **Groq** - High-performance LLaMA 3 70B inference
+- **Google Gemini** - Embeddings (cost-effective)
 - **Clerk** - Authentication infrastructure
 - **MongoDB** - Reliable database solution
 - **Pinecone** - Vector database for memory

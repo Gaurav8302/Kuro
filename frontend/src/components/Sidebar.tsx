@@ -124,7 +124,7 @@ export const Sidebar = ({
                 <h2 className="font-orbitron text-xl font-bold text-holo-cyan-400 text-holo-glow">
                   Kuro
                 </h2>
-                <p className="text-xs text-holo-cyan-400/60 font-rajdhani tracking-wider">NEURAL INTERFACE</p>
+                <p className="text-xs text-holo-cyan-400/60 font-rajdhani tracking-wider">AI ASSISTANT</p>
               </div>
             </div>
           )}
@@ -157,7 +157,7 @@ export const Sidebar = ({
               className="w-full font-orbitron tracking-wide"
             >
               <Plus className="w-5 h-5 mr-2" />
-              NEW TRANSMISSION
+              NEW CHAT
               <HoloSparklesIcon size={16} className="ml-2" />
             </HolographicButton>
           </motion.div>
@@ -185,7 +185,7 @@ export const Sidebar = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
         {!isCollapsed && (
           <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
-            TRANSMISSION LOG
+            CHATS
           </h3>
         )}
         
@@ -208,9 +208,19 @@ export const Sidebar = ({
                   currentSessionId === session.session_id && "border-holo-cyan-400/50 shadow-holo-glow",
                   isCollapsed && "flex justify-center"
                 )}
-                onClick={() => onSelectSession(session.session_id)}
               >
-                <div className="flex items-center gap-3 p-3">
+                <div
+                  className="flex items-center gap-3 p-3"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelectSession(session.session_id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectSession(session.session_id);
+                    }
+                  }}
+                >
                   <HoloMessageIcon 
                     size={18}
                     className={cn(
@@ -353,7 +363,7 @@ export const Sidebar = ({
                 onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
               >
                 <Brain className="w-3 h-3 mr-2" />
-                ENHANCE NEURAL NET
+                SPONSOR
               </HolographicButton>
             </motion.div>
           )}

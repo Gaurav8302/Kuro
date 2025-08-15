@@ -33,27 +33,27 @@ const Landing = () => {
 
   const features = [
     {
-      icon: Brain,
-      title: "NEURAL PROCESSING",
-      description: "Advanced AI that evolves with each interaction",
+  icon: Brain,
+  title: "SMART REASONING",
+  description: "Groq LLaMA 3 70B for clear, helpful answers",
       color: "holo-cyan"
     },
     {
       icon: Shield,
-      title: "QUANTUM SECURITY",
-      description: "Military-grade encryption for all transmissions",
+  title: "PRIVACY & SECURITY",
+  description: "Secure auth with Clerk and protected APIs",
       color: "holo-blue"
     },
     {
       icon: Zap,
-      title: "HYPERSPEED CORE",
-      description: "Instantaneous responses via quantum processing",
+  title: "FAST RESPONSES",
+  description: "Low-latency chat on modern cloud infra",
       color: "holo-purple"
     },
     {
       icon: Network,
-      title: "ADAPTIVE LEARNING",
-      description: "Self-improving algorithms that understand context",
+  title: "MEMORY & CONTEXT",
+  description: "Gemini embeddings + Pinecone for recall",
       color: "holo-magenta"
     }
   ];
@@ -123,7 +123,7 @@ const Landing = () => {
                 <h1 className="font-orbitron text-3xl font-bold text-holo-cyan-400 text-holo-glow">
                   Kuro
                 </h1>
-                <p className="text-holo-cyan-400/70 text-sm font-rajdhani tracking-wider">NEURAL INTERFACE</p>
+                <p className="text-holo-cyan-400/70 text-sm font-rajdhani tracking-wider">AI ASSISTANT</p>
               </div>
             </div>
 
@@ -136,14 +136,14 @@ const Landing = () => {
                     size="md"
                     onClick={() => navigate('/auth/signin')}
                   >
-                    SIGN IN
+                      SIGN IN
                   </HolographicButton>
                   <HolographicButton
                     variant="accent"
                     size="md"
                     onClick={() => navigate('/auth/signup')}
                   >
-                    SIGN UP
+                      SIGN UP
                   </HolographicButton>
                 </div>
                 <HolographicButton
@@ -153,7 +153,7 @@ const Landing = () => {
                   onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
                 >
                   <Brain className="w-4 h-4 mr-2" />
-                  SUPPORT
+                    SPONSOR
                 </HolographicButton>
               </div>
             )}
@@ -165,7 +165,7 @@ const Landing = () => {
                   onClick={() => navigate('/chat')}
                   className="w-full sm:w-auto"
                 >
-                  ENTER INTERFACE
+                    OPEN CHAT
                 </HolographicButton>
                 <HolographicButton
                   variant="secondary"
@@ -174,7 +174,7 @@ const Landing = () => {
                   onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
                 >
                   <Brain className="w-4 h-4 mr-2" />
-                  SUPPORT
+                    SPONSOR
                 </HolographicButton>
               </div>
             )}
@@ -218,9 +218,7 @@ const Landing = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.7 }}
               >
-                <span className="block text-holo-cyan-300 font-orbitron tracking-wide">
-                  NEURAL
-                </span>
+                <span className="block text-holo-cyan-300 font-orbitron tracking-wide">SMART</span>
                 <motion.span 
                   className="block holo-text font-orbitron text-holo-glow"
                   animate={{ 
@@ -233,11 +231,9 @@ const Landing = () => {
                   }}
                   transition={{ duration: 4, repeat: Infinity }}
                 >
-                  INTERFACE
+                  ASSISTANT
                 </motion.span>
-                <span className="block text-holo-cyan-200 font-space font-light">
-                  COMPANION
-                </span>
+                <span className="block text-holo-cyan-200 font-space font-light">CHAT</span>
               </motion.h1>
 
               <motion.div
@@ -246,10 +242,10 @@ const Landing = () => {
                 transition={{ duration: 0.8, delay: 0.9 }}
               >
                 <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Interface with Kuro, an advanced AI entity powered by Groq's quantum-accelerated LLaMA 3 70B neural core.
+                  Kuro is a modern AI assistant powered by Groq LLaMA 3 70B for chat and Gemini embeddings for memory.
                 </p>
                 <p className="text-lg text-holo-cyan-200 mb-8 font-space">
-                  Experience instantaneous responses with unprecedented reasoning capabilities.
+                  Get fast, helpful answers with context from your past conversations.
                 </p>
                 <motion.div
                   className="inline-flex items-center gap-2 glass-panel border-holo-green-400/30 px-4 py-2 rounded-full"
@@ -257,7 +253,7 @@ const Landing = () => {
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   <div className="w-2 h-2 bg-holo-green-400 rounded-full shadow-holo-green animate-holo-pulse" />
-                  <span className="text-sm text-holo-green-300 font-orbitron tracking-wide">OPEN SOURCE & FREE</span>
+                  <span className="text-sm text-holo-green-300 font-orbitron tracking-wide">OPEN SOURCE</span>
                 </motion.div>
               </motion.div>
 
@@ -274,7 +270,7 @@ const Landing = () => {
                   className="group font-orbitron tracking-wide"
                 >
                   <MessageSquare className="w-5 h-5 mr-2" />
-                  INITIATE CONTACT
+                  START CHAT
                   <motion.div
                     className="ml-2"
                     animate={{ x: [0, 5, 0] }}
@@ -460,7 +456,7 @@ const Landing = () => {
               SYSTEM SPECIFICATIONS
             </h2>
             <p className="text-xl text-holo-cyan-100 max-w-3xl mx-auto font-space">
-              Built with cutting-edge open-source technologies for maximum performance and accessibility.
+              Built with a reliable, open-source stack for speed and accessibility.
             </p>
           </div>
 
@@ -469,19 +465,19 @@ const Landing = () => {
               {
                 icon: Brain,
                 title: "GROQ LLAMA 3 70B",
-                description: "Ultra-fast inference engine with advanced reasoning capabilities",
+                description: "Fast, high-quality responses for chat generation",
                 color: "holo-purple"
               },
               {
                 icon: Zap,
-                title: "VERCEL DEPLOYMENT",
-                description: "Global edge network for lightning-fast response times",
+                  title: "VERCEL FRONTEND",
+                  description: "Global hosting for the React + Vite app",
                 color: "holo-cyan"
               },
               {
                 icon: Shield,
-                title: "RENDER BACKEND",
-                description: "Secure cloud infrastructure with MongoDB Atlas integration",
+                  title: "RENDER BACKEND",
+                  description: "FastAPI + MongoDB Atlas + Pinecone integration",
                 color: "holo-blue"
               }
             ].map((spec, index) => (
@@ -518,7 +514,7 @@ const Landing = () => {
             viewport={{ once: true }}
           >
             <p className="text-holo-cyan-100 mb-8 font-space text-lg">
-              Want to enhance Kuro's neural capabilities? Support the development of advanced AI models.
+              Like Kuro? Support development and new features.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <HolographicButton
@@ -528,7 +524,7 @@ const Landing = () => {
                 onClick={() => window.open('https://github.com/Gaurav8302/Kuro', '_blank')}
               >
                 <Star className="w-5 h-5 mr-2" />
-                VIEW SOURCE CODE
+                VIEW SOURCE
               </HolographicButton>
               <HolographicButton
                 variant="secondary"
@@ -537,7 +533,7 @@ const Landing = () => {
                 onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
               >
                 <Brain className="w-5 h-5 mr-2" />
-                ENHANCE NEURAL NET
+                SPONSOR
               </HolographicButton>
             </div>
           </motion.div>
@@ -576,10 +572,10 @@ const Landing = () => {
                 }}
                 transition={{ duration: 3, repeat: Infinity }}
               >
-                READY TO INTERFACE?
+                READY TO CHAT?
               </motion.h2>
               <p className="text-xl text-holo-cyan-100 mb-8 font-space">
-                Initiate contact with our quantum-enhanced AI neural interface.
+                Start a conversation with Kuro.
               </p>
               <HolographicButton
                 variant="primary"
@@ -594,7 +590,7 @@ const Landing = () => {
               >
                 <HoloBrainIcon size={20} />
               </motion.div>
-              INITIATE NEURAL LINK
+              START CHAT
               <motion.div
                 className="ml-3"
                 animate={{ x: [0, 5, 0] }}
