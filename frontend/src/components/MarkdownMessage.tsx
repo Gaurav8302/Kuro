@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
 import hljs from 'highlight.js';
 import { motion } from 'framer-motion';
@@ -87,7 +86,10 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
     <div className="markdown-body prose prose-invert max-w-none text-sm leading-relaxed font-space">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+  // Note: we intentionally do NOT use rehype-highlight here because we
+  // perform custom highlight.js rendering in our code component below.
+  // Using both results in children becoming React elements instead of a
+  // raw string, which leads to "[object Object]" appearing.
         components={{
           p: ({ node, ...props }: any) => <p className="mb-3 last:mb-0 text-holo-cyan-100" {...props} />,
           h1: (props: any) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
@@ -98,8 +100,27 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
           li: (props: any) => <li className="marker:text-holo-cyan-400/60 text-holo-cyan-100" {...props} />,
           strong: (props: any) => <strong className="font-semibold text-holo-cyan-200 text-holo-glow" {...props} />,
           code(codeProps: any) {
-            const { inline, className = '', children, ...props } = codeProps;
-            const raw = String(children).replace(/\n+$/, '');
+            const { inline, className = '', children, node, ...props } = codeProps;
+            // Safely extract raw text from children which may be a string, array, or elements
+            const extractRaw = (ch: any): string => {
+              if (typeof ch === 'string') return ch;
+              if (Array.isArray(ch)) {
+                return ch
+                  .map((c: any) =>
+                    typeof c === 'string'
+                      ? c
+                      : c?.props?.children
+                      ?? (typeof c === 'object' && c && 'value' in c ? c.value : '')
+                  )
+                  .join('');
+              }
+              if (node && Array.isArray((node as any).children)) {
+                return (node as any).children.map((n: any) => n.value ?? '').join('');
+              }
+              try { return String(ch); } catch { return ''; }
+            };
+
+            const raw = extractRaw(children).replace(/\n+$/, '');
             if (inline) {
               return (
                 <code 
