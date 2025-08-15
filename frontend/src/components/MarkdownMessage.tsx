@@ -12,7 +12,54 @@ import { cn } from '@/lib/utils';
 const COLLAPSE_LINE_THRESHOLD = 14;
 
 interface MarkdownMessageProps {
-  content: string;
+  // Content can be a string, object, or array (LLM tool responses, rich blocks, etc.)
+  content: any;
+}
+
+// Recursively coerce arbitrary content (string | object | array) into Markdown text.
+// If we detect a code payload + language, we wrap with triple backticks.
+function coerceToMarkdown(input: any): string {
+  const fence = (code: string, lang?: string) => `\n\n\`\`\`${lang || ''}\n${code}\n\`\`\`\n\n`;
+
+  const asString = (val: any): string => {
+    if (val == null) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+    // If it looks like a code object
+    if (typeof val === 'object') {
+      const lang = (val.language || val.lang || val.programming_language || '').toString() || undefined;
+      const code = val.code ?? val.text ?? val.value ?? val.content ?? val.body;
+      if (typeof code === 'string') {
+        // If it already contains backticks, return as-is
+        if (/```/.test(code)) return code;
+        return fence(code, lang);
+      }
+      if (Array.isArray(code)) {
+        const joined = code.map(asString).filter(Boolean).join('\n');
+        return fence(joined, lang);
+      }
+      // Other common shapes (e.g., OpenAI tool messages: { parts: [{text: ...}] })
+      if (Array.isArray(val.parts)) {
+        const joined = val.parts.map(asString).filter(Boolean).join('\n\n');
+        return joined;
+      }
+      if (val.props && val.props.children) {
+        return asString(val.props.children);
+      }
+      // Last resort: JSON dump in a code fence for debugging readability
+      try { return fence(JSON.stringify(val, null, 2), 'json'); } catch { return String(val); }
+    }
+    // Arrays handled below
+    return String(val);
+  };
+
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (Array.isArray(input)) {
+    return input.map(asString).filter(Boolean).join('\n\n');
+  }
+  return asString(input);
 }
 
 // Convert standalone **Heading** lines to level-3 headings & collapse excessive blank lines
@@ -31,7 +78,10 @@ function preprocess(raw: string): string {
 }
 
 export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => {
-  const prepared = useMemo(() => preprocess(content), [content]);
+  const prepared = useMemo(() => {
+    const normalized = coerceToMarkdown(content);
+    return preprocess(normalized);
+  }, [content]);
 
   return (
     <div className="markdown-body prose prose-invert max-w-none text-sm leading-relaxed font-space">
