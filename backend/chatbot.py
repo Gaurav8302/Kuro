@@ -124,17 +124,43 @@ frontend_urls = [
 ]
 
 """
-Allow dynamic CORS for Vercel preview deployments and custom domains:
+Allow dynamic CORS for Vercel/Cloudflare preview deployments and custom domains:
 - FRONTEND_URL: single canonical prod domain (e.g., https://your-app.vercel.app)
-- FRONTEND_URL_PATTERN: optional substring to match (e.g., .vercel.app) for preview URLs
+- FRONTEND_URL_PATTERNS: comma-separated substrings (e.g., .vercel.app,.cloudflare.dev)
+- FRONTEND_URL_PATTERN: legacy single substring
+- FRONTEND_EXTRA_ORIGINS: comma-separated explicit origins to allow
+- TUNNEL_URL: optional Cloudflare tunnel URL (added as allowed origin too)
 """
 frontend_prod_url = os.getenv("FRONTEND_URL")
-frontend_url_pattern = os.getenv("FRONTEND_URL_PATTERN")
+frontend_url_patterns_env = os.getenv("FRONTEND_URL_PATTERNS")
+frontend_url_pattern_legacy = os.getenv("FRONTEND_URL_PATTERN")
+frontend_extra_origins = os.getenv("FRONTEND_EXTRA_ORIGINS")
+tunnel_url = os.getenv("TUNNEL_URL")
+
 if frontend_prod_url:
     frontend_urls.extend([
         frontend_prod_url,
         frontend_prod_url.replace("https://", "http://")
     ])
+
+if frontend_extra_origins:
+    for o in [s.strip() for s in frontend_extra_origins.split(",") if s.strip()]:
+        frontend_urls.append(o)
+
+if tunnel_url:
+    frontend_urls.extend([
+        tunnel_url,
+        tunnel_url.replace("https://", "http://") if tunnel_url.startswith("https://") else tunnel_url
+    ])
+
+# Patterns list (substrings): defaults include common hosts when not provided
+frontend_url_patterns = []
+if frontend_url_patterns_env:
+    frontend_url_patterns = [s.strip() for s in frontend_url_patterns_env.split(",") if s.strip()]
+elif frontend_url_pattern_legacy:
+    frontend_url_patterns = [frontend_url_pattern_legacy]
+else:
+    frontend_url_patterns = [".vercel.app", ".cloudflare.dev"]
 
 # CORS middleware for production stability
 @app.middleware("http")
@@ -147,7 +173,7 @@ async def cors_middleware(request: Request, call_next):
     if origin:
         if origin in frontend_urls:
             allow_origin = True
-        elif frontend_url_pattern and frontend_url_pattern in origin:
+        elif any(pat in origin for pat in frontend_url_patterns):
             allow_origin = True
 
     # Handle preflight OPTIONS requests
