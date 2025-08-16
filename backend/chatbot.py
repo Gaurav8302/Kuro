@@ -14,6 +14,11 @@ Features:
 """
 
 from dotenv import load_dotenv
+# Prefer .env.local for local development, then fallback to default .env
+try:
+    load_dotenv(".env.local")
+except Exception:
+    pass
 load_dotenv()
 
 import os
