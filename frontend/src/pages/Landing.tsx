@@ -9,16 +9,15 @@ import {
   Brain, 
   Zap,
   Star,
-  Palette,
   Shield,
   Cpu,
-  Network
+  Network,
+  Github
 } from 'lucide-react';
-import { HolographicButton } from '@/components/HolographicButton';
-import { HolographicCard } from '@/components/HolographicCard';
-import { HolographicBackground } from '@/components/HolographicBackground';
-import HolographicParticles from '@/components/HolographicParticles';
-import { HoloBrainIcon, HoloSparklesIcon } from '@/components/HolographicIcons';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { PerformanceOptimizedBackground } from '@/components/PerformanceOptimizedBackground';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -34,27 +33,23 @@ const Landing = () => {
   const features = [
     {
   icon: Brain,
-  title: "SMART REASONING",
-  description: "Groq LLaMA 3 70B for clear, helpful answers",
-      color: "holo-cyan"
+  title: "Smart Reasoning",
+  description: "Groq LLaMA 3 70B for intelligent conversations"
     },
     {
       icon: Shield,
-  title: "PRIVACY & SECURITY",
-  description: "Secure auth with Clerk and protected APIs",
-      color: "holo-blue"
+  title: "Privacy & Security",
+  description: "Secure authentication and protected APIs"
     },
     {
       icon: Zap,
-  title: "FAST RESPONSES",
-  description: "Low-latency chat on modern cloud infra",
-      color: "holo-purple"
+  title: "Fast Responses",
+  description: "Optimized for speed and performance"
     },
     {
       icon: Network,
-  title: "MEMORY & CONTEXT",
-  description: "Gemini embeddings + Pinecone for recall",
-      color: "holo-magenta"
+  title: "Memory & Context",
+  description: "Persistent conversation memory"
     }
   ];
 
@@ -72,118 +67,70 @@ const Landing = () => {
   // Show loading state while Clerk initializes
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
-        <HolographicBackground variant="subtle" />
-        <div className="text-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center relative z-10">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            className="w-16 h-16 mx-auto mb-6"
+            className="w-12 h-12 mx-auto mb-4"
           >
-            <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
+            <div className="w-full h-full rounded-full border-2 border-primary border-t-transparent" />
           </motion.div>
-          <p className="text-holo-cyan-400 font-orbitron tracking-wide">INITIALIZING KURO AI...</p>
+          <p className="text-muted-foreground">Loading Kuro AI...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden relative">
-      <HolographicBackground variant="default" />
-      
-      {/* Animated background elements */}
-      <HolographicParticles count={40} size="md" className="opacity-40" />
+    <div className="min-h-screen bg-background relative">
+      <PerformanceOptimizedBackground variant="standard" />
 
       <div className="relative z-10">
         {/* Header */}
         <motion.header 
-          className="p-6"
+          className="p-4 md:p-6"
           initial={{ y: -50, opacity: 0, filter: 'blur(10px)' }}
           animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
         >
-          <div className="max-w-7xl mx-auto flex items-center justify-between relative">
-            {/* Header scan line */}
-            <motion.div
-              className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
-              animate={{ opacity: [0.3, 0.8, 0.3] }}
-              transition={{ duration: 3, repeat: Infinity }}
-            />
-            
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <motion.div 
-                className="w-14 h-14 glass-panel border-holo-cyan-400/50 rounded-full flex items-center justify-center overflow-hidden shadow-holo-glow"
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                transition={{ duration: 0.3 }}
-              >
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-primary/10 rounded-full flex items-center justify-center">
                 <img src="/kuroai.png" alt="Kuro AI" className="w-full h-full object-cover rounded-full" />
-              </motion.div>
+              </div>
               <div>
-                <h1 className="font-orbitron text-3xl font-bold text-holo-cyan-400 text-holo-glow">
+                <h1 className="text-xl md:text-2xl font-bold text-foreground">
                   Kuro
                 </h1>
-                <p className="text-holo-cyan-400/70 text-sm font-rajdhani tracking-wider">AI ASSISTANT</p>
+                <p className="text-xs text-muted-foreground">AI Assistant</p>
               </div>
             </div>
 
-            {/* Auth buttons or Go to Chat based on Clerk state */}
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
             {isLoaded && !isSignedIn && (
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <div className="flex gap-2 sm:gap-3">
-                  <HolographicButton
-                    variant="ghost"
-                    size="md"
-                    onClick={() => navigate('/auth/signin')}
-                  >
-                      SIGN IN
-                  </HolographicButton>
-                  <HolographicButton
-                    variant="accent"
-                    size="md"
-                    onClick={() => navigate('/auth/signup')}
-                  >
-                      SIGN UP
-                  </HolographicButton>
-                </div>
-                <HolographicButton
-                  variant="secondary"
-                  size="md"
-                  className="w-full sm:w-auto"
-                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
-                >
-                  <Brain className="w-4 h-4 mr-2" />
-                    SPONSOR
-                </HolographicButton>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => navigate('/auth/signin')}>
+                  Sign In
+                </Button>
+                <Button onClick={() => navigate('/auth/signup')}>
+                  Sign Up
+                </Button>
               </div>
             )}
             {isLoaded && isSignedIn && (
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <HolographicButton
-                  variant="primary"
-                  size="md"
-                  onClick={() => navigate('/chat')}
-                  className="w-full sm:w-auto"
-                >
-                    OPEN CHAT
-                </HolographicButton>
-                <HolographicButton
-                  variant="secondary"
-                  size="md"
-                  className="w-full sm:w-auto"
-                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
-                >
-                  <Brain className="w-4 h-4 mr-2" />
-                    SPONSOR
-                </HolographicButton>
-              </div>
+              <Button onClick={() => navigate('/chat')}>
+                Open Chat
+              </Button>
             )}
+            </div>
           </div>
         </motion.header>
 
         {/* Hero Section */}
-        <main className="max-w-7xl mx-auto px-6 py-16">
-          <div className="grid lg:grid-cols-2 gap-20 items-center">
+        <main className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             {/* Content */}
             <motion.div
               initial={{ x: -100, opacity: 0, filter: 'blur(10px)' }}
@@ -191,49 +138,14 @@ const Landing = () => {
               transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
               className="text-center lg:text-left"
             >
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.5, ease: 'backOut' }}
-                className="inline-flex items-center gap-3 glass-panel border-holo-cyan-400/30 px-6 py-3 rounded-full text-holo-cyan-300 mb-8 shadow-holo-glow"
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                >
-                  <HoloSparklesIcon size={16} />
-                </motion.div>
-                <span className="text-sm font-medium font-orbitron tracking-wide">MULTI‑MODEL: GROQ + GEMINI</span>
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Star className="w-4 h-4 text-holo-cyan-400" />
-                </motion.div>
-              </motion.div>
-
               <motion.h1 
-                className="text-5xl lg:text-7xl font-bold mb-8 leading-tight"
+                className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight"
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.7 }}
               >
-                <span className="block text-holo-cyan-300 font-orbitron tracking-wide">SMART</span>
-                <motion.span 
-                  className="block holo-text font-orbitron text-holo-glow"
-                  animate={{ 
-                    textShadow: [
-                      '0 0 20px #00e6d6',
-                      '0 0 40px #8c1aff',
-                      '0 0 20px #1a8cff',
-                      '0 0 20px #00e6d6'
-                    ]
-                  }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                >
-                  ASSISTANT
-                </motion.span>
-                <span className="block text-holo-cyan-200 font-space font-light">CHAT</span>
+                <span className="block text-foreground">Smart AI</span>
+                <span className="block text-primary">Assistant</span>
               </motion.h1>
 
               <motion.div
@@ -241,39 +153,24 @@ const Landing = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.9 }}
               >
-                <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Kuro is a production-ready AI chatbot using a multi-model architecture: <strong>Groq LLaMA 3 70B</strong> for intelligent conversation and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
+                <p className="text-lg md:text-xl text-muted-foreground mb-6 leading-relaxed">
+                  Kuro is a production-ready AI chatbot using <strong>Groq LLaMA 3 70B</strong> for intelligent conversation and <strong>Google Gemini embeddings</strong> for semantic memory.
                 </p>
-                <p className="text-lg text-holo-cyan-200 mb-4 font-space">
-                  Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>Pinecone vector database</strong>, and <strong>MongoDB</strong>. Features real-time chat, persistent memory, session management, and comprehensive observability.
-                </p>
-                <p className="text-base text-holo-cyan-300 mb-8 font-space italic">
-                  ⭐ Full-stack application demonstrating modern AI/ML integration, cloud deployment, and production-grade architecture patterns.
-                </p>
-                <motion.div
-                  className="inline-flex items-center gap-2 glass-panel border-holo-green-400/30 px-4 py-2 rounded-full"
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <div className="w-2 h-2 bg-holo-green-400 rounded-full shadow-holo-green animate-holo-pulse" />
-                  <span className="text-sm text-holo-green-300 font-orbitron tracking-wide">OPEN SOURCE</span>
-                </motion.div>
               </motion.div>
 
               <motion.div
-                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+                className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start"
                 initial={{ y: 50, opacity: 0, scale: 0.8 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: 1.1, ease: 'backOut' }}
               >
-                <HolographicButton
-                  variant="primary"
-                  size="xl"
+                <Button
+                  size="lg"
                   onClick={handleStartChat}
-                  className="group font-orbitron tracking-wide"
+                  className="group"
                 >
                   <MessageSquare className="w-5 h-5 mr-2" />
-                  START CHAT
+                  Start Chat
                   <motion.div
                     className="ml-2"
                     animate={{ x: [0, 5, 0] }}
@@ -281,17 +178,16 @@ const Landing = () => {
                   >
                     <ArrowRight className="w-5 h-5" />
                   </motion.div>
-                </HolographicButton>
+                </Button>
                 
-                <HolographicButton
+                <Button
                   variant="ghost"
-                  size="xl"
-                  className="font-orbitron tracking-wide"
+                  size="lg"
                   onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  LEARN MORE
-                  <HoloSparklesIcon size={20} className="ml-2" />
-                </HolographicButton>
+                  Learn More
+                  <Sparkles className="w-4 h-4 ml-2" />
+                </Button>
               </motion.div>
             </motion.div>
 
@@ -300,113 +196,45 @@ const Landing = () => {
               initial={{ x: 100, opacity: 0, filter: 'blur(10px)' }}
               animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
               transition={{ duration: 1, delay: 0.5, ease: 'easeOut' }}
-              className="relative"
+              className="relative hidden lg:block"
             >
-              <HolographicCard variant="intense" className="overflow-hidden">
-                <div className="relative p-8">
-                  {/* Central holographic display */}
+              <Card className="overflow-hidden">
+                <CardContent className="p-8">
                   <motion.div
-                    className="w-64 h-64 mx-auto relative"
+                    className="w-48 h-48 mx-auto relative bg-primary/5 rounded-full flex items-center justify-center"
                     animate={{ 
-                      rotateY: [0, 360],
                       scale: [1, 1.05, 1]
                     }}
                     transition={{ 
-                      rotateY: { duration: 10, repeat: Infinity, ease: 'linear' },
                       scale: { duration: 4, repeat: Infinity }
                     }}
                   >
-                    {/* Holographic brain visualization */}
-                    <div className="absolute inset-0 rounded-full border-4 border-holo-cyan-400/30 shadow-holo-glow">
-                      <div className="absolute inset-4 rounded-full border-2 border-holo-purple-400/40 shadow-holo-purple">
-                        <div className="absolute inset-4 rounded-full border border-holo-blue-400/50 shadow-holo-blue flex items-center justify-center">
-                          <motion.div
-                            animate={{ rotate: 360, scale: [1, 1.2, 1] }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                          >
-                            <HoloBrainIcon size={64} className="text-holo-cyan-400" />
-                          </motion.div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Orbiting particles */}
-                    {[0, 1, 2, 3].map(i => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-3 h-3 bg-holo-cyan-400 rounded-full shadow-holo-glow"
-                        style={{
-                          top: '50%',
-                          left: '50%',
-                          transformOrigin: '0 0'
-                        }}
-                        animate={{
-                          rotate: 360,
-                          x: Math.cos(i * Math.PI / 2) * 120,
-                          y: Math.sin(i * Math.PI / 2) * 120
-                        }}
-                        transition={{
-                          duration: 4 + i,
-                          repeat: Infinity,
-                          ease: 'linear'
-                        }}
-                      />
-                    ))}
+                    <Brain className="w-16 h-16 text-primary" />
                   </motion.div>
-                </div>
-              </HolographicCard>
-              
-              {/* Floating elements around the image */}
-              <motion.div
-                className="absolute -top-6 -right-6 w-16 h-16 glass-panel border-holo-purple-400/50 rounded-full flex items-center justify-center shadow-holo-purple"
-                animate={{ 
-                  rotate: 360,
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ 
-                  rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                  scale: { duration: 3, repeat: Infinity }
-                }}
-              >
-                <HoloSparklesIcon size={24} className="text-holo-purple-400" />
-              </motion.div>
-              
-              <motion.div
-                className="absolute -bottom-6 -left-6 w-12 h-12 glass-panel border-holo-blue-400/50 rounded-full flex items-center justify-center shadow-holo-blue"
-                animate={{ 
-                  scale: [1, 1.3, 1],
-                  rotate: [0, 180, 360]
-                }}
-                transition={{ 
-                  duration: 4, 
-                  repeat: Infinity, 
-                  ease: "easeInOut" 
-                }}
-              >
-                <Cpu className="w-6 h-6 text-holo-blue-400" />
-              </motion.div>
+                </CardContent>
+              </Card>
             </motion.div>
           </div>
         </main>
 
         {/* Features Section */}
-        <section id="features" className="max-w-7xl mx-auto px-6 py-20">
+        <section id="features" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20">
           <motion.div
             initial={{ y: 50, opacity: 0, filter: 'blur(10px)' }}
             whileInView={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="text-center mb-12"
           >
-            <h2 className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
-              ADVANCED <span className="holo-text text-6xl">CAPABILITIES</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Advanced Capabilities
             </h2>
-            <p className="text-xl text-holo-cyan-100 font-space">
-              Beyond conventional AI – this is your neural interface companion
+            <p className="text-lg text-muted-foreground">
+              Powered by cutting-edge AI technology
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -414,161 +242,25 @@ const Landing = () => {
                 whileInView={{ y: 0, opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: index * 0.15, ease: 'easeOut' }}
                 viewport={{ once: true }}
-                whileHover={{ y: -10, scale: 1.05, rotateY: 5 }}
-                className="group"
               >
-                <HolographicCard 
-                  variant="default" 
-                  hover={true} 
-                  scanLine={true}
-                  className="p-6 h-full group-hover:shadow-holo-glow transition-all duration-500"
-                >
-                  <motion.div 
-                    className={`w-14 h-14 rounded-xl bg-gradient-to-br from-holo-${feature.color}-500 to-holo-${feature.color}-600 flex items-center justify-center mb-6 shadow-holo-${feature.color} border border-holo-${feature.color}-400/30`}
-                    whileHover={{ 
-                      scale: 1.1, 
-                      rotate: 10,
-                      boxShadow: `0 0 30px rgba(0, 230, 214, 0.6)`
-                    }}
-                    transition={{ duration: 0.3 }}
-                  >
+                <Card className="p-6 h-full hover:shadow-lg transition-all duration-300">
+                  <CardContent className="p-0">
+                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
                     <feature.icon className="w-7 h-7 text-white" />
-                  </motion.div>
-                  <h3 className="text-lg font-semibold text-holo-cyan-200 mb-3 font-orbitron tracking-wide">
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-3">
                     {feature.title}
                   </h3>
-                  <p className="text-holo-cyan-100/80 font-space leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                     {feature.description}
                   </p>
-                </HolographicCard>
+                  </CardContent>
+                </Card>
               </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Tech Specifications Section */}
-        <motion.section
-          initial={{ y: 50, opacity: 0 }}
-          whileInView={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-          className="max-w-6xl mx-auto px-6 py-20"
-        >
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
-              TECHNICAL ARCHITECTURE
-            </h2>
-            <p className="text-xl text-holo-cyan-100 max-w-4xl mx-auto font-space">
-              Production-grade full-stack application showcasing modern AI/ML integration, cloud deployment, and enterprise architecture patterns.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Brain,
-                title: "AI/ML STACK",
-                description: "Groq LLaMA 3 70B (chat), Google Gemini (embeddings), Pinecone vector DB, LangChain orchestration",
-                color: "holo-purple"
-              },
-              {
-                icon: Cpu,
-                title: "BACKEND TECH",
-                description: "FastAPI, Python, MongoDB Atlas, Uvicorn ASGI, async/await patterns, RESTful APIs",
-                color: "holo-blue"
-              },
-              {
-                icon: Palette,
-                title: "FRONTEND TECH",
-                description: "React 18, TypeScript, Vite, TailwindCSS, Framer Motion, Clerk Auth, Axios",
-                color: "holo-cyan"
-              },
-              {
-                icon: Shield,
-                title: "DEPLOYMENT",
-                description: "Vercel (frontend), Render (backend), MongoDB Atlas (database), environment-based config",
-                color: "holo-green"
-              },
-              {
-                icon: Network,
-                title: "ARCHITECTURE",
-                description: "Microservices design, CORS handling, session management, memory persistence, observability",
-                color: "holo-magenta"
-              },
-              {
-                icon: Zap,
-                title: "FEATURES",
-                description: "Real-time chat, conversation memory, user auth, responsive UI, production monitoring",
-                color: "holo-orange"
-              }
-            ].map((spec, index) => (
-              <motion.div
-                key={spec.title}
-                initial={{ opacity: 0, y: 30, scale: 0.8 }}
-                whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                whileHover={{ scale: 1.05, rotateY: 5 }}
-              >
-                <HolographicCard variant="glow" hover={true} className="p-6 h-full">
-                  <motion.div 
-                    className={`w-12 h-12 bg-gradient-to-br from-${spec.color}-500 to-${spec.color}-600 rounded-lg flex items-center justify-center mb-4 shadow-${spec.color} border border-${spec.color}-400/30`}
-                    whileHover={{ rotate: 10, scale: 1.1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <spec.icon className="w-6 h-6 text-white" />
-                  </motion.div>
-                  <h3 className="text-lg font-bold text-holo-cyan-200 mb-3 font-orbitron tracking-wide">{spec.title}</h3>
-                  <p className="text-holo-cyan-100/70 font-space leading-relaxed">
-                    {spec.description}
-                  </p>
-                </HolographicCard>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div 
-            className="text-center mt-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            viewport={{ once: true }}
-          >
-            <div className="glass-panel border-holo-cyan-400/30 p-8 rounded-xl mb-8">
-              <h3 className="text-2xl font-bold text-holo-cyan-300 mb-4 font-orbitron">🚀 FOR RECRUITERS & DEVELOPERS</h3>
-              <p className="text-holo-cyan-100 mb-4 font-space text-lg">
-                This is a <strong>production-ready, full-stack AI application</strong> demonstrating:
-              </p>
-              <ul className="text-holo-cyan-200 text-left max-w-2xl mx-auto font-space space-y-2">
-                <li>✨ <strong>Modern AI/ML Integration:</strong> Multi-model architecture with vector databases</li>
-                <li>🏗️ <strong>Scalable Architecture:</strong> Microservices, async processing, cloud deployment</li>
-                <li>🔒 <strong>Enterprise Patterns:</strong> Authentication, session management, observability</li>
-                <li>⚡ <strong>Performance Optimization:</strong> Caching, connection pooling, efficient data structures</li>
-                <li>🎨 <strong>Modern Frontend:</strong> TypeScript, responsive design, real-time UI updates</li>
-              </ul>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <HolographicButton
-                variant="primary"
-                size="lg"
-                className="font-orbitron tracking-wide"
-                onClick={() => window.open('https://github.com/Gaurav8302/Kuro', '_blank')}
-              >
-                <Star className="w-5 h-5 mr-2" />
-                VIEW SOURCE CODE
-              </HolographicButton>
-              <HolographicButton
-                variant="secondary"
-                size="lg"
-                className="font-orbitron tracking-wide"
-                onClick={() => window.open('https://github.com/Gaurav8302', '_blank')}
-              >
-                <Brain className="w-5 h-5 mr-2" />
-                DEVELOPER PROFILE
-              </HolographicButton>
-            </div>
-          </motion.div>
-        </motion.section>
 
         {/* CTA Section */}
         <motion.section
@@ -576,62 +268,33 @@ const Landing = () => {
           whileInView={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
-          className="max-w-4xl mx-auto px-6 py-20 text-center"
+          className="max-w-4xl mx-auto px-4 md:px-6 py-12 md:py-20 text-center"
         >
-          <HolographicCard variant="intense" className="p-12 relative overflow-hidden">
-            {/* Animated background pattern */}
-            <div className="absolute inset-0 opacity-20">
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-holo-cyan-500/20 via-holo-purple-500/20 to-holo-blue-500/20"
-                animate={{ 
-                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
-                }}
-                transition={{ duration: 8, repeat: Infinity }}
-                style={{ backgroundSize: '200% 200%' }}
-              />
-            </div>
-            
-            <div className="relative z-10">
-              <motion.h2 
-                className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow"
-                animate={{ 
-                  textShadow: [
-                    '0 0 20px #00e6d6',
-                    '0 0 40px #8c1aff',
-                    '0 0 20px #00e6d6'
-                  ]
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-              >
-                READY TO CHAT?
-              </motion.h2>
-              <p className="text-xl text-holo-cyan-100 mb-8 font-space">
-                Start a conversation with Kuro.
+          <Card className="p-8 md:p-12">
+            <CardContent className="p-0">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+                Ready to Chat?
+              </h2>
+              <p className="text-lg text-muted-foreground mb-8">
+                Start a conversation with Kuro AI today.
               </p>
-              <HolographicButton
-                variant="primary"
-              size="xl"
-              onClick={handleStartChat}
-              className="font-orbitron tracking-wide group"
-            >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                className="mr-3"
-              >
-                <HoloBrainIcon size={20} />
-              </motion.div>
-              START CHAT
-              <motion.div
-                className="ml-3"
-                animate={{ x: [0, 5, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <ArrowRight className="w-5 h-5" />
-              </motion.div>
-            </HolographicButton>
-            </div>
-          </HolographicCard>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button size="lg" onClick={handleStartChat} className="group">
+                  <Brain className="w-5 h-5 mr-2" />
+                  Start Chat
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={() => window.open('https://github.com/Gaurav8302/Kuro', '_blank')}
+                >
+                  <Github className="w-4 h-4 mr-2" />
+                  View Source
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </motion.section>
       </div>
     </div>

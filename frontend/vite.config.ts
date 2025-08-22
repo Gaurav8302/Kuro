@@ -7,7 +7,7 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 3000,
   },
   preview: {
     host: "0.0.0.0",
@@ -17,18 +17,25 @@ export default defineConfig(({ mode }) => ({
     outDir: "dist",
     sourcemap: mode === "development",
     minify: mode === "production",
+    target: "es2015",
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
+        experimentalMinChunkSize: 1000,
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+          'react-vendor': ['react', 'react-dom'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-avatar'],
           clerk: ['@clerk/clerk-react'],
           router: ['react-router-dom'],
-          query: ['@tanstack/react-query'],
-          icons: ['lucide-react']
+          motion: ['framer-motion'],
+          utils: ['@tanstack/react-query', 'axios']
         }
       }
     }
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'framer-motion']
   },
   plugins: [
     react(),

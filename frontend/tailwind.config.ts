@@ -14,91 +14,25 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: '2rem',
+      padding: {
+        DEFAULT: '1rem',
+        sm: '2rem',
+      },
       screens: {
         '2xl': '1400px'
       }
     },
     extend: {
       fontFamily: {
-        orbitron: ['Orbitron', 'monospace'],
-        space: ['Space Grotesk', 'sans-serif'],
-        rajdhani: ['Rajdhani', 'sans-serif'],
-        inter: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
-        // Base system colors
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
-        
-        // Holographic color system
-        holo: {
-          cyan: {
-            50: '#e0fffe',
-            100: '#b3fffc',
-            200: '#80fff9',
-            300: '#4dfff6',
-            400: '#1afff3',
-            500: '#00e6d6',
-            600: '#00b3a6',
-            700: '#008075',
-            800: '#004d45',
-            900: '#001a16',
-          },
-          blue: {
-            50: '#e6f3ff',
-            100: '#b3d9ff',
-            200: '#80bfff',
-            300: '#4da6ff',
-            400: '#1a8cff',
-            500: '#0073e6',
-            600: '#005ab3',
-            700: '#004080',
-            800: '#00264d',
-            900: '#000d1a',
-          },
-          purple: {
-            50: '#f3e6ff',
-            100: '#d9b3ff',
-            200: '#bf80ff',
-            300: '#a64dff',
-            400: '#8c1aff',
-            500: '#7300e6',
-            600: '#5a00b3',
-            700: '#400080',
-            800: '#26004d',
-            900: '#0d001a',
-          },
-          magenta: {
-            50: '#ffe6f7',
-            100: '#ffb3e6',
-            200: '#ff80d4',
-            300: '#ff4dc3',
-            400: '#ff1ab1',
-            500: '#e6009f',
-            600: '#b3007c',
-            700: '#800059',
-            800: '#4d0036',
-            900: '#1a0013',
-          },
-          green: {
-            50: '#e6ffe6',
-            100: '#b3ffb3',
-            200: '#80ff80',
-            300: '#4dff4d',
-            400: '#1aff1a',
-            500: '#00e600',
-            600: '#00b300',
-            700: '#008000',
-            800: '#004d00',
-            900: '#001a00',
-          },
-        },
-        
-        // Theme colors
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
@@ -106,10 +40,6 @@ export default {
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))'
-        },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
@@ -119,6 +49,10 @@ export default {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))'
         },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))'
+        },
         popover: {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))'
@@ -127,50 +61,25 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
         },
-        sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))'
-        }
+        chart: {
+          '1': 'hsl(var(--chart-1))',
+          '2': 'hsl(var(--chart-2))',
+          '3': 'hsl(var(--chart-3))',
+          '4': 'hsl(var(--chart-4))',
+          '5': 'hsl(var(--chart-5))'
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
       },
-      boxShadow: {
-        'holo-glow': '0 0 20px rgba(0, 230, 214, 0.5), 0 0 40px rgba(0, 230, 214, 0.3), 0 0 60px rgba(0, 230, 214, 0.1)',
-        'holo-blue': '0 0 20px rgba(26, 140, 255, 0.5), 0 0 40px rgba(26, 140, 255, 0.3)',
-        'holo-purple': '0 0 20px rgba(140, 26, 255, 0.5), 0 0 40px rgba(140, 26, 255, 0.3)',
-        'holo-magenta': '0 0 20px rgba(255, 26, 177, 0.5), 0 0 40px rgba(255, 26, 177, 0.3)',
-        'holo-green': '0 0 20px rgba(26, 255, 26, 0.5), 0 0 40px rgba(26, 255, 26, 0.3)',
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glass-strong': '0 8px 32px 0 rgba(31, 38, 135, 0.6)',
-      },
-      backdropBlur: {
-        'xs': '2px',
-      },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'holo-pulse': 'holo-pulse 2s ease-in-out infinite',
-        'holo-scan': 'holo-scan 3s ease-in-out infinite',
-        'holo-drift': 'holo-drift 8s ease-in-out infinite',
-        'holo-glow': 'holo-glow 2s ease-in-out infinite alternate',
-        'particle-float': 'particle-float 6s ease-in-out infinite',
-        'gradient-shift': 'gradient-shift 8s ease-in-out infinite',
-        'typing-dots': 'typing-dots 1.4s ease-in-out infinite',
-        'shimmer': 'shimmer 2s linear infinite',
-        'glitch': 'glitch 0.3s ease-in-out',
-        'slide-in-holo': 'slide-in-holo 0.5s ease-out',
-        'fade-in-up': 'fade-in-up 0.6s ease-out',
-        'bounce-glow': 'bounce-glow 0.6s ease-out',
-        'scan-line': 'scan-line 2s linear infinite',
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
       },
       keyframes: {
         'accordion-down': {
@@ -181,165 +90,11 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' }
         },
-        'holo-pulse': {
-          '0%, 100%': { 
-            boxShadow: '0 0 20px rgba(0, 230, 214, 0.5), 0 0 40px rgba(0, 230, 214, 0.3)',
-            transform: 'scale(1)'
-          },
-          '50%': { 
-            boxShadow: '0 0 30px rgba(0, 230, 214, 0.8), 0 0 60px rgba(0, 230, 214, 0.5)',
-            transform: 'scale(1.02)'
-          }
-        },
-        'holo-scan': {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' }
-        },
-        'holo-drift': {
-          '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
-          '33%': { transform: 'translateY(-10px) rotate(1deg)' },
-          '66%': { transform: 'translateY(5px) rotate(-1deg)' }
-        },
-        'holo-glow': {
-          '0%': { filter: 'brightness(1) hue-rotate(0deg)' },
-          '100%': { filter: 'brightness(1.2) hue-rotate(10deg)' }
-        },
-        'particle-float': {
-          '0%, 100%': { transform: 'translateY(0px) translateX(0px) scale(1)' },
-          '25%': { transform: 'translateY(-20px) translateX(10px) scale(1.1)' },
-          '50%': { transform: 'translateY(-10px) translateX(-5px) scale(0.9)' },
-          '75%': { transform: 'translateY(-30px) translateX(15px) scale(1.05)' }
-        },
-        'gradient-shift': {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%': { backgroundPosition: '100% 50%' }
-        },
-        'typing-dots': {
-          '0%, 60%, 100%': { transform: 'translateY(0)' },
-          '30%': { transform: 'translateY(-10px)' }
-        },
-        'shimmer': {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' }
-        },
-        'glitch': {
-          '0%, 100%': { transform: 'translate(0)' },
-          '20%': { transform: 'translate(-2px, 2px)' },
-          '40%': { transform: 'translate(-2px, -2px)' },
-          '60%': { transform: 'translate(2px, 2px)' },
-          '80%': { transform: 'translate(2px, -2px)' }
-        },
-        'slide-in-holo': {
-          '0%': { 
-            transform: 'translateX(-100%) scale(0.8)',
-            opacity: '0',
-            filter: 'blur(10px)'
-          },
-          '100%': { 
-            transform: 'translateX(0) scale(1)',
-            opacity: '1',
-            filter: 'blur(0px)'
-          }
-        },
-        'fade-in-up': {
-          '0%': { 
-            transform: 'translateY(30px)',
-            opacity: '0'
-          },
-          '100%': { 
-            transform: 'translateY(0)',
-            opacity: '1'
-          }
-        },
-        'bounce-glow': {
-          '0%': { 
-            transform: 'scale(1)',
-            boxShadow: '0 0 20px rgba(0, 230, 214, 0.3)'
-          },
-          '50%': { 
-            transform: 'scale(1.05)',
-            boxShadow: '0 0 40px rgba(0, 230, 214, 0.6)'
-          },
-          '100%': { 
-            transform: 'scale(1)',
-            boxShadow: '0 0 20px rgba(0, 230, 214, 0.3)'
-          }
-        },
-        'scan-line': {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100vh)' }
-        }
-      },
-      backgroundImage: {
-        'holo-grid': `
-          linear-gradient(rgba(0, 230, 214, 0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 230, 214, 0.1) 1px, transparent 1px)
-        `,
-        'holo-mesh': `
-          radial-gradient(circle at 25% 25%, rgba(0, 230, 214, 0.2) 0%, transparent 50%),
-          radial-gradient(circle at 75% 75%, rgba(140, 26, 255, 0.2) 0%, transparent 50%),
-          radial-gradient(circle at 50% 50%, rgba(26, 140, 255, 0.1) 0%, transparent 50%)
-        `,
-        'particle-field': `
-          radial-gradient(2px 2px at 20px 30px, rgba(0, 230, 214, 0.3), transparent),
-          radial-gradient(2px 2px at 40px 70px, rgba(140, 26, 255, 0.3), transparent),
-          radial-gradient(1px 1px at 90px 40px, rgba(26, 140, 255, 0.3), transparent),
-          radial-gradient(1px 1px at 130px 80px, rgba(255, 26, 177, 0.3), transparent),
-          radial-gradient(2px 2px at 160px 30px, rgba(26, 255, 26, 0.3), transparent)
-        `,
-      },
-      backgroundSize: {
-        'holo-grid': '50px 50px',
-        'particle-field': '200px 100px',
       }
     }
   },
   plugins: [
     tailwindcssAnimate, 
     typography,
-    function({ addUtilities, theme }) {
-      const newUtilities = {
-        '.glass-panel': {
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        },
-        '.glass-panel-dark': {
-          background: 'rgba(0, 0, 0, 0.2)',
-          backdropFilter: 'blur(15px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
-        },
-        '.holo-border': {
-          border: '1px solid transparent',
-          backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05)), linear-gradient(45deg, #00e6d6, #8c1aff, #1a8cff, #ff1ab1)',
-          backgroundOrigin: 'border-box',
-          backgroundClip: 'content-box, border-box',
-        },
-        '.scan-lines': {
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            right: '0',
-            bottom: '0',
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 230, 214, 0.03) 2px, rgba(0, 230, 214, 0.03) 4px)',
-            pointerEvents: 'none',
-            zIndex: '1',
-          }
-        },
-        '.text-holo-glow': {
-          textShadow: '0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor',
-        },
-        '.border-holo-glow': {
-          borderColor: 'rgba(0, 230, 214, 0.5)',
-          boxShadow: '0 0 10px rgba(0, 230, 214, 0.3), inset 0 0 10px rgba(0, 230, 214, 0.1)',
-        }
-      }
-      addUtilities(newUtilities)
-    }
   ],
 } satisfies Config;
