@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: canvas-chat-backend
+    runtime: python3
+    rootDir: backend
+    plan: free
+    autoDeploy: true
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
+    healthCheckPath: /healthz
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: FRONTEND_URL
+        value: https://your-frontend-domain.vercel.app
+      # Optional observability
+      - key: SENTRY_DSN
+        value: ""
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.0"
+      - key: SENTRY_ENABLE_TRACING
+        value: "false"
