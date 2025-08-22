@@ -1,53 +1,78 @@
-# 🤖 Kuro AI — Production-Ready Chatbot
+# 🤖 Kuro AI — Production-Ready Multi-Model Chatbot
 
-![Kuro AI Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=Kuro+AI+-+Your+Intelligent+Assistant)
+![Kuro AI Banner](https://via.placeholder.com/800x200/1a1a1a/ffffff?text=Kuro+AI+-+Production+Ready+AI+Assistant)
 
-> A modern, production-grade AI chatbot with Groq LLaMA 3 70B generation, Gemini embeddings, Pinecone memory, Clerk auth, MongoDB persistence, and robust observability.
+> **A production-grade, full-stack AI chatbot** showcasing modern AI/ML integration, microservices architecture, and cloud deployment. Built with **Groq LLaMA 3 70B** for conversation, **Google Gemini embeddings** for semantic memory, and deployed on enterprise cloud infrastructure.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-green.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18+-blue.svg)](https://reactjs.org/)
-[![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](https://github.com/Gaurav8302/Kuro)
-[![CI](https://github.com/Gaurav8302/Kuro/actions/workflows/ci.yml/badge.svg)](https://github.com/Gaurav8302/Kuro/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.2+-blue.svg)](https://www.typescriptlang.org/)
+[![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](https://kuro-tau.vercel.app)
 
-## ✨ Features
+## 🚀 **Live Demo**
+- **Frontend**: [https://kuro-tau.vercel.app](https://kuro-tau.vercel.app)
+- **Backend API**: [https://kuro-ix1w.onrender.com](https://kuro-ix1w.onrender.com)
 
-### 🧠 Intelligent Conversation
-- **Advanced AI Reasoning** — Powered by Groq LLaMA 3 70B for chat generation
-- **Free Embeddings** — Google Gemini embeddings for semantic memory (cost-effective)
-- **Contextual Memory** - Remembers conversations and user preferences
-- **Personality Consistency** - Maintains "Kuro" identity across all interactions
+## 🏗️ **Technical Architecture**
+
+### **Multi-Model AI Stack**
+- 🧠 **Groq LLaMA 3 70B** - Primary conversation model for intelligent responses
+- 🔍 **Google Gemini Embeddings** - Semantic search and memory retrieval
+- 📊 **Pinecone Vector Database** - High-performance vector storage and similarity search
+- 🧬 **LangChain** - AI workflow orchestration and prompt management
+
+### **Backend Infrastructure**
+- ⚡ **FastAPI** - High-performance async Python web framework
+- 🗄️ **MongoDB Atlas** - Cloud-native document database for session persistence
+- 🔐 **Clerk Authentication** - Enterprise-grade user management and security
+- 📈 **Prometheus Metrics** - Production observability and monitoring
+- 🔄 **Async/Await Patterns** - Non-blocking I/O for optimal performance
+
+### **Frontend Technology**
+- ⚛️ **React 18** - Modern component-based UI framework
+- 📘 **TypeScript** - Type-safe development with enhanced developer experience
+- ⚡ **Vite** - Lightning-fast development and build tooling
+- 🎨 **TailwindCSS** - Utility-first styling with custom design system
+- 🎬 **Framer Motion** - Smooth animations and transitions
+
+## ✨ **Key Features**
+
+### 🧠 **Intelligent Conversation**
+- **Advanced AI Reasoning** — Powered by Groq LLaMA 3 70B for natural, context-aware responses
+- **Semantic Memory** — Google Gemini embeddings for intelligent conversation history retrieval
+- **Contextual Awareness** - Maintains conversation context across sessions
+- **Personality Consistency** - Consistent "Kuro" AI assistant persona
 - **Smart Prompt Engineering** - Production-ready system instructions with safety guardrails
 
-### 🛡️ **Enterprise-Grade Safety**
-- **Content Filtering** - Multi-layered safety validation system
-- **Hallucination Detection** - Prevents AI from making false claims
-- **Auto-Retry Mechanism** - Regenerates poor quality responses
-- **Response Quality Scoring** - Ensures helpful, well-structured answers
+### 🛡️ **Enterprise-Grade Security**
+- **Content Filtering** - Multi-layered safety validation and response filtering
+- **Hallucination Detection** - Prevents AI from generating false or misleading information
+- **Auto-Retry Mechanism** - Automatically regenerates poor quality responses
+- **Response Quality Scoring** - Ensures helpful, well-structured, and safe answers
+- **CORS Protection** - Secure cross-origin resource sharing configuration
 
-### 🧠 Advanced Memory System
-- **Vector-Based Search** - Semantic memory retrieval (Gemini embeddings → Pinecone)
-- **User Profiling** - Persistent user preferences and context
-- **Session Management** - Maintains conversation continuity
-- **Intelligent Pruning** - Optimized memory usage for production
-- **Layered Compression** - Short / medium / long summaries + verbatim fact anchors
-- **Context Rehydration** - Deterministic assembly (facts → summaries → recent turns) under token budget
-  
-Notes:
-- Full chat history is persisted in MongoDB (by session).
-- Session titles stored in a dedicated `session_titles` collection; if missing, sessions are inferred from chat history.
+### 🧠 **Advanced Memory System**
+- **Vector-Based Search** - Semantic memory retrieval using Gemini embeddings and Pinecone
+- **User Profiling** - Persistent user preferences and conversation context
+- **Session Management** - Maintains conversation continuity across user sessions
+- **Intelligent Pruning** - Optimized memory usage for production scalability
+- **Layered Compression** - Short/medium/long summaries with verbatim fact anchors
+- **Context Rehydration** - Deterministic assembly under token budget constraints
 
-### 🔐 **Authentication & Security**
-- **Clerk Integration** - Secure user authentication and management
+### 🔐 **Authentication & Privacy**
+- **Clerk Integration** - Secure user authentication with social login support
 - **Privacy-First Design** - User data protection and GDPR compliance
-- **Environment Security** - Secure API key management
-- **CORS Protection** - Proper cross-origin resource sharing
+- **Environment Security** - Secure API key management and rotation
+- **Session Isolation** - Complete user data separation and security
 
-### 🎨 **Modern UI/UX**
-- **Personalized Onboarding** - One-time animated welcome (KuroIntro) after first sign-in
-- **Responsive Design** - Works seamlessly on all devices
-- **Real-time Chat** - Instant message delivery and typing indicators
+### 🎨 **Modern User Experience**
+- **Responsive Design** - Seamless experience across desktop, tablet, and mobile devices
+- **Real-time Chat** - Instant message delivery with typing indicators
+- **Holographic UI** - Futuristic design with smooth animations and transitions
+- **Personalized Onboarding** - Animated welcome experience for new users
+- **Dark/Light Theme** - Adaptive UI themes for user preference
 - **Enhanced Code Rendering** - Copy single snippet or full answer, syntax highlighting
 - **Session Title Control** - Manual edit and one-click AI-generated titles
 - **Beautiful Interface** - Modern design with Framer Motion animations

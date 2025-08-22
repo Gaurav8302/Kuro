@@ -242,10 +242,13 @@ const Landing = () => {
                 transition={{ duration: 0.8, delay: 0.9 }}
               >
                 <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Kuro uses multiple models: Groq LLaMA 3 70B for chat and Gemini embeddings for semantic memory.
+                  Kuro is a production-ready AI chatbot using a multi-model architecture: <strong>Groq LLaMA 3 70B</strong> for intelligent conversation and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
                 </p>
-                <p className="text-lg text-holo-cyan-200 mb-8 font-space">
-                  Fast, helpful answers with context from your past conversations.
+                <p className="text-lg text-holo-cyan-200 mb-4 font-space">
+                  Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>Pinecone vector database</strong>, and <strong>MongoDB</strong>. Features real-time chat, persistent memory, session management, and comprehensive observability.
+                </p>
+                <p className="text-base text-holo-cyan-300 mb-8 font-space italic">
+                  ⭐ Full-stack application demonstrating modern AI/ML integration, cloud deployment, and production-grade architecture patterns.
                 </p>
                 <motion.div
                   className="inline-flex items-center gap-2 glass-panel border-holo-green-400/30 px-4 py-2 rounded-full"
@@ -453,10 +456,10 @@ const Landing = () => {
         >
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
-              SYSTEM SPECIFICATIONS
+              TECHNICAL ARCHITECTURE
             </h2>
-            <p className="text-xl text-holo-cyan-100 max-w-3xl mx-auto font-space">
-              Built with a reliable, open-source stack for speed and accessibility.
+            <p className="text-xl text-holo-cyan-100 max-w-4xl mx-auto font-space">
+              Production-grade full-stack application showcasing modern AI/ML integration, cloud deployment, and enterprise architecture patterns.
             </p>
           </div>
 
@@ -464,21 +467,39 @@ const Landing = () => {
             {[
               {
                 icon: Brain,
-                title: "GROQ LLAMA 3 70B",
-                description: "Fast, high-quality responses for chat (generation)",
+                title: "AI/ML STACK",
+                description: "Groq LLaMA 3 70B (chat), Google Gemini (embeddings), Pinecone vector DB, LangChain orchestration",
                 color: "holo-purple"
               },
               {
-                icon: Zap,
-                  title: "VERCEL FRONTEND",
-                  description: "Global hosting for the React + Vite app",
+                icon: Cpu,
+                title: "BACKEND TECH",
+                description: "FastAPI, Python, MongoDB Atlas, Uvicorn ASGI, async/await patterns, RESTful APIs",
+                color: "holo-blue"
+              },
+              {
+                icon: Palette,
+                title: "FRONTEND TECH",
+                description: "React 18, TypeScript, Vite, TailwindCSS, Framer Motion, Clerk Auth, Axios",
                 color: "holo-cyan"
               },
               {
                 icon: Shield,
-                  title: "RENDER BACKEND",
-                  description: "FastAPI + MongoDB Atlas + Pinecone + Gemini embeddings",
-                color: "holo-blue"
+                title: "DEPLOYMENT",
+                description: "Vercel (frontend), Render (backend), MongoDB Atlas (database), environment-based config",
+                color: "holo-green"
+              },
+              {
+                icon: Network,
+                title: "ARCHITECTURE",
+                description: "Microservices design, CORS handling, session management, memory persistence, observability",
+                color: "holo-magenta"
+              },
+              {
+                icon: Zap,
+                title: "FEATURES",
+                description: "Real-time chat, conversation memory, user auth, responsive UI, production monitoring",
+                color: "holo-orange"
               }
             ].map((spec, index) => (
               <motion.div
@@ -513,27 +534,37 @@ const Landing = () => {
             transition={{ duration: 0.8, delay: 0.3 }}
             viewport={{ once: true }}
           >
-            <p className="text-holo-cyan-100 mb-8 font-space text-lg">
-              Like Kuro? Support development and new features.
-            </p>
+            <div className="glass-panel border-holo-cyan-400/30 p-8 rounded-xl mb-8">
+              <h3 className="text-2xl font-bold text-holo-cyan-300 mb-4 font-orbitron">🚀 FOR RECRUITERS & DEVELOPERS</h3>
+              <p className="text-holo-cyan-100 mb-4 font-space text-lg">
+                This is a <strong>production-ready, full-stack AI application</strong> demonstrating:
+              </p>
+              <ul className="text-holo-cyan-200 text-left max-w-2xl mx-auto font-space space-y-2">
+                <li>✨ <strong>Modern AI/ML Integration:</strong> Multi-model architecture with vector databases</li>
+                <li>🏗️ <strong>Scalable Architecture:</strong> Microservices, async processing, cloud deployment</li>
+                <li>🔒 <strong>Enterprise Patterns:</strong> Authentication, session management, observability</li>
+                <li>⚡ <strong>Performance Optimization:</strong> Caching, connection pooling, efficient data structures</li>
+                <li>🎨 <strong>Modern Frontend:</strong> TypeScript, responsive design, real-time UI updates</li>
+              </ul>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <HolographicButton
-                variant="ghost"
+                variant="primary"
                 size="lg"
                 className="font-orbitron tracking-wide"
                 onClick={() => window.open('https://github.com/Gaurav8302/Kuro', '_blank')}
               >
                 <Star className="w-5 h-5 mr-2" />
-                VIEW SOURCE
+                VIEW SOURCE CODE
               </HolographicButton>
               <HolographicButton
                 variant="secondary"
                 size="lg"
                 className="font-orbitron tracking-wide"
-                onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+                onClick={() => window.open('https://github.com/Gaurav8302', '_blank')}
               >
                 <Brain className="w-5 h-5 mr-2" />
-                SPONSOR
+                DEVELOPER PROFILE
               </HolographicButton>
             </div>
           </motion.div>
