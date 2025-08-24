@@ -1,0 +1,59 @@
+{
+  "name": "kuro-ai",
+  "version": "1.0.0",
+  "description": "Kuro AI - Production-ready multi-model AI chatbot with Groq LLaMA 3 70B, Google Gemini embeddings, and modern full-stack architecture",
+  "type": "module",
+  "scripts": {
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "install:all": "npm run install:frontend && npm run install:backend",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python chatbot.py",
+    "build:frontend": "cd frontend && npm run build:prod",
+    "build:backend": "cd backend && chmod +x build.sh && ./build.sh",
+    "start:frontend": "cd frontend && npm run preview",
+    "start:backend": "cd backend && gunicorn chatbot:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000",
+    "lint": "cd frontend && npm run lint",
+    "clean": "rm -rf frontend/node_modules frontend/dist backend/__pycache__ backend/venv"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gaurav8302/Kuro.git"
+  },
+  "keywords": [
+    "ai",
+    "chatbot",
+    "groq",
+    "llama3",
+    "gemini",
+    "pinecone",
+    "vector-database",
+    "react",
+    "fastapi",
+    "typescript",
+    "python",
+    "mongodb",
+    "clerk-auth",
+    "vercel",
+    "render",
+    "production-ready",
+    "full-stack",
+    "multi-model",
+    "machine-learning",
+    "nlp",
+    "render",
+    "mongodb",
+    "pinecone",
+    "gemini"
+  ],
+  "author": "Gaurav8302",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Gaurav8302/Kuro/issues"
+  },
+  "homepage": "https://github.com/Gaurav8302/Kuro#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.9.0"
+  }
+}
