@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
@@ -42,13 +42,14 @@ const LightweightIntro: React.FC<OptimizedKuroIntroProps> = memo(({
   const phrase = phrases[index];
 
   return (
-    <div className={[
-      fullscreen
+    <div className={`
+      ${fullscreen
         ? 'fixed inset-0 z-[9999]'
-        : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden',
-      'overflow-hidden select-none bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20',
-      className
-    ].filter(Boolean).join(' ')}>
+        : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden'
+      }
+      overflow-hidden select-none bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20
+      ${className || ''}
+    `}>
       
       {/* Simple CSS gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-holo-cyan-500/10 via-holo-purple-500/10 to-holo-blue-500/10" />
@@ -151,13 +152,14 @@ const AnimatedIntro: React.FC<OptimizedKuroIntroProps> = memo(({
   const phrase = phrases[index];
 
   return (
-    <div className={[
-      fullscreen
+    <div className={`
+      ${fullscreen
         ? 'fixed inset-0 z-[9999]'
-        : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden shadow-glow',
-      'overflow-hidden select-none',
-      className
-    ].filter(Boolean).join(' ')}>
+        : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden shadow-glow'
+      }
+      overflow-hidden select-none
+      ${className || ''}
+    `}>
       
       {/* Holographic base background */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20" />
@@ -232,24 +234,20 @@ const AnimatedIntro: React.FC<OptimizedKuroIntroProps> = memo(({
                   opacity: 1, 
                   scale: 1, 
                   y: 0, 
-                  filter: 'blur(0px)',
-                  textShadow: [
-                    '0 0 20px #00e6d6, 0 0 40px #00e6d6',
-                    '0 0 30px #8c1aff, 0 0 60px #8c1aff',
-                    '0 0 25px #1a8cff, 0 0 50px #1a8cff',
-                    '0 0 20px #00e6d6, 0 0 40px #00e6d6'
-                  ]
+                  filter: 'blur(0px)'
                 }}
                 exit={{ opacity: 0, scale: 0.9, y: -20, filter: 'blur(5px)' }}
                 transition={{ 
                   duration: 0.8, 
-                  ease: [0.25, 0.8, 0.25, 1],
-                  textShadow: { duration: 4, repeat: Infinity }
+                  ease: [0.25, 0.8, 0.25, 1]
                 }}
                 className={fullscreen
                   ? 'font-bold tracking-wider holo-text text-holo-glow text-6xl md:text-8xl font-orbitron'
                   : 'font-bold tracking-wider holo-text text-holo-glow text-5xl md:text-7xl font-orbitron'
                 }
+                style={{
+                  textShadow: '0 0 20px #00e6d6, 0 0 40px #00e6d6'
+                }}
               >
                 {phrase}
               </motion.h1>

@@ -1,10 +1,10 @@
-import { defineConfig } from "vite";
+import { defineConfig, ConfigEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }: ConfigEnv) => ({
   server: {
     host: "::",
     port: 8080,
@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true, // Enable CSS code splitting
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
+        manualChunks: (id: string) => {
           // Only create manual chunks in production
           if (mode === 'production') {
             if (id.includes('node_modules')) {
@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => ({
   // Performance optimizations
   esbuild: {
     // Remove console logs in production
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    drop: mode === 'production' ? (['console', 'debugger'] as ("console" | "debugger")[]) : undefined,
   },
   // CSS optimizations
   css: {
