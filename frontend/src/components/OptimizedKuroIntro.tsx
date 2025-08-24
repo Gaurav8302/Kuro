@@ -228,14 +228,11 @@ const AnimatedIntro: React.FC<OptimizedKuroIntroProps> = memo(({
               <motion.h1
                 key={phrase}
                 initial={{ opacity: 0, scale: 0.8, y: 20, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, scale: 0.9, y: -20, filter: 'blur(5px)' }}
-                transition={{ duration: 0.8, ease: [0.25, 0.8, 0.25, 1] }}
-                className={fullscreen
-                  ? 'font-bold tracking-wider holo-text text-holo-glow text-6xl md:text-8xl font-orbitron'
-                  : 'font-bold tracking-wider holo-text text-holo-glow text-5xl md:text-7xl font-orbitron'
-                }
-                animate={{
+                animate={{ 
+                  opacity: 1, 
+                  scale: 1, 
+                  y: 0, 
+                  filter: 'blur(0px)',
                   textShadow: [
                     '0 0 20px #00e6d6, 0 0 40px #00e6d6',
                     '0 0 30px #8c1aff, 0 0 60px #8c1aff',
@@ -243,7 +240,16 @@ const AnimatedIntro: React.FC<OptimizedKuroIntroProps> = memo(({
                     '0 0 20px #00e6d6, 0 0 40px #00e6d6'
                   ]
                 }}
-                transition={{ duration: 4, repeat: Infinity }}
+                exit={{ opacity: 0, scale: 0.9, y: -20, filter: 'blur(5px)' }}
+                transition={{ 
+                  duration: 0.8, 
+                  ease: [0.25, 0.8, 0.25, 1],
+                  textShadow: { duration: 4, repeat: Infinity }
+                }}
+                className={fullscreen
+                  ? 'font-bold tracking-wider holo-text text-holo-glow text-6xl md:text-8xl font-orbitron'
+                  : 'font-bold tracking-wider holo-text text-holo-glow text-5xl md:text-7xl font-orbitron'
+                }
               >
                 {phrase}
               </motion.h1>

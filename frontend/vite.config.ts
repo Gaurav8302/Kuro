@@ -21,25 +21,22 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: true, // Enable CSS code splitting
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
-          clerk: ['@clerk/clerk-react'],
-          router: ['react-router-dom'],
-          query: ['@tanstack/react-query'],
-          icons: ['lucide-react'],
-          motion: ['framer-motion'],
-          markdown: ['react-markdown', 'remark-gfm', 'rehype-highlight'],
-          performance: ['@/hooks/use-performance', '@/utils/lazyLoader']
+        manualChunks: (id) => {
+          // Only create manual chunks in production
+          if (mode === 'production') {
+            if (id.includes('node_modules')) {
+              if (id.includes('@radix-ui')) return 'ui';
+              if (id.includes('@clerk')) return 'clerk';
+              if (id.includes('framer-motion')) return 'motion';
+              if (id.includes('react-router-dom')) return 'router';
+              if (id.includes('@tanstack/react-query')) return 'query';
+              if (id.includes('lucide-react')) return 'icons';
+              if (id.includes('react-markdown') || id.includes('remark') || id.includes('rehype')) return 'markdown';
+              // Group other vendor libraries
+              return 'vendor';
+            }
+          }
         }
-      },
-      // Optimize chunk sizes
-      external: (id) => {
-        // Don't bundle these in production for better caching
-        if (mode === 'production') {
-          return ['react', 'react-dom'].includes(id);
-        }
-        return false;
       }
     }
   },
