@@ -419,6 +419,19 @@ Instructions for responding:
         Returns:
             str: AI response
         """
+        # 0. Check for hardcoded, creator-aware responses before any LLM/memory logic
+        try:
+            from memory.hardcoded_responses import check_hardcoded_responses
+            hardcoded = check_hardcoded_responses(message)
+            if hardcoded:
+                # Optionally store the exchange for memory
+                self._store_chat_memory(user_id, message, hardcoded, session_id)
+                save_chat_to_db(user_id, message, hardcoded, session_id)
+                return hardcoded
+        except Exception as e:
+            # Log but do not block chat if import fails
+            import logging
+            logging.getLogger(__name__).warning(f"Hardcoded response check failed: {e}")
         try:
             # 1. Get user name (popup handles name collection, so we don't ask)
             user_name = self.get_user_name(user_id) or "there"  # Fallback to generic greeting
@@ -685,14 +698,16 @@ Instructions for responding:
 chat_manager = ChatManager()
 
 # Export function for backward compatibility
-def chat_with_memory(
+
+import asyncio
+async def chat_with_memory(
     user_id: str, 
     message: str, 
     session_id: Optional[str] = None,
     top_k: int = 5
 ) -> str:
-    """Process chat message using the global chat manager"""
-    return chat_manager.chat_with_memory(user_id, message, session_id, top_k)
+    """Process chat message using the global chat manager (async for multi-model routing)"""
+    return await chat_manager.chat_with_memory(user_id, message, session_id, top_k)
 
 if __name__ == "__main__":
     # Test the chat manager

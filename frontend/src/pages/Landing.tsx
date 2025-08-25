@@ -35,27 +35,27 @@ const Landing = () => {
 
   const features = [
     {
-  icon: Brain,
-  title: "SMART REASONING",
-  description: "Groq LLaMA 3 70B for clear, helpful answers",
+      icon: Brain,
+      title: "MULTI-MODEL INTELLIGENCE",
+      description: "Dynamically routes queries to 12+ top LLMs (Claude, GPT-4, Llama-3, Gemini, Mixtral, and more) via OpenRouter & Groq for best results.",
       color: "holo-cyan"
     },
     {
-      icon: Shield,
-  title: "PRIVACY & SECURITY",
-  description: "Secure auth with Clerk and protected APIs",
-      color: "holo-blue"
-    },
-    {
-      icon: Zap,
-  title: "FAST RESPONSES",
-  description: "Low-latency chat on modern cloud infra",
+      icon: Sparkles,
+      title: "MULTI-PERSONALITY",
+      description: "Switch between expert personas (e.g. coder, teacher, creative, analyst) or create your own for tailored responses.",
       color: "holo-purple"
     },
     {
+      icon: Shield,
+      title: "PRIVACY & SECURITY",
+      description: "Secure auth with Clerk, protected APIs, and session isolation.",
+      color: "holo-blue"
+    },
+    {
       icon: Network,
-  title: "MEMORY & CONTEXT",
-  description: "Gemini embeddings + Pinecone for recall",
+      title: "MEMORY & CONTEXT",
+      description: "Long-term memory with Pinecone vector DB, semantic recall, and user profile adaptation.",
       color: "holo-magenta"
     }
   ];
@@ -96,10 +96,14 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background overflow-hidden relative">
+
+      {/* Device-optimized animated background */}
       <OptimizedHolographicBackground variant="default" />
-      
-      {/* Animated background elements */}
-      <SuspendedHolographicParticles count={shouldReduceAnimations ? 15 : 40} size="md" className="opacity-40" />
+
+      {/* Extra particles for desktop only (already reduced in background for mobile) */}
+      {!shouldReduceAnimations && (
+        <SuspendedHolographicParticles count={40} size="md" className="opacity-40" />
+      )}
 
       <div className="relative z-10">
         {/* Header */}
@@ -237,7 +241,7 @@ const Landing = () => {
                   delay: shouldReduceAnimations ? 0.2 : 0.7 
                 }}
               >
-                <span className="block text-holo-cyan-300 font-orbitron tracking-wide">SMART</span>
+                <span className="block text-holo-cyan-300 font-orbitron tracking-wide">MULTI‑PERSONALITY</span>
                 <motion.span 
                   className="block holo-text font-orbitron text-holo-glow"
                   animate={shouldReduceAnimations ? {} : { 
@@ -253,9 +257,9 @@ const Landing = () => {
                     repeat: shouldReduceAnimations ? 0 : Infinity 
                   }}
                 >
-                  ASSISTANT
+                  MULTI‑MODEL AI
                 </motion.span>
-                <span className="block text-holo-cyan-200 font-space font-light">CHAT</span>
+                <span className="block text-holo-cyan-200 font-space font-light">ROUTER</span>
               </motion.h1>
 
               <motion.div
@@ -267,14 +271,36 @@ const Landing = () => {
                 }}
               >
                 <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Kuro is a production-ready AI chatbot using a multi-model architecture: <strong>Groq LLaMA 3 70B</strong> for intelligent conversation and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
+                  <strong>Kuro</strong> is a production-grade AI assistant that dynamically routes every query to the best of 12+ large language models (Claude, GPT-4, Llama-3, Gemini, Mixtral, and more) using advanced intent detection and fallback logic.
                 </p>
                 <p className="text-lg text-holo-cyan-200 mb-4 font-space">
-                  Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>Pinecone vector database</strong>, and <strong>MongoDB</strong>. Features real-time chat, persistent memory, session management, and comprehensive observability.
+                  <strong>Multi-personality:</strong> Instantly switch between expert personas (e.g. coder, teacher, creative, analyst) or create your own for tailored responses. <br/>
+                  <strong>Multi-model:</strong> Each request is routed to the optimal LLM for the task, with reliability and speed ensured by a hybrid rule-based and LLM-powered router.
                 </p>
                 <p className="text-base text-holo-cyan-300 mb-8 font-space italic">
-                  ⭐ Full-stack application demonstrating modern AI/ML integration, cloud deployment, and production-grade architecture patterns.
+                  ⭐ Built with FastAPI, React, TypeScript, Pinecone, MongoDB, and OpenRouter. Features real-time chat, persistent memory, session management, and full observability.
                 </p>
+        {/* How Kuro Works Section */}
+        <section className="max-w-5xl mx-auto px-6 py-20">
+          <motion.div
+            initial={{ y: 50, opacity: 0, filter: 'blur(10px)' }}
+            whileInView={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+            transition={{ duration: animationDuration * 1.6, ease: 'easeOut' }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
+              HOW KURO AI WORKS
+            </h2>
+            <p className="text-lg text-holo-cyan-100 font-space max-w-3xl mx-auto">
+              <strong>Multi-Model Router:</strong> Every user query is analyzed for intent and routed to the best-fit model from a pool of 12+ LLMs (Claude, GPT-4, Llama-3, Gemini, Mixtral, and more) via OpenRouter and Groq. <br/>
+              <strong>Hybrid Routing:</strong> Combines rule-based keyword detection, LLM-powered intent classification, and fallback chains for reliability and accuracy.<br/>
+              <strong>Multi-Personality:</strong> Users can select or create expert personas (e.g. coder, teacher, creative, analyst) for tailored responses.<br/>
+              <strong>Memory & Context:</strong> Long-term memory and semantic recall using Pinecone vector DB and user profiles.<br/>
+              <strong>Production-Ready:</strong> Built for speed, reliability, and extensibility with full-stack observability and cloud deployment.
+            </p>
+          </motion.div>
+        </section>
                 <motion.div
                   className="inline-flex items-center gap-2 glass-panel border-holo-green-400/30 px-4 py-2 rounded-full"
                   animate={{ scale: [1, 1.05, 1] }}

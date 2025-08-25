@@ -454,29 +454,22 @@ async def chat_endpoint(payload: ChatInput):
     
     try:
         # Add timeout protection to prevent worker timeout
-        def sync_chat():
-            return chat_manager.chat_with_memory(
-                user_id=payload.user_id,
-                message=payload.message,
-                session_id=payload.session_id
-            )
-        
-        # Run the synchronous chat function in a thread pool with timeout
         try:
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                reply = await asyncio.wait_for(
-                    loop.run_in_executor(executor, sync_chat),
-                    timeout=150.0
-                )
-            
+            # Await the new async chat_with_memory for true multi-model routing
+            from memory.chat_manager import chat_with_memory as async_chat_with_memory
+            reply = await asyncio.wait_for(
+                async_chat_with_memory(
+                    user_id=payload.user_id,
+                    message=payload.message,
+                    session_id=payload.session_id
+                ),
+                timeout=150.0
+            )
             logger.info(f"Chat response generated for user {payload.user_id}")
             return {"reply": reply}
-            
         except asyncio.TimeoutError:
             logger.warning(f"Chat response timed out for user {payload.user_id}")
             return {"reply": "I apologize, but my response is taking longer than expected. Please try again with a shorter message or try again in a moment."}
-    
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
