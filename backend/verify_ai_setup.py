@@ -125,10 +125,13 @@ def test_chat_manager():
         print("✅ Chat manager initialized with Groq")
         
         # Test basic response generation
-        response = chat_manager.generate_ai_response(
-            user_message="Hello, respond with exactly: 'AI Test Successful'",
-            context="This is a system test"
-        )
+        import asyncio
+        async def run_test():
+            return await chat_manager.generate_ai_response(
+                user_message="Hello, respond with exactly: 'AI Test Successful'",
+                context="This is a system test"
+            )
+        response = asyncio.run(run_test())
         
         if response and len(response.strip()) > 0:
             print(f"✅ Chat response: '{response[:100]}...' " if len(response) > 100 else f"✅ Chat response: '{response}'")

@@ -136,7 +136,7 @@ class ChatManager:
         except Exception as e:
             logger.error(f"Failed to store user name: {str(e)}")
     
-    def generate_ai_response(self, user_message: str, context: Optional[str] = None, max_retries: int = 2) -> str:
+    async def generate_ai_response(self, user_message: str, context: Optional[str] = None, max_retries: int = 2) -> str:
         """
         Generate AI response using Kuro prompt system with safety validation
         
@@ -174,39 +174,58 @@ class ChatManager:
                 if applied_skills:
                     logger.info(f"Skill(s) applied: {applied_skills}")
                 
-                # Generate response using Groq
-                response = self.groq_client.generate_content(
-                    prompt=prompt_package["user_prompt"],
-                    system_instruction=prompt_package["system_instruction"]
-                )
-                
+                # Use advanced router to select model
+                from routing.model_router_v2 import get_best_model
+                from utils.openrouter_client import OpenRouterClient
+                model_info = await get_best_model(user_message)
+                chosen_model = model_info.get("chosen_model", "groq-llama-3-70b")
+                model_source = model_info.get("source", "groq")
+                response = None
+                error_msg = None
+                # Try Groq first if selected, else try OpenRouter
+                if model_source == "groq":
+                    try:
+                        response = self.groq_client.generate_content(
+                            prompt=prompt_package["user_prompt"],
+                            system_instruction=prompt_package["system_instruction"]
+                        )
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.error(f"Groq error: {error_msg}")
+                if (not response or error_msg and "SERVER_ERROR" in error_msg) and model_source != "openrouter":
+                    # Fallback to OpenRouter
+                    try:
+                        openrouter_client = OpenRouterClient()
+                        response = openrouter_client.generate_content(
+                            prompt=prompt_package["user_prompt"],
+                            system_instruction=prompt_package["system_instruction"],
+                            model=chosen_model if model_source == "openrouter" else None
+                        )
+                        logger.info("Used OpenRouter fallback for generation.")
+                    except Exception as oe:
+                        logger.error(f"OpenRouter fallback error: {oe}")
+                        response = None
                 if not response:
-                    logger.warning("Empty response from Groq")
+                    logger.warning("Empty response from all providers")
                     return get_fallback_response(user_message)
-                
                 # Sanitize response
                 sanitized_response = sanitize_response(response)
-                
                 # Validate response safety
                 is_valid, assessment = validate_response(sanitized_response, context)
-                
                 if is_valid:
                     logger.info(f"✅ Generated safe response (quality: {assessment.get('quality_score', 0):.2f})")
                     return sanitized_response
                 else:
                     logger.warning(f"⚠️ Unsafe response detected: {assessment.get('blocked_reasons', [])}")
-                    
                     # If this is the last retry, return fallback
                     if retry_count >= max_retries:
                         logger.info("Max retries reached, using fallback response")
                         return get_fallback_response(user_message)
-                    
                     # Add retry enhancement to context
                     from utils.safety import kuro_safety_validator
                     retry_enhancement = kuro_safety_validator.get_retry_prompt_enhancement(assessment)
                     enhanced_context = (context or "") + retry_enhancement
                     context = enhanced_context
-                    
                     retry_count += 1
                     logger.info(f"Retrying generation (attempt {retry_count + 1})")
                     continue
@@ -400,7 +419,7 @@ Instructions for responding:
         
         return prompt
     
-    def chat_with_memory(
+    async def chat_with_memory(
         self, 
         user_id: str, 
         message: str, 
@@ -603,7 +622,7 @@ Instructions for responding:
             context = " | ".join(context_parts) if context_parts else None
             
             # 8. Generate response using Kuro system
-            response = self.generate_ai_response(message, context)
+            response = await self.generate_ai_response(message, context)
             
             # 9. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
@@ -707,24 +726,22 @@ async def chat_with_memory(
     top_k: int = 5
 ) -> str:
     """Process chat message using the global chat manager (async for multi-model routing)"""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        None,
-        chat_manager.chat_with_memory,
-        user_id, message, session_id, top_k
-    )
+    return await chat_manager.chat_with_memory(user_id, message, session_id, top_k)
 
 if __name__ == "__main__":
     # Test the chat manager
+    import asyncio
     try:
         # Test name extraction
         test_message = "Hi, my name is Alice and I love programming"
         name = chat_manager.extract_name(test_message)
         print(f"✅ Extracted name: {name}")
-        
+
         # Test chat functionality
-        response = chat_with_memory("test_user", "Hello, I'm Bob")
+        async def run_chat():
+            return await chat_with_memory("test_user", "Hello, I'm Bob")
+        response = asyncio.run(run_chat())
         print(f"✅ Chat response: {response}")
-        
+
     except Exception as e:
         print(f"❌ Chat manager test failed: {str(e)}")
