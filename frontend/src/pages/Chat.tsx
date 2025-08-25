@@ -1051,22 +1051,27 @@ const Chat = () => {
                   className="space-y-6"
                 >
                   {messages.map((message, idx) => (
-                    <motion.div
+                    <div
                       key={message.timestamp + idx}
-                      initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(5px)' }}
-                      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                      transition={{ 
-                        delay: shouldReduceAnimations ? 0 : idx * 0.1, 
-                        duration: animationDuration, 
-                        ease: 'easeOut' 
-                      }}
+                      className={`flex w-full ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <OptimizedChatBubble
-                        message={message}
-                        userAvatar={user?.imageUrl || ''}
-                        onRetry={handleRetryMessage}
-                      />
-                    </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(5px)' }}
+                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        transition={{ 
+                          delay: shouldReduceAnimations ? 0 : idx * 0.1, 
+                          duration: animationDuration, 
+                          ease: 'easeOut' 
+                        }}
+                        className="w-fit max-w-full"
+                      >
+                        <OptimizedChatBubble
+                          message={message}
+                          userAvatar={user?.imageUrl || ''}
+                          onRetry={handleRetryMessage}
+                        />
+                      </motion.div>
+                    </div>
                   ))}
                   {isTyping && (
                     <motion.div
