@@ -707,7 +707,12 @@ async def chat_with_memory(
     top_k: int = 5
 ) -> str:
     """Process chat message using the global chat manager (async for multi-model routing)"""
-    return await chat_manager.chat_with_memory(user_id, message, session_id, top_k)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        chat_manager.chat_with_memory,
+        user_id, message, session_id, top_k
+    )
 
 if __name__ == "__main__":
     # Test the chat manager
