@@ -39,7 +39,33 @@ class GroqClient:
             raise ValueError("GROQ_API_KEY environment variable is required")
         
         self.base_url = "https://api.groq.com/openai/v1"
-        self.model = "llama3-70b-8192"
+        self.model = "llama-3.1-8b-instant"  # Default fast Groq model
+        
+        # Model ID mapping for router compatibility (router ID -> actual Groq model ID)
+        self.groq_model_map = {
+            # === Primary Groq models (canonical names) ===
+            "llama-3-8b-groq": "llama-3.1-8b-instant",
+            "llama-3-70b-groq": "llama-3.3-70b-versatile", 
+            "gemma2-9b": "gemma2-9b-it",
+            "deepseek-r1": "deepseek-r1-distill-llama-70b",
+            "deepseek-r1-groq": "deepseek-r1-distill-llama-70b",
+            "qwen3-32b": "qwen/qwen3-32b",
+            
+            # === Legacy router IDs ===
+            "llama3-8b-8192": "llama-3.1-8b-instant", 
+            "llama3-70b-8192": "llama-3.3-70b-versatile",
+            "mixtral-8x7b-groq": "qwen/qwen3-32b",  # Using Qwen as alternative
+            "mixtral-8x7b-32768": "qwen/qwen3-32b",
+            "llama-3.3-70B-versatile": "llama-3.3-70b-versatile",
+            "llama-3.1-8B-instant": "llama-3.1-8b-instant",
+            
+            # === Direct mappings (exact Groq API names) ===
+            "llama-3.1-8b-instant": "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile": "llama-3.3-70b-versatile", 
+            "gemma2-9b-it": "gemma2-9b-it",
+            "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
+            "qwen/qwen3-32b": "qwen/qwen3-32b",
+        }
         
         # Default parameters
         self.default_params = {
@@ -105,10 +131,14 @@ class GroqClient:
             selected_model, rule = self._select_model(messages, intent)
             if model_id:
                 selected_model = model_id
+                
+            # Map router model IDs to actual Groq model IDs
+            groq_model = self.groq_model_map.get(selected_model, selected_model)
+            
             model_cfg = get_model(selected_model) or {}
             max_ctx = int(model_cfg.get("max_context_tokens", 8192))
             messages = trim_messages(messages, max_ctx - 1024)  # leave headroom for completion
-            attempt_model = selected_model
+            attempt_model = groq_model  # Use actual Groq model ID
             attempts = 0
             last_error = None
             while attempts < 3 and attempt_model:
