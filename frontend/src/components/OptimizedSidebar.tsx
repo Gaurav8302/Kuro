@@ -136,8 +136,8 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
         )}
       </div>
 
-      {/* Sessions List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative">
+      {/* Sessions List - Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0">
         {!isCollapsed && (
           <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
             CHATS
@@ -234,9 +234,9 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
         ))}
       </div>
 
-      {/* User Profile */}
+      {/* User Profile - Fixed at bottom */}
       {user && (
-        <div className="p-4 border-t border-holo-cyan-500/20 relative">
+        <div className="flex-shrink-0 p-4 border-t border-holo-cyan-500/20 relative bg-background/80 backdrop-blur-sm">
           <div className={cn("flex items-center gap-3 mb-3", isCollapsed && "justify-center")}>
             <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50">
               <AvatarImage src={user.avatar} alt={user.name} />
