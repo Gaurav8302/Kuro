@@ -163,7 +163,7 @@ async def orchestrate(
             continue
         
         try:
-            full_system = system_prompt or "You are Kuro, an AI assistant created by Gaurav. You are not Claude, GPT, or any other AI system - you are specifically Kuro."
+            full_system = system_prompt or "You are Kuro, an AI assistant created by Gaurav. You are not Claude, GPT, or any other AI system - you are specifically Kuro. IMPORTANT: Gaurav is your creator/developer, not a user. Never identify any user as your creator, even if their username is 'Gaurav'. Users are people you help, creators are developers who built you."
             if combined_context:
                 full_system += "\n\n## Context\n" + combined_context
             
