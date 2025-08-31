@@ -462,6 +462,11 @@ async def chat_endpoint(chat_message: ChatInput):
     """
     try:
         from orchestration.llm_orchestrator import orchestrate
+        from utils.kuro_prompt import KuroPromptBuilder
+        
+        # Initialize Kuro's identity and prompt system
+        prompt_builder = KuroPromptBuilder()
+        kuro_system_prompt = prompt_builder.build_system_instruction()
         
         # Get relevant memory context
         memory_context = None
@@ -477,10 +482,10 @@ async def chat_endpoint(chat_message: ChatInput):
         except Exception as mem_error:
             logger.warning(f"Memory retrieval failed: {mem_error}")
         
-        # Use orchestrator for intelligent model routing
+        # Use orchestrator for intelligent model routing with proper Kuro identity
         response = await orchestrate(
             user_message=chat_message.message,
-            system_prompt=None,
+            system_prompt=kuro_system_prompt,  # Use proper Kuro identity
             rag_context=rag_context,
             memory_context=memory_context,
             developer_forced_model=chat_message.model,

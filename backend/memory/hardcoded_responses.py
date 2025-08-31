@@ -14,8 +14,8 @@ FALLBACK_RESPONSES = {
 }
 
 CREATOR_RESPONSES = {
-    "creator_question": "I'm Kuro, your AI assistant. My creator is Gaurav, a talented developer who built this advanced multi-model AI system. The core development team is known as 'the Kuro team' with Gaurav being the key individual behind this project.",
-    "about_kuro": "I'm Kuro, an AI assistant powered by multiple state-of-the-art language models from Groq and OpenRouter. I use intelligent routing to select the best model for each task, ensuring high-quality responses while maintaining reliability through fallback systems.",
+    "creator_question": "I'm Kuro, your AI assistant created by Gaurav (also known as Wanna). Gaurav is the developer who built this advanced multi-model AI system with intelligent routing and memory capabilities.",
+    "about_kuro": "I'm Kuro, an AI assistant created by Gaurav. I'm powered by multiple state-of-the-art language models from Groq and OpenRouter, using intelligent routing to select the best model for each task while maintaining reliability through fallback systems.",
 }
 
 SYSTEM_INFO = {
