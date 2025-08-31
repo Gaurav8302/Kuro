@@ -71,13 +71,20 @@ const Chat = () => {
     });
   };
 
-  // First-time intro logic
+  // First-time intro logic - only show if name modal is not needed
   useEffect(() => {
     const checkIntro = async () => {
-      if (!user || !isLoaded) return;
+      if (!user || !isLoaded || !hasCheckedName) return;
+      
+      // Don't show intro if name modal is open or will be shown
+      if (showNameModal) return;
+      
       try {
         const { intro_shown } = await getIntroShown(user.id);
-        if (!intro_shown) {
+        const { has_name } = await checkUserHasName(user.id);
+        
+        // Only show intro if user has a name and intro hasn't been shown
+        if (!intro_shown && has_name) {
           setShowFirstTimeIntro(true);
           // Persist immediately so even if user refreshes it's not shown again
           await setIntroShown(user.id);
@@ -87,7 +94,7 @@ const Chat = () => {
       } catch (e) {
         // Fallback to localStorage if backend call fails (offline tolerance)
         const fallbackKey = `kuro_intro_shown_${user.id}`;
-        if (!localStorage.getItem(fallbackKey)) {
+        if (!localStorage.getItem(fallbackKey) && !showNameModal) {
           localStorage.setItem(fallbackKey, '1');
           setShowFirstTimeIntro(true);
           setTimeout(() => setShowFirstTimeIntro(false), 7000);
@@ -97,7 +104,7 @@ const Chat = () => {
       }
     };
     checkIntro();
-  }, [user, isLoaded]);
+  }, [user, isLoaded, hasCheckedName, showNameModal]);
 
   // Ensure loading state is never stuck on - failsafe
   useEffect(() => {
@@ -164,6 +171,14 @@ const Chat = () => {
         title: "Welcome!",
         description: `Nice to meet you, ${name}! 🎉`,
       });
+      
+      // Show intro animation after name setup is complete
+      setTimeout(() => {
+        if (!showFirstTimeIntro) {
+          setShowFirstTimeIntro(true);
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+        }
+      }, 500);
     } catch (error) {
       console.error('Error setting name:', error);
       setShowNameModal(false); // Close modal even if error to avoid blocking user
@@ -181,6 +196,14 @@ const Chat = () => {
       title: "Welcome!",
       description: "Let's start chatting! 🎉",
     });
+    
+    // Show intro animation after skip
+    setTimeout(() => {
+      if (!showFirstTimeIntro) {
+        setShowFirstTimeIntro(true);
+        setTimeout(() => setShowFirstTimeIntro(false), 7000);
+      }
+    }, 500);
   };
 
   // Fetch sessions from backend
@@ -745,7 +768,7 @@ const Chat = () => {
       <OptimizedHolographicBackground variant="default" />
       
       <AnimatePresence>
-        {showFirstTimeIntro && (
+        {showFirstTimeIntro && !showNameModal && (
           <motion.div
             key="intro-overlay"
             initial={{ opacity: 0 }}
