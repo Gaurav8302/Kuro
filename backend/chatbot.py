@@ -37,8 +37,8 @@ import logging
 import os
 
 # Import our custom modules
-from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed
-from memory.chat_database import save_chat_to_db, ultra_lightweight_memory_manager as memory_manager
+from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
+from memory.chat_database import save_chat_to_db
 from memory import chat_manager
 from memory.chat_database import (
     get_sessions_by_user, 
