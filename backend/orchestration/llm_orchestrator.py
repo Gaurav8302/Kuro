@@ -21,17 +21,32 @@ from utils.openrouter_client import OpenRouterClient
 from config.model_config import MODEL_SOURCES
 from utils.token_estimator import estimate_tokens
 from observability.instrumentation_middleware import update_llm_call
+import logging
+
+logger = logging.getLogger(__name__)
 
 client_groq = None
 client_openrouter = None
 try:
     client_groq = GroqClient()
-except Exception:
+    logger.info("✅ Groq client initialized successfully")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize Groq client: {str(e)}")
     client_groq = None
 try:
     client_openrouter = OpenRouterClient()
-except Exception:
+    logger.info("✅ OpenRouter client initialized successfully")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize OpenRouter client: {str(e)}")
     client_openrouter = None
+
+# Log overall client status
+if not client_groq and not client_openrouter:
+    logger.error("🚨 CRITICAL: Both Groq and OpenRouter clients failed to initialize! API will fall back to hardcoded responses.")
+elif not client_groq:
+    logger.warning("⚠️ Groq client unavailable, relying on OpenRouter only")
+elif not client_openrouter:
+    logger.warning("⚠️ OpenRouter client unavailable, relying on Groq only")
 
 class _UnifiedClient:
     def __init__(self, groq: GroqClient | None, openrouter: OpenRouterClient | None):
@@ -42,6 +57,10 @@ class _UnifiedClient:
         if not model_id:
             raise ValueError("model_id must be provided to _UnifiedClient")
 
+        # Check if any clients are available
+        if not self._groq and not self._or:
+            raise RuntimeError("No AI clients available - both Groq and OpenRouter clients failed to initialize. Check API keys.")
+
         source = MODEL_SOURCES.get(model_id)
         
         if source == "Groq":
@@ -49,15 +68,19 @@ class _UnifiedClient:
                 return self._groq.generate_content(prompt=prompt, system_instruction=system_instruction, intent=intent, model_id=model_id)
             elif self._or:
                 # Fallback to OpenRouter if Groq client not available but model might be on OR
+                logger.warning(f"Groq client unavailable, attempting to use OpenRouter for {model_id}")
                 return self._or.generate_content(prompt=prompt, system_instruction=system_instruction, intent=intent, model_id=model_id)
         
         elif source == "OpenRouter":
             if self._or:
                 return self._or.generate_content(prompt=prompt, system_instruction=system_instruction, intent=intent, model_id=model_id)
-            # No fallback to Groq here as OpenRouter is the superset
+            elif self._groq:
+                # Last resort fallback to Groq
+                logger.warning(f"OpenRouter client unavailable, attempting to use Groq fallback for {model_id}")
+                return self._groq.generate_content(prompt=prompt, system_instruction=system_instruction, intent=intent, model_id="llama3-70b-8192")
 
-        # If source is unknown or client is unavailable for that source
-        raise RuntimeError(f"No available client for model '{model_id}' with source '{source}'")
+        # If source is unknown or no appropriate client is available
+        raise RuntimeError(f"No available client for model '{model_id}' with source '{source}'. Available clients: Groq={self._groq is not None}, OpenRouter={self._or is not None}")
 
 # Backward-compatible alias for tests that patch llm_orchestrator.client
 client = _UnifiedClient(client_groq, client_openrouter)
