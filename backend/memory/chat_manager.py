@@ -316,7 +316,7 @@ Thanks for your patience! 🙏"""
         
         # Add recent session context if available
         if session_history:
-            recent_exchanges = session_history[-3:]  # Last 3 messages
+            recent_exchanges = session_history[-5:]  # Increased from 3 to 5 messages for better context
             session_context = []
             for msg in recent_exchanges:
                 session_context.extend([
@@ -379,8 +379,8 @@ Thanks for your patience! 🙏"""
         
         context_str = "\n\n".join(organized_context) if organized_context else "No previous context available."
         
-        prompt = f"""You are a helpful and friendly AI assistant talking to {user_name}.
-You have access to previous conversations and context to provide personalized responses.
+        prompt = f"""You are Kuro, a helpful and friendly AI assistant created by Gaurav, talking to {user_name}.
+You have access to previous conversations and context to provide personalized, memory-aware responses.
 
 {context_str}
 
@@ -388,15 +388,16 @@ Current message:
 👤 {user_name}: {message}
 
 Instructions for responding:
-1. ALWAYS reference recent conversation context - if we were discussing a topic, continue that conversation naturally
+1. ALWAYS maintain conversation continuity - reference what we were just discussing
 2. Use stored memories about {user_name}'s interests, preferences, and past requests to be more helpful
-3. Be conversational and engaging, not repetitive
+3. Be conversational and engaging, building on previous context naturally
 4. If {user_name} says something like "both of them" or "that one", refer to the recent context to understand what they mean
-5. Don't ask the same questions repeatedly - build on what you already know
-6. Give specific, actionable advice when asked for recommendations
-7. Remember that continuing a conversation is better than starting over
+5. Remember previous topics, questions, and your previous responses to avoid repetition
+6. Give specific, actionable advice when asked for recommendations based on what you know about {user_name}
+7. If asked about memory or past conversations, use the context provided to give accurate responses
+8. Show that you remember and understand the ongoing conversation flow
 
-🤖 Assistant:"""
+🤖 Kuro:"""
         
         return prompt
     
@@ -500,14 +501,14 @@ Instructions for responding:
                 except Exception:
                     relevant_memories = []
             
-            # 5. Get recent session history for context (needed for storing corrections)
+            # 5. Get recent session history for context (increased window for better memory)
             session_history = None
             if session_id:
                 try:
                     from memory.chat_database import get_chat_by_session
                     chat_data = get_chat_by_session(session_id)
                     if chat_data and len(chat_data) > 1:  # More than just current message
-                        session_history = chat_data[-6:]  # Last 6 messages for context
+                        session_history = chat_data[-10:]  # Increased from 6 to 10 messages for better context
                 except Exception as e:
                     logger.warning(f"Failed to get session history: {str(e)}")
 
@@ -529,9 +530,9 @@ Instructions for responding:
             # 7. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
             context_parts = []
             
-            # Add recent session context (more natural)
+            # Add recent session context (more natural and comprehensive)
             if session_history:
-                recent_exchanges = session_history[-2:]  # Reduced to last 2 messages
+                recent_exchanges = session_history[-4:]  # Increased from 2 to 4 messages for better context
                 session_context = []
                 for msg in recent_exchanges:
                     session_context.append(f"Previous: {msg['user']} → {msg['assistant']}")
@@ -560,8 +561,8 @@ Instructions for responding:
             # Add short-term detailed exchanges for precision (avoid duplicates with session_history slice)
             if rolling_context and rolling_context.get("short_term"):
                 st_lines = []
-                for m in rolling_context["short_term"][-5:]:  # last up to 5 turns
-                    st_lines.append(f"U:{m['user'][:120]} A:{m['assistant'][:120]}")
+                for m in rolling_context["short_term"][-8:]:  # Increased from 5 to 8 turns for better context
+                    st_lines.append(f"U:{m['user'][:150]} A:{m['assistant'][:150]}")  # Increased from 120 to 150 chars
                 context_parts.append("ShortTerm:\n" + "\n".join(st_lines))
 
             # Add authoritative user corrections (override conflicting info)
@@ -643,15 +644,15 @@ Instructions for responding:
             session_id (Optional[str]): Session identifier
         """
         try:
-            # Only store important exchanges to reduce noise
+            # Only store important exchanges to reduce noise, but be less restrictive
             message_lower = message.lower()
             
-            # Skip storing very short or common messages
-            if len(message) < 10 or any(skip in message_lower for skip in ["ok", "thanks", "yes", "no"]):
+            # Skip storing very short messages, but allow more variety
+            if len(message) < 5:  # Reduced from 10 to 5 for more context capture
                 return
             
             # Store concise exchange format
-            chat_text = f"Q: {message}\nA: {response[:200]}"  # Limit response length in memory
+            chat_text = f"Q: {message}\nA: {response[:300]}"  # Increased from 200 to 300 chars for more context
             metadata = {
                 "user": user_id,
                 "type": "chat_exchange",

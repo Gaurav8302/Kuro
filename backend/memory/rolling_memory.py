@@ -59,8 +59,8 @@ class GroqSummarizer:
 class RollingMemoryManager:
     def __init__(
         self,
-        short_term_window: int = 12,
-        min_chunk: int = 6,
+        short_term_window: int = 20,  # Increased from 12 to 20 for better context
+        min_chunk: int = 8,  # Increased from 6 to 8 for better summaries
         summarization_strategy: str = "balanced",
         summarizer: Optional[Summarizer] = None,
     ):
