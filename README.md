@@ -18,10 +18,12 @@
 ## 🏗️ **Technical Architecture**
 
 ### **Multi-Model AI Stack**
-- 🧠 **Groq LLaMA 3 70B** - Primary conversation model for intelligent responses
-- 🔍 **Google Gemini Embeddings** - Semantic search and memory retrieval
-- 📊 **Pinecone Vector Database** - High-performance vector storage and similarity search
-- 🧬 **LangChain** - AI workflow orchestration and prompt management
+- 🧠 **Dynamic Model Routing** - Intelligent, real-time routing between multiple LLMs from providers like **Groq** and **OpenRouter** based on intent, performance, and cost.
+- 🚀 **Groq LLaMA 3 70B & Mixtral** - Primary models for high-speed, high-quality conversational AI.
+- 💡 **OpenRouter Access** - Integration with dozens of other models like GPT-4o, Claude 3, and more for specialized tasks.
+- 🔍 **Google Gemini Embeddings** - Semantic search and memory retrieval.
+- 📊 **Pinecone Vector Database** - High-performance vector storage and similarity search.
+- ⛓️ **Resilient Fallback Chains** - Automatic fallback to secondary models if a primary model fails, ensuring high availability.
 
 ### **Backend Infrastructure**
 - ⚡ **FastAPI** - High-performance async Python web framework
@@ -39,12 +41,13 @@
 
 ## ✨ **Key Features**
 
-### 🧠 **Intelligent Conversation**
-- **Advanced AI Reasoning** — Powered by Groq LLaMA 3 70B for natural, context-aware responses
-- **Semantic Memory** — Google Gemini embeddings for intelligent conversation history retrieval
-- **Contextual Awareness** - Maintains conversation context across sessions
-- **Personality Consistency** - Consistent "Kuro" AI assistant persona
-- **Smart Prompt Engineering** - Production-ready system instructions with safety guardrails
+### 🧠 **Intelligent Conversation & Multi-Model Strategy**
+- **Dynamic Model Routing** — An advanced router analyzes user intent and selects the best model from Groq or OpenRouter for the job, optimizing for speed, intelligence, and cost.
+- **Advanced AI Reasoning** — Leverages top-tier models like LLaMA 3 70B and Claude 3 Opus for complex reasoning and natural, context-aware responses.
+- **High-Availability Fallbacks** — If a model provider is down, the system automatically reroutes requests to a healthy alternative, ensuring the chatbot is always responsive.
+- **Semantic Memory** — Google Gemini embeddings for intelligent conversation history retrieval.
+- **Contextual Awareness** - Maintains conversation context across sessions.
+- **Smart Prompt Engineering** - Production-ready system instructions with safety guardrails.
 
 ### 🛡️ **Enterprise-Grade Security**
 - **Content Filtering** - Multi-layered safety validation and response filtering
@@ -81,16 +84,16 @@
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │    Backend      │    │   AI & Data     │
-│   (React)       │◄──►│   (FastAPI)     │◄──►│   Services      │
-│                 │    │                 │    │                 │
-│ • React 18      │    │ • FastAPI       │    │ • Groq LLaMA 3  │
-│ • TypeScript    │    │ • Python 3.11   │    │ • Gemini Embed  │
-│ • Tailwind CSS  │    │ • Uvicorn       │    │ • MongoDB       │
-│ • Framer Motion │    │ • Clerk Auth    │    │ • Pinecone      │
-│ • Vite Build    │    │ • Observability │    │ • Vector Search │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌───────────────────┐
+│   Frontend      │    │    Backend      │    │    AI & Data      │
+│   (React)       │◄──►│   (FastAPI)     │◄──►│    Services       │
+│                 │    │                 │    │                   │
+│ • React 18      │    │ • FastAPI       │    │ • Groq (LLaMA 3)  │
+│ • TypeScript    │    │ • Python 3.11   │    │ • OpenRouter      │
+│ • Tailwind CSS  │    │ • Model Router  │    │ • Gemini Embed    │
+│ • Framer Motion │    │ • Fallback Logic│    │ • MongoDB         │
+│ • Vite Build    │    │ • Clerk Auth    │    │ • Pinecone        │
+└─────────────────┘    └─────────────────┘    └───────────────────┘
 ```
 
 ## ⚡ Quick Start
@@ -101,10 +104,11 @@
 - **Python** 3.11+
 - **MongoDB** database
 - **API Keys** for:
-  - Groq (chat generation)
-  - Google Gemini (embeddings only)
-  - Pinecone (vector DB)
-  - Clerk (auth)
+  - Groq (Primary chat models)
+  - OpenRouter (Fallback and specialized models)
+  - Google Gemini (Embeddings)
+  - Pinecone (Vector DB)
+  - Clerk (Auth)
   - MongoDB (Atlas connection string)
 
 ### 1. Clone Repository
@@ -171,7 +175,8 @@ npm run dev
 #### Backend (.env)
 ```env
 # Core model & memory
-GROQ_API_KEY=your_groq_api_key                # Chat generation (LLaMA 3 70B)
+GROQ_API_KEY=your_groq_api_key                # Primary chat models (LLaMA 3, Mixtral)
+OPENROUTER_API_KEY=your_openrouter_api_key    # Fallback/specialized models (GPT-4o, Claude)
 GEMINI_API_KEY=your_gemini_api_key            # Embeddings for memory
 
 # Vector database
@@ -213,20 +218,20 @@ VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 ```
 Kuro/
 ├── backend/                         # FastAPI backend
-│   ├── chatbot.py                   # Main application
-│   ├── database/                    # MongoDB connection & in-memory fallback
-│   ├── memory/                      # Chat logic & memory
-│   │   ├── chat_manager.py          # Main chat orchestration (Groq)
-│   │   ├── ultra_lightweight_memory.py # Embeddings + Pinecone
-│   │   └── chat_database.py         # Session/message persistence
-│   ├── observability/               # Instrumentation & metrics
-│   ├── admin/                       # Admin API (if enabled)
-│   ├── utils/                       # Clients, prompts, helpers
+│   ├── chatbot.py                   # Main application entrypoint
+│   ├── orchestration/               # Core logic for routing and execution
+│   │   └── llm_orchestrator.py      # Main orchestration logic
+│   ├── routing/                     # Model routing and intent classification
+│   │   ├── model_router_v2.py       # Advanced model selection logic
+│   │   └── intent_classifier.py     # Rule-based intent detection
+│   ├── memory/                      # Chat history, memory, and summarization
+│   ├── reliability/                 # Circuit breakers and fallback logic
+│   ├── config/                      # Model registry and routing rules
 │   └── requirements.txt             # Python deps
 ├── frontend/                        # React + Vite frontend
-│   ├── src/                         # Components, pages, hooks, lib, types
+│   ├── src/                         # Components, pages, hooks, etc.
 │   └── vite.config.ts               # Build config
-└── docs/                            # Project docs
+└── docs/                            # Project documentation
 ```
 
 ## 🤖 Kuro AI System

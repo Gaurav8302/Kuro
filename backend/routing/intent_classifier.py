@@ -32,14 +32,13 @@ def classify_intent(message: str, developer_override: Optional[str] = None) -> S
         after = text.split(FORCE_INTENT_PREFIX.lower(),1)[1].strip().split()[0]
         intents.add(after)
         return intents
-    matched = False
+    matched_any = False
     for intent, patterns in KEYWORDS.items():
         for pat in patterns:
             if re.search(pat, text):
                 intents.add(intent)
-                matched = True
-                break
-    if not matched:
+                matched_any = True
+    if not matched_any:
         intents.add("casual_chat")
     return intents
 
