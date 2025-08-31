@@ -37,7 +37,8 @@ import logging
 import os
 
 # Import our custom modules
-from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
+from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed
+from memory.chat_database import save_chat_to_db, ultra_lightweight_memory_manager as memory_manager
 from memory import chat_manager
 from memory.chat_database import (
     get_sessions_by_user, 
@@ -467,8 +468,8 @@ async def chat_endpoint(chat_message: ChatInput):
         rag_context = None
         try:
             memories = get_relevant_memories_detailed(
-                user_id=chat_message.user_id,
                 query=chat_message.message,
+                user_filter=chat_message.user_id,
                 top_k=3
             )
             if memories:
@@ -489,9 +490,9 @@ async def chat_endpoint(chat_message: ChatInput):
         # Store the conversation in persistent memory
         try:
             store_memory(
-                user_id=chat_message.user_id,
                 text=f"User: {chat_message.message}\nKuro: {response['reply']}",
                 metadata={
+                    "user_id": chat_message.user_id,
                     "session_id": chat_message.session_id,
                     "model_used": response.get('model'),
                     "route_rule": response.get('route_rule')
@@ -502,17 +503,11 @@ async def chat_endpoint(chat_message: ChatInput):
         
         # Store in MongoDB chat history
         try:
-            from memory.chat_database import store_chat_message
-            store_chat_message(
+            save_chat_to_db(
                 user_id=chat_message.user_id,
-                session_id=chat_message.session_id or "default",
-                user_message=chat_message.message,
-                ai_response=response['reply'],
-                metadata={
-                    "model": response.get('model'),
-                    "route_rule": response.get('route_rule'),
-                    "latency_ms": response.get('latency_ms')
-                }
+                message=chat_message.message,
+                reply=response['reply'],
+                session_id=chat_message.session_id or "default"
             )
         except Exception as db_error:
             logger.warning(f"Failed to store chat in MongoDB: {db_error}")
