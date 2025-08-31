@@ -36,8 +36,8 @@ const Landing = () => {
   const features = [
     {
   icon: Brain,
-  title: "SMART REASONING",
-  description: "Groq LLaMA 3 70B for clear, helpful answers",
+  title: "SMART ROUTING",
+  description: "Dynamic model selection from Groq & OpenRouter",
       color: "holo-cyan"
     },
     {
@@ -54,8 +54,8 @@ const Landing = () => {
     },
     {
       icon: Network,
-  title: "MEMORY & CONTEXT",
-  description: "Gemini embeddings + Pinecone for recall",
+  title: "SEMANTIC MEMORY",
+  description: "Gemini embeddings + Pinecone for contextual recall",
       color: "holo-magenta"
     }
   ];
@@ -267,7 +267,7 @@ const Landing = () => {
                 }}
               >
                 <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
-                  Kuro is a production-ready AI chatbot using a multi-model architecture: <strong>Groq LLaMA 3 70B</strong> for intelligent conversation and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
+                  Kuro is a production-ready AI chatbot using an advanced multi-model architecture: <strong>Groq & OpenRouter models</strong> for intelligent conversation routing and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
                 </p>
                 <p className="text-lg text-holo-cyan-200 mb-4 font-space">
                   Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>Pinecone vector database</strong>, and <strong>MongoDB</strong>. Features real-time chat, persistent memory, session management, and comprehensive observability.

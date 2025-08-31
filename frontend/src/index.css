@@ -332,12 +332,17 @@
   border: 1px solid rgba(0, 230, 214, 0.2);
   box-shadow: 0 0 20px rgba(0, 230, 214, 0.1);
   backdrop-filter: blur(10px);
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown-body pre code {
   display: block;
   color: #00e6d6;
   text-shadow: 0 0 5px currentColor;
+  white-space: pre;
+  overflow-x: auto;
+  word-wrap: normal;
 }
 
 .markdown-body code {

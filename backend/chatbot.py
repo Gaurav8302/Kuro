@@ -227,6 +227,15 @@ class ChatInput(BaseModel):
     user_id: str = Field(..., description="Unique identifier for the user")
     message: str = Field(..., description="User's chat message")
     session_id: Optional[str] = Field(None, description="Optional session ID")
+    model: Optional[str] = Field(None, description="Optional model override")
+
+class ChatResponse(BaseModel):
+    """Response model for chat messages"""
+    reply: str = Field(..., description="AI's response")
+    model: Optional[str] = Field(None, description="Model used for this response")
+    route_rule: Optional[str] = Field(None, description="Routing rule applied")
+    latency_ms: Optional[int] = Field(None, description="Response latency in milliseconds")
+    intents: Optional[list] = Field(None, description="Classified intents")
 
 class RenameRequest(BaseModel):
     """Request model for renaming sessions"""
@@ -439,47 +448,94 @@ async def retrieve_memories(payload: QueryInput):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve memories: {str(e)}")
 
 # Chat endpoints
-@app.post("/chat", tags=["Chat"])
-async def chat_endpoint(payload: ChatInput):
+@app.post("/chat", tags=["Chat"], response_model=ChatResponse)
+async def chat_endpoint(chat_message: ChatInput):
     """
-    Send a message to the AI chatbot
+    Send a message to the AI chatbot with intelligent model routing
     
     ARCHITECTURE NOTE:
-    - Full chat history is stored in MongoDB (persistent, complete conversations)
+    - Uses advanced multi-model routing between Groq and OpenRouter
+    - Full chat history stored in MongoDB (persistent, complete conversations)
     - Pinecone stores semantic memory/context (for AI to remember user preferences, facts, etc.)
-    - This endpoint uses both: MongoDB for chat history, Pinecone for personalization
+    - Returns model information for transparency and debugging
     """
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
-    
     try:
-        # Add timeout protection to prevent worker timeout
-        def sync_chat():
-            return chat_manager.chat_with_memory(
-                user_id=payload.user_id,
-                message=payload.message,
-                session_id=payload.session_id
-            )
+        from orchestration.llm_orchestrator import orchestrate
         
-        # Run the synchronous chat function in a thread pool with timeout
+        # Get relevant memory context
+        memory_context = None
+        rag_context = None
         try:
-            loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                reply = await asyncio.wait_for(
-                    loop.run_in_executor(executor, sync_chat),
-                    timeout=150.0
-                )
-            
-            logger.info(f"Chat response generated for user {payload.user_id}")
-            return {"reply": reply}
-            
-        except asyncio.TimeoutError:
-            logger.warning(f"Chat response timed out for user {payload.user_id}")
-            return {"reply": "I apologize, but my response is taking longer than expected. Please try again with a shorter message or try again in a moment."}
+            memories = get_relevant_memories_detailed(
+                user_id=chat_message.user_id,
+                query=chat_message.message,
+                top_k=3
+            )
+            if memories:
+                memory_context = "\n".join([f"- {mem}" for mem in memories])
+        except Exception as mem_error:
+            logger.warning(f"Memory retrieval failed: {mem_error}")
+        
+        # Use orchestrator for intelligent model routing
+        response = await orchestrate(
+            user_message=chat_message.message,
+            system_prompt=None,
+            rag_context=rag_context,
+            memory_context=memory_context,
+            developer_forced_model=chat_message.model,
+            session_id=chat_message.session_id
+        )
+        
+        # Store the conversation in persistent memory
+        try:
+            store_memory(
+                user_id=chat_message.user_id,
+                text=f"User: {chat_message.message}\nKuro: {response['reply']}",
+                metadata={
+                    "session_id": chat_message.session_id,
+                    "model_used": response.get('model'),
+                    "route_rule": response.get('route_rule')
+                }
+            )
+        except Exception as store_error:
+            logger.warning(f"Failed to store memory: {store_error}")
+        
+        # Store in MongoDB chat history
+        try:
+            from memory.chat_database import store_chat_message
+            store_chat_message(
+                user_id=chat_message.user_id,
+                session_id=chat_message.session_id or "default",
+                user_message=chat_message.message,
+                ai_response=response['reply'],
+                metadata={
+                    "model": response.get('model'),
+                    "route_rule": response.get('route_rule'),
+                    "latency_ms": response.get('latency_ms')
+                }
+            )
+        except Exception as db_error:
+            logger.warning(f"Failed to store chat in MongoDB: {db_error}")
+        
+        logger.info(f"Chat response generated for user {chat_message.user_id} using model {response.get('model')}")
+        
+        return ChatResponse(
+            reply=response['reply'],
+            model=response.get('model'),
+            route_rule=response.get('route_rule'),
+            latency_ms=response.get('latency_ms'),
+            intents=response.get('intents')
+        )
     
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+        # Return error response with fallback
+        from memory.hardcoded_responses import get_fallback_response
+        return ChatResponse(
+            reply=get_fallback_response("generic_error"),
+            model="fallback",
+            route_rule="error_fallback"
+        )
 
 # Session management endpoints
 @app.get("/sessions/{user_id}", tags=["Sessions"])

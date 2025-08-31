@@ -6,6 +6,10 @@ export interface Message {
   timestamp?: string;
   role?: 'user' | 'assistant' | 'system';
   messageType?: 'normal' | 'rate_limit' | 'error' | 'warning';
+  model?: string;
+  route_rule?: string;
+  latency_ms?: number;
+  intents?: string[];
 }
 
 export interface ChatSession {

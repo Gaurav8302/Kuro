@@ -399,21 +399,27 @@ const Chat = () => {
       scrollToBottom();
 
       // Send message to backend
-      const { reply } = await clerkApiRequest<{ reply: string }>(
+      const response = await clerkApiRequest<{ 
+        reply: string;
+        model?: string;
+        route_rule?: string;
+        latency_ms?: number;
+        intents?: string[];
+      }>(
         `/chat`,
         'post',
         { user_id: user.id, message, session_id: sessionToUse.session_id }
       );
 
       // Detect if the response is a rate limit or system message
-      const isRateLimitMessage = reply.includes('Rate Limit') || 
-                                reply.includes('rate limit') || 
-                                reply.includes('⏰') ||
-                                reply.includes('Quota') ||
-                                reply.includes('quota') ||
-                                reply.includes('Service Configuration') ||
-                                reply.includes('Server Error') ||
-                                reply.includes('Temporarily Down');
+      const isRateLimitMessage = response.reply.includes('Rate Limit') || 
+                                response.reply.includes('rate limit') || 
+                                response.reply.includes('⏰') ||
+                                response.reply.includes('Quota') ||
+                                response.reply.includes('quota') ||
+                                response.reply.includes('Service Configuration') ||
+                                response.reply.includes('Server Error') ||
+                                response.reply.includes('Temporarily Down');
 
       const getMessageType = (message: string): 'normal' | 'rate_limit' | 'error' | 'warning' => {
         if (message.includes('Rate Limit') || message.includes('⏰')) return 'rate_limit';
@@ -423,15 +429,19 @@ const Chat = () => {
         return 'normal';
       };
 
-      // Add AI response with appropriate role and type
+      // Add AI response with model information and appropriate role and type
       setMessages(prev => [
         ...prev,
         {
-          message: reply,
+          message: response.reply,
           reply: '',
           timestamp: new Date().toISOString(),
           role: isRateLimitMessage ? 'system' : 'assistant',
-          messageType: isRateLimitMessage ? getMessageType(reply) : 'normal'
+          messageType: isRateLimitMessage ? getMessageType(response.reply) : 'normal',
+          model: response.model,
+          route_rule: response.route_rule,
+          latency_ms: response.latency_ms,
+          intents: response.intents
         }
       ]);
       setIsTyping(false); // <-- Fix: stop typing indicator after AI reply
@@ -469,7 +479,7 @@ const Chat = () => {
     if (!hasUserEditedTitle) {
         try {
           const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
-          const firstAssistantMessage = mappedMessages.find(m => m.role === 'assistant')?.message || reply;
+          const firstAssistantMessage = mappedMessages.find(m => m.role === 'assistant')?.message || response.reply;
 
           if (firstUserMessage && firstAssistantMessage) {
             // Derive a concise title using heuristics: prefer user intent keywords

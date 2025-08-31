@@ -188,16 +188,39 @@ export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) =>
             </div>
         </div>
         
-        {/* Timestamp */}
-        <span className={cn(
-          "text-xs text-holo-cyan-400/60 px-1 font-orbitron",
-          isMobile && (isUser ? "text-right" : "text-left")
+        {/* Timestamp and Model Info */}
+        <div className={cn(
+          "flex flex-col gap-1 px-1",
+          isMobile && (isUser ? "items-end" : "items-start")
         )}>
-          {new Date(message.timestamp).toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          })}
-        </span>
+          <span className={cn(
+            "text-xs text-holo-cyan-400/60 font-orbitron",
+            isMobile && (isUser ? "text-right" : "text-left")
+          )}>
+            {new Date(message.timestamp).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
+          </span>
+          
+          {/* Model Info for AI messages */}
+          {!isUser && message.model && (
+            <div className={cn(
+              "flex items-center gap-1 text-[9px] text-holo-purple-400/50 font-mono",
+              isMobile && "text-left"
+            )}>
+              <Zap className="w-2.5 h-2.5" />
+              <span className="truncate max-w-32">
+                {message.model.replace('groq/', '').replace('openrouter/', '')}
+              </span>
+              {message.latency_ms && (
+                <span className="text-holo-cyan-400/40">
+                  {message.latency_ms}ms
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );
