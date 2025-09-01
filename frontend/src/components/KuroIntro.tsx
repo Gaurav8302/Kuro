@@ -64,32 +64,32 @@ const KuroIntro: React.FC<KuroIntroProps> = ({ phrases = ["Let's Imagine", "Let'
         : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden shadow-glow'
       , 'overflow-hidden select-none', className].filter(Boolean).join(' ')}>
       {/* Holographic base background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20" />
+      <div className="absolute inset-0 bg-background" />
 
       {/* Holographic radial glows */}
-      <div className="absolute inset-0 mix-blend-screen opacity-70">
+      <div className="absolute inset-0 mix-blend-screen opacity-90">
         <motion.div 
-          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(0,230,214,0.4),transparent_60%)]"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
+          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(0,230,214,0.6),transparent_60%)]"
+          animate={{ scale: [1, 1.2, 1], opacity: [0.6, 0.9, 0.6] }}
           transition={{ duration: 4, repeat: Infinity }}
         />
         <motion.div 
-          className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(140,26,255,0.3),transparent_65%)]"
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.6, 0.3] }}
+          className="absolute inset-0 bg-[radial-gradient(circle_at_70%_60%,rgba(140,26,255,0.5),transparent_65%)]"
+          animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.8, 0.5] }}
           transition={{ duration: 5, repeat: Infinity }}
         />
         <motion.div 
-          className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(26,140,255,0.25),transparent_70%)]"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.25, 0.5, 0.25] }}
+          className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(26,140,255,0.45),transparent_70%)]"
+          animate={{ scale: [1, 1.3, 1], opacity: [0.45, 0.7, 0.45] }}
           transition={{ duration: 6, repeat: Infinity }}
         />
       </div>
 
       {/* Holographic grid overlay */}
-      <div className="pointer-events-none absolute inset-0 opacity-30" style={{
+      <div className="pointer-events-none absolute inset-0 opacity-50" style={{
         background: `
-          linear-gradient(rgba(0,230,214,0.1) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0,230,214,0.1) 1px, transparent 1px)
+          linear-gradient(rgba(0,230,214,0.2) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,230,214,0.2) 1px, transparent 1px)
         `,
         backgroundSize: '50px 50px'
       }} />

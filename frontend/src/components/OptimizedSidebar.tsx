@@ -137,7 +137,7 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
       </div>
 
       {/* Sessions List - Scrollable content with bottom padding for logout */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0" style={{ paddingBottom: '120px' }}>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0" style={{ paddingBottom: '160px' }}>
         {!isCollapsed && (
           <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
             CHATS

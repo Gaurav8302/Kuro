@@ -5,7 +5,7 @@ import { Bot, User, Copy, Check, Zap } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SystemMessage } from '@/components/SystemMessage';
-import { MarkdownMessage } from '@/components/MarkdownMessage';
+import { OptimizedMarkdownMessage } from '@/components/OptimizedMarkdownMessage';
 import { HolographicCard } from '@/components/HolographicCard';
 import { HoloSparklesIcon } from '@/components/HolographicIcons';
 
@@ -143,7 +143,7 @@ export const ChatBubble = ({ message, userAvatar, onRetry }: ChatBubbleProps) =>
                   {message.message}
                 </p>
               ) : (
-                <MarkdownMessage content={message.message} />
+                <OptimizedMarkdownMessage content={message.message} />
               )}
 
               {/* Holographic decorative elements */}

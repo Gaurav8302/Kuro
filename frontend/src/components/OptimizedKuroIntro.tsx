@@ -47,12 +47,13 @@ const LightweightIntro: React.FC<OptimizedKuroIntroProps> = memo(({
         ? 'fixed inset-0 z-[9999]'
         : 'relative w-full h-[420px] md:h-[520px] rounded-3xl overflow-hidden'
       }
-      overflow-hidden select-none bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20
+      overflow-hidden select-none bg-background/95 backdrop-blur-xl
       ${className || ''}
     `}>
       
-      {/* Simple CSS gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-holo-cyan-500/10 via-holo-purple-500/10 to-holo-blue-500/10" />
+      {/* Opaque holographic background */}
+      <div className="absolute inset-0 bg-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-br from-holo-cyan-500/20 via-holo-purple-500/20 to-holo-blue-500/20" />
       
       {/* Static grid overlay */}
       <div 
@@ -161,8 +162,9 @@ const AnimatedIntro: React.FC<OptimizedKuroIntroProps> = memo(({
       ${className || ''}
     `}>
       
-      {/* Holographic base background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-holo-cyan-900/20 to-holo-purple-900/20" />
+      {/* Opaque holographic base background */}
+      <div className="absolute inset-0 bg-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-br from-holo-cyan-900/30 to-holo-purple-900/30" />
 
       {/* Holographic radial glows */}
       <div className="absolute inset-0 mix-blend-screen opacity-70">

@@ -21,7 +21,7 @@ import {
 import { Message, ChatSession } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useClerkApi, setUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
+import { useClerkApi, setUserName, getUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OptimizedHolographicCard } from '@/components/OptimizedHolographicCard';
@@ -60,6 +60,11 @@ const Chat = () => {
   // Show first-time welcome animation after initial sign-in only once per user
   const [showFirstTimeIntro, setShowFirstTimeIntro] = useState(false);
   const [introChecking, setIntroChecking] = useState(true);
+  const [displayedName, setDisplayedName] = useState(user?.fullName || user?.username || '');
+
+  useEffect(() => {
+    setDisplayedName(user?.fullName || user?.username || '');
+  }, [user]);
   // Maintenance / friendly error handling in development
   const maintenanceMessage = 'Maintenance in progress. Please try again later.';
   const isDev = import.meta.env.DEV;
@@ -146,6 +151,17 @@ const Chat = () => {
         const { has_name } = await checkUserHasName(user.id);
         if (!has_name) {
           setShowNameModal(true);
+        } else {
+          // If user has a name, load it
+          try {
+            const { name } = await getUserName(user.id);
+            if (name) {
+              setDisplayedName(name);
+            }
+          } catch (error) {
+            console.error('Error loading user name:', error);
+            // Use fallback from Clerk if backend fails
+          }
         }
       } catch (error) {
         console.error('Error checking user name:', error);
@@ -167,6 +183,7 @@ const Chat = () => {
     try {
       await setUserName(user.id, name);
       setShowNameModal(false);
+      setDisplayedName(name);
       toast({
         title: "Welcome!",
         description: `Nice to meet you, ${name}! 🎉`,
@@ -779,7 +796,7 @@ const Chat = () => {
           >
             <OptimizedKuroIntro
               phrases={[
-                user?.firstName ? `Welcome, ${user.firstName}` : 'Welcome',
+                displayedName ? `Welcome, ${displayedName}` : 'Welcome',
                 "Let's Imagine",
                 "Let's Build",
                 'Kuro AI'
@@ -877,7 +894,7 @@ const Chat = () => {
               currentSessionId={currentSession?.session_id}
               user={user ? {
                 id: user.id,
-                name: user.fullName || user.username || user.emailAddresses?.[0]?.emailAddress || 'User',
+                name: displayedName || 'User',
                 email: user.emailAddresses?.[0]?.emailAddress || '',
                 avatar: user.imageUrl
               } : undefined}

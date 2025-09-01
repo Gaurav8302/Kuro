@@ -37,7 +37,7 @@ const NameSetupModal = ({ isOpen, onComplete, onSkip }: NameSetupModalProps) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[10001] p-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-[10001] p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
         animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}

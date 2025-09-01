@@ -55,5 +55,9 @@
   "engines": {
     "node": ">=18.0.0",
     "python": ">=3.9.0"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   }
 }

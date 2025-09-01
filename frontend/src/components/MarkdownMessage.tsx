@@ -91,7 +91,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
   // Using both results in children becoming React elements instead of a
   // raw string, which leads to "[object Object]" appearing.
         components={{
-          p: ({ node, ...props }: any) => <p className="mb-3 last:mb-0 text-holo-cyan-100" {...props} />,
+          p: ({ node, ...props }: any) => <p className="mb-3 last:mb-0 text-holo-cyan-100 whitespace-pre-line" {...props} />,
           h1: (props: any) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
           h2: (props: any) => <h2 className="mt-4 mb-2 text-xl font-bold text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
           h3: (props: any) => <h3 className="mt-3 mb-2 text-lg font-semibold text-holo-cyan-300 font-rajdhani" {...props} />,

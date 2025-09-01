@@ -303,73 +303,75 @@ export const Sidebar = ({
         </AnimatePresence>
       </div>
 
-      {/* User Profile */}
-      {user && (
-        <div className="p-4 border-t border-holo-cyan-500/20 relative">
-          {/* Horizontal scan line */}
-          <motion.div
-            className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
-            animate={{ opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          />
-          
-          <div className={cn(
-            "flex items-center gap-3 mb-3",
-            isCollapsed && "justify-center"
-          )}>
+      {/* User Profile Section - Pushed to the bottom */}
+      <div className="mt-auto p-4 border-t border-holo-cyan-500/20 relative">
+        {user && (
+          <>
+            {/* Horizontal scan line */}
             <motion.div
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50 shadow-holo-blue">
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-sm font-medium font-orbitron">
-                {user.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-              </Avatar>
-            </motion.div>
+              className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
+              animate={{ opacity: [0.3, 0.8, 0.3] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
             
-            {!isCollapsed && (
-              <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate text-holo-cyan-100 font-space">{user.name}</p>
-                  <p className="text-xs text-holo-cyan-400/60 truncate font-orbitron">{user.email}</p>
-                </div>
-                
-                <motion.button
-                  onClick={onSignOut}
-                  className="inline-flex items-center gap-2 px-3 h-8 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 hover:shadow-holo-magenta transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <LogOut className="w-4 h-4 text-holo-magenta-400" />
-                  <span className="text-xs font-orbitron text-holo-magenta-300 tracking-wide">LOG OUT</span>
-                </motion.button>
-              </>
-            )}
-          </div>
-          
-          {/* Support Button - Always below user info */}
-          {!isCollapsed && (
-            <motion.div 
-              className="w-full"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <HolographicButton
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs font-orbitron tracking-wide"
-                onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+            <div className={cn(
+              "flex items-center gap-3 mb-3",
+              isCollapsed && "justify-center"
+            )}>
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ duration: 0.2 }}
               >
-                <Brain className="w-3 h-3 mr-2" />
-                SPONSOR
-              </HolographicButton>
-            </motion.div>
-          )}
-        </div>
-      )}
+                <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50 shadow-holo-blue">
+                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-sm font-medium font-orbitron">
+                  {user.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+                </Avatar>
+              </motion.div>
+              
+              {!isCollapsed && (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-holo-cyan-100 font-space">{user.name}</p>
+                    <p className="text-xs text-holo-cyan-400/60 truncate font-orbitron">{user.email}</p>
+                  </div>
+                  
+                  <motion.button
+                    onClick={onSignOut}
+                    className="inline-flex items-center gap-2 px-3 h-8 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 hover:shadow-holo-magenta transition-all duration-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <LogOut className="w-4 h-4 text-holo-magenta-400" />
+                    <span className="text-xs font-orbitron text-holo-magenta-300 tracking-wide">LOG OUT</span>
+                  </motion.button>
+                </>
+              )}
+            </div>
+            
+            {/* Support Button - Always below user info */}
+            {!isCollapsed && (
+              <motion.div 
+                className="w-full"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <HolographicButton
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs font-orbitron tracking-wide"
+                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+                >
+                  <Brain className="w-3 h-3 mr-2" />
+                  SPONSOR
+                </HolographicButton>
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
     </motion.div>
   );
 };
