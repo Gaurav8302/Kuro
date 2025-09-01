@@ -76,20 +76,22 @@ const Chat = () => {
     });
   };
 
-  // First-time intro logic - only show if name modal is not needed
+  // First-time intro logic - show after name is set or if user already has name
   useEffect(() => {
     const checkIntro = async () => {
-      if (!user || !isLoaded || !hasCheckedName) return;
+      if (!user || !isLoaded) return;
       
-      // Don't show intro if name modal is open or will be shown
+      // Wait for name check to complete first
+      if (!hasCheckedName) return;
+      
+      // Don't show intro if name modal is currently open
       if (showNameModal) return;
       
       try {
         const { intro_shown } = await getIntroShown(user.id);
-        const { has_name } = await checkUserHasName(user.id);
         
-        // Only show intro if user has a name and intro hasn't been shown
-        if (!intro_shown && has_name) {
+        // Show intro if it hasn't been shown yet (regardless of name status)
+        if (!intro_shown) {
           setShowFirstTimeIntro(true);
           // Persist immediately so even if user refreshes it's not shown again
           await setIntroShown(user.id);
@@ -97,9 +99,10 @@ const Chat = () => {
           setTimeout(() => setShowFirstTimeIntro(false), 7000);
         }
       } catch (e) {
+        console.error('Error checking intro status:', e);
         // Fallback to localStorage if backend call fails (offline tolerance)
         const fallbackKey = `kuro_intro_shown_${user.id}`;
-        if (!localStorage.getItem(fallbackKey) && !showNameModal) {
+        if (!localStorage.getItem(fallbackKey)) {
           localStorage.setItem(fallbackKey, '1');
           setShowFirstTimeIntro(true);
           setTimeout(() => setShowFirstTimeIntro(false), 7000);
@@ -147,15 +150,21 @@ const Chat = () => {
     const checkUserName = async () => {
       if (!user || hasCheckedName) return;
       
+      console.log('🔍 Checking if user has name set...', user.id);
+      
       try {
         const { has_name } = await checkUserHasName(user.id);
+        console.log('📝 User has name:', has_name);
+        
         if (!has_name) {
+          console.log('🔔 Showing name setup modal');
           setShowNameModal(true);
         } else {
           // If user has a name, load it
           try {
             const { name } = await getUserName(user.id);
             if (name) {
+              console.log('👤 Loaded user name:', name);
               setDisplayedName(name);
             }
           } catch (error) {
@@ -165,7 +174,9 @@ const Chat = () => {
         }
       } catch (error) {
         console.error('Error checking user name:', error);
-        // Don't show error to user for name check - just continue
+        // If backend is not available, show name modal to be safe
+        console.log('⚠️ Backend error - showing name modal as fallback');
+        setShowNameModal(true);
       } finally {
         setHasCheckedName(true); // Always mark as checked to avoid infinite loop
       }
@@ -930,17 +941,16 @@ const Chat = () => {
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {/* Mobile Menu Button */}
-              {isMobile && (
-                <motion.button
-                  onClick={toggleSidebar}
-                  className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
-                  whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <HoloMenuIcon size={20} />
-                </motion.button>
-              )}
+              {/* Menu Button for all devices */}
+              <motion.button
+                onClick={toggleSidebar}
+                className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
+                whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
+              >
+                <HoloMenuIcon size={20} />
+              </motion.button>
               
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">

@@ -137,7 +137,7 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
       </div>
 
       {/* Sessions List - Scrollable content with bottom padding for logout */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0" style={{ paddingBottom: '160px' }}>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0" style={{ paddingBottom: '180px' }}>
         {!isCollapsed && (
           <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
             CHATS
@@ -236,7 +236,7 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
 
       {/* User Profile Section - Above logout button */}
       {user && !isCollapsed && (
-        <div className="absolute bottom-16 left-0 right-0 p-4 bg-background/90 backdrop-blur-sm border-t border-holo-cyan-500/20">
+        <div className="absolute bottom-20 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t border-holo-cyan-500/20">
           {/* Sponsor Button */}
           <div className="w-full mb-3">
             <HolographicButton
