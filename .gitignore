@@ -125,3 +125,6 @@ backend/temp/*
 .vercel
 *.local
 local/
+
+# Screenshots and bug reports
+bugs/
