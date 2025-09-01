@@ -1,0 +1,309 @@
+{
+  "tech_stack": [
+    "Python",
+    "FastAPI",
+    "React",
+    "TypeScript",
+    "MongoDB",
+    "Pinecone",
+    "Groq API",
+    "Google Gemini",
+    "Clerk Auth",
+    "Vite",
+    "TailwindCSS",
+    "Framer Motion"
+  ],
+  "features": [
+    {
+      "name": "Health Check API",
+      "description": "Health check endpoints for monitoring application status",
+      "files": ["backend/chatbot.py"],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/": {
+            "get": {
+              "tags": ["Health"],
+              "summary": "Root health check",
+              "responses": {
+                "200": {
+                  "description": "Service is running"
+                }
+              }
+            }
+          },
+          "/healthz": {
+            "get": {
+              "tags": ["Health"],
+              "summary": "Kubernetes-style health check",
+              "responses": {
+                "200": {
+                  "description": "Service is healthy"
+                }
+              }
+            }
+          },
+          "/ping": {
+            "get": {
+              "tags": ["Health"],
+              "summary": "Simple ping endpoint",
+              "responses": {
+                "200": {
+                  "description": "Pong response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Chat API",
+      "description": "Core chat functionality with AI models",
+      "files": ["backend/chatbot.py", "backend/memory/ultra_lightweight_memory.py"],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/chat": {
+            "post": {
+              "tags": ["Chat"],
+              "summary": "Send message to AI and get response",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "message": {"type": "string"},
+                        "user_id": {"type": "string"},
+                        "session_id": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "AI response",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "message": {"type": "string"},
+                          "session_id": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Session Management API",
+      "description": "Manage chat sessions and history",
+      "files": ["backend/chatbot.py", "backend/memory/chat_database.py"],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/session/create": {
+            "post": {
+              "tags": ["Sessions"],
+              "summary": "Create new chat session",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/sessions/{user_id}": {
+            "get": {
+              "tags": ["Sessions"],
+              "summary": "Get all sessions for a user",
+              "parameters": [
+                {
+                  "name": "user_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {"type": "string"}
+                }
+              ]
+            }
+          },
+          "/chat/{session_id}": {
+            "get": {
+              "tags": ["Sessions"],
+              "summary": "Get chat history for a session",
+              "parameters": [
+                {
+                  "name": "session_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {"type": "string"}
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "User Management API",
+      "description": "User profile and preferences management",
+      "files": ["backend/chatbot.py"],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/user/{user_id}/set-name": {
+            "post": {
+              "tags": ["Users"],
+              "summary": "Set user display name",
+              "parameters": [
+                {
+                  "name": "user_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {"type": "string"}
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "name": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/user/{user_id}/name": {
+            "get": {
+              "tags": ["Users"],
+              "summary": "Get user display name",
+              "parameters": [
+                {
+                  "name": "user_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {"type": "string"}
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Memory Management API",
+      "description": "AI memory storage and retrieval using vector database",
+      "files": ["backend/chatbot.py", "backend/memory/ultra_lightweight_memory.py"],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "paths": {
+          "/store-memory": {
+            "post": {
+              "tags": ["Memory"],
+              "summary": "Store memory in vector database",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "text": {"type": "string"},
+                        "user_id": {"type": "string"},
+                        "metadata": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/retrieve-memory": {
+            "post": {
+              "tags": ["Memory"],
+              "summary": "Retrieve relevant memories",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "query": {"type": "string"},
+                        "user_id": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Frontend Chat Interface",
+      "description": "React-based chat interface with holographic design",
+      "files": [
+        "frontend/src/pages/Chat.tsx",
+        "frontend/src/components/OptimizedChatBubble.tsx",
+        "frontend/src/components/OptimizedChatInput.tsx",
+        "frontend/src/components/MarkdownMessage.tsx"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Frontend Chat Interface",
+          "description": "React components for chat functionality"
+        }
+      }
+    },
+    {
+      "name": "Authentication System",
+      "description": "Clerk-based authentication and user management",
+      "files": [
+        "frontend/src/components/ProtectedRoute.tsx",
+        "frontend/src/pages/SignIn.tsx",
+        "frontend/src/pages/SignUp.tsx"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Authentication System",
+          "description": "Clerk authentication integration"
+        }
+      }
+    },
+    {
+      "name": "Sidebar Navigation",
+      "description": "Session management and navigation sidebar",
+      "files": [
+        "frontend/src/components/OptimizedSidebar.tsx"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Sidebar Navigation",
+          "description": "Chat session management interface"
+        }
+      }
+    }
+  ]
+}

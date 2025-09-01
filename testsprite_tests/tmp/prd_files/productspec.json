@@ -1,0 +1,122 @@
+{
+  "project": {
+    "name": "Kuro AI",
+    "description": "A personal AI chatbot with memory and RAG capabilities, built with Next.js (frontend) and FastAPI (backend)."
+  },
+  "architecture": {
+    "frontend": "Next.js + Tailwind",
+    "backend": "FastAPI + LangChain (Gemini 1.5 Flash)",
+    "memory": {
+      "short_term": "In-memory buffer for last 10 messages + 2 recent summaries",
+      "long_term": "Pinecone vector DB with hybrid retrieval"
+    },
+    "database": "PostgreSQL for session storage"
+  },
+  "features": [
+    {
+      "name": "Session management",
+      "description": "Create, rename, list, and delete chat sessions",
+      "priority": "high"
+    },
+    {
+      "name": "Memory handling",
+      "description": "Summarize chats at defined intervals and store summaries in Pinecone",
+      "priority": "high"
+    },
+    {
+      "name": "User system",
+      "description": "Ask for user name on first interaction and tag memory data per user",
+      "priority": "high"
+    },
+    {
+      "name": "RAG integration",
+      "description": "Hybrid retrieval (vector + keyword tags) for relevant context",
+      "priority": "medium"
+    },
+    {
+      "name": "Chat streaming",
+      "description": "Real-time message streaming for better user experience",
+      "priority": "medium"
+    },
+    {
+      "name": "Error handling",
+      "description": "Graceful failure handling for API, DB, or Pinecone outages",
+      "priority": "high"
+    }
+  ],
+  "api_endpoints": [
+    {
+      "endpoint": "/chat/send",
+      "method": "POST",
+      "purpose": "Send user message and get AI response",
+      "example_payload": {
+        "session_id": "abc123",
+        "message": "Hello"
+      }
+    },
+    {
+      "endpoint": "/chat/history",
+      "method": "GET",
+      "purpose": "Retrieve full session chat history",
+      "example_query": "?session_id=abc123"
+    },
+    {
+      "endpoint": "/chat/sessions",
+      "method": "GET",
+      "purpose": "List all user sessions"
+    },
+    {
+      "endpoint": "/chat/sessions",
+      "method": "POST",
+      "purpose": "Create new session",
+      "example_payload": {
+        "title": "Math Help"
+      }
+    },
+    {
+      "endpoint": "/chat/sessions/{id}",
+      "method": "PATCH",
+      "purpose": "Rename session",
+      "example_payload": {
+        "title": "New Name"
+      }
+    },
+    {
+      "endpoint": "/chat/sessions/{id}",
+      "method": "DELETE",
+      "purpose": "Delete session"
+    }
+  ],
+  "test_requirements": {
+    "api": [
+      "Validate payload structures and responses",
+      "Test 400/500 error handling"
+    ],
+    "memory": [
+      "Verify summarization intervals and overwrite logic",
+      "Confirm retrieval accuracy"
+    ],
+    "database": [
+      "CRUD operations for sessions and chat history"
+    ],
+    "frontend": [
+      "Session listing and opening",
+      "Real-time message rendering"
+    ],
+    "integration": [
+      "Frontend-backend sync",
+      "Response streaming"
+    ],
+    "edge_cases": [
+      "Handle no network",
+      "Handle Pinecone outage",
+      "Validate long message inputs"
+    ]
+  },
+  "non_functional": {
+    "latency": "Average response under 1.5 seconds",
+    "scalability": "Support 100+ sessions per user without memory leaks",
+    "retrieval_accuracy": "90%+ relevant context retrieval",
+    "coverage_goal": "80%+ unit test coverage for backend"
+  }
+}

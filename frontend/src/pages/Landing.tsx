@@ -95,7 +95,7 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden relative">
+  <div className="min-app-screen bg-background overflow-hidden relative flex flex-col">
       <OptimizedHolographicBackground variant="default" />
       
       {/* Animated background elements */}
@@ -188,8 +188,8 @@ const Landing = () => {
         </motion.header>
 
         {/* Hero Section */}
-        <main className="max-w-7xl mx-auto px-6 py-16">
-          <div className="grid lg:grid-cols-2 gap-20 items-center">
+  <main className="max-w-7xl mx-auto px-6 py-16 md:py-20 flex-1 flex flex-col">
+          <div className="grid lg:grid-cols-2 gap-12 md:gap-20 items-center">
             {/* Content */}
             <motion.div
               initial={{ x: -100, opacity: 0, filter: 'blur(10px)' }}
@@ -229,7 +229,7 @@ const Landing = () => {
               </motion.div>
 
               <motion.h1 
-                className="text-5xl lg:text-7xl font-bold mb-8 leading-tight"
+                className="text-4xl sm:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 leading-tight"
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ 
@@ -239,7 +239,7 @@ const Landing = () => {
               >
                 <span className="block text-holo-cyan-300 font-orbitron tracking-wide">SMART</span>
                 <motion.span 
-                  className="block holo-text font-orbitron text-holo-glow"
+                  className="block hero-gradient-word font-orbitron text-holo-glow"
                   animate={shouldReduceAnimations ? {} : { 
                     textShadow: [
                       '0 0 20px #00e6d6',
@@ -266,13 +266,13 @@ const Landing = () => {
                   delay: shouldReduceAnimations ? 0.2 : 0.9 
                 }}
               >
-                <p className="text-xl text-holo-cyan-100 mb-6 leading-relaxed font-space">
+                <p className="text-lg sm:text-xl text-holo-cyan-100 mb-4 sm:mb-6 leading-relaxed font-space">
                   Kuro is a production-ready AI chatbot using an advanced multi-model architecture: <strong>Groq & OpenRouter models</strong> for intelligent conversation routing and <strong>Google Gemini embeddings</strong> for semantic memory retrieval.
                 </p>
-                <p className="text-lg text-holo-cyan-200 mb-4 font-space">
+                <p className="text-base sm:text-lg text-holo-cyan-200 mb-4 font-space">
                   Built with <strong>FastAPI</strong>, <strong>React</strong>, <strong>TypeScript</strong>, <strong>Pinecone vector database</strong>, and <strong>MongoDB</strong>. Features real-time chat, persistent memory, session management, and comprehensive observability.
                 </p>
-                <p className="text-base text-holo-cyan-300 mb-8 font-space italic">
+                <p className="text-sm sm:text-base text-holo-cyan-300 mb-6 sm:mb-8 font-space italic">
                   ⭐ Full-stack application demonstrating modern AI/ML integration, cloud deployment, and production-grade architecture patterns.
                 </p>
                 <motion.div
@@ -334,10 +334,10 @@ const Landing = () => {
                 delay: shouldReduceAnimations ? 0.1 : 0.5, 
                 ease: 'easeOut' 
               }}
-              className="relative"
+              className="relative mt-12 lg:mt-0"
             >
               <OptimizedHolographicCard variant="intense" className="overflow-hidden">
-                <div className="relative p-8">
+                <div className="relative p-6 sm:p-8">
                   {/* Central holographic display */}
                   <motion.div
                     className="w-64 h-64 mx-auto relative"
@@ -447,7 +447,7 @@ const Landing = () => {
             className="text-center mb-16"
           >
             <h2 className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
-              ADVANCED <span className="holo-text text-6xl">CAPABILITIES</span>
+              ADVANCED <span className="hero-gradient-word text-6xl">CAPABILITIES</span>
             </h2>
             <p className="text-xl text-holo-cyan-100 font-space">
               Beyond conventional AI – this is your neural interface companion

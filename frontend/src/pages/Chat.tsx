@@ -137,13 +137,71 @@ const Chat = () => {
   }, [isMobile]);
 
   // Scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Smarter scroll-to-bottom with edge detection to avoid yanking user upward while reading history
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isUserNearBottomRef = useRef(true);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    // Use requestAnimationFrame to ensure layout is settled (especially after images / code blocks)
+    requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior });
+      }
+    });
   };
 
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const el = scrollContainerRef.current;
+    const threshold = 160; // px from bottom to still auto-stick
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isUserNearBottomRef.current = distanceFromBottom < threshold;
+  };
+
+  // Attach scroll listener to main messages container
   useEffect(() => {
-    scrollToBottom();
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    // Only auto-scroll if user is already near bottom or it's a brand new session
+    if (isUserNearBottomRef.current || messages.length <= 2) {
+      scrollToBottom(messages.length <= 2 ? 'auto' : 'smooth');
+    }
   }, [messages]);
+
+  // Also scroll when typing indicator appears if user is near bottom
+  useEffect(() => {
+    if (isTyping && isUserNearBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [isTyping]);
+
+  // Dynamic viewport height variable for mobile (accounts for URL bar / keyboard)
+  useEffect(() => {
+    const setAppHeight = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--app-height', `${vh * 100}px`);
+    };
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', setAppHeight);
+    return () => {
+      window.removeEventListener('resize', setAppHeight);
+      window.removeEventListener('orientationchange', setAppHeight);
+    };
+  }, []);
+
+  // When virtual keyboard opens (mobile), ensure last message visible after a tick
+  useEffect(() => {
+    if (!isMobile) return;
+    const handleFocus = () => setTimeout(() => scrollToBottom('auto'), 50);
+    window.addEventListener('focusin', handleFocus);
+    return () => window.removeEventListener('focusin', handleFocus);
+  }, [isMobile]);
 
   // Check if user needs to set their name (only for authenticated users)
   useEffect(() => {
@@ -792,7 +850,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="h-screen flex bg-background relative overflow-hidden">
+  <div className="min-app-height flex bg-background relative overflow-hidden">
       <OptimizedHolographicBackground variant="default" />
       
       <AnimatePresence>
@@ -1025,10 +1083,13 @@ const Chat = () => {
         </motion.header>
 
         {/* Messages Area */}
-        <div className={cn(
-          "flex-1 overflow-y-auto min-h-0 relative",
-          isMobile && "pb-28 px-1" // extra bottom padding so last message not hidden behind keyboard / input
-        )}>
+        <div
+          ref={scrollContainerRef}
+          className={cn(
+            "flex-1 overflow-y-auto min-h-0 relative scroll-smooth",
+            isMobile && "pb-28 px-1"
+          )}
+        >
           {/* Chat area background effects */}
           {!shouldReduceAnimations && (
             <>

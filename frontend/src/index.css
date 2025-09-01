@@ -157,6 +157,10 @@
 }
 
 @layer utilities {
+  /* Dynamic viewport height fix for mobile (avoids 100vh issues with browser UI & keyboard) */
+  .app-height { height: var(--app-height, 100vh); }
+  .min-app-height { min-height: var(--app-height, 100vh); }
+  .min-app-screen { min-height: var(--app-height, 100vh); }
   /* Holographic Glass Effects */
   .glass-panel {
     background: rgba(255, 255, 255, 0.05);
@@ -557,6 +561,26 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 0 30px rgba(0, 230, 214, 0.5);
+}
+
+/* Specific safer gradient text (prevents full-width stripe on some mobile browsers) */
+.hero-gradient-word {
+  display: inline-block;
+  background: linear-gradient(45deg,#00e6d6,#8c1aff,#1a8cff);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  line-height: .9;
+  position: relative;
+}
+
+@media (max-width:640px) {
+  .hero-gradient-word {
+    background: linear-gradient(45deg,#00e6d6,#8c1aff) !important; /* simplify */
+    text-shadow: 0 0 14px rgba(0,230,214,0.35); /* softer glow */
+  }
 }
 
 .holo-bg {
