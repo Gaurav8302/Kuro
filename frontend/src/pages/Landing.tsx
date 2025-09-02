@@ -20,11 +20,17 @@ import { OptimizedHolographicBackground } from '@/components/OptimizedHolographi
 import { SuspendedHolographicParticles } from '@/components/LazyComponents';
 import { HoloBrainIcon, HoloSparklesIcon } from '@/components/HolographicIcons';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
+import { initGradientFallback } from '@/utils/gradientTextFallback';
 
 const Landing = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useUser();
   const { shouldReduceAnimations, animationDuration } = useOptimizedAnimations();
+
+  // Initialize gradient fallback for mobile devices
+  useEffect(() => {
+    initGradientFallback();
+  }, []);
 
   // Optionally, redirect signed-in users to /chat automatically
   useEffect(() => {

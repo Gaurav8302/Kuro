@@ -576,10 +576,35 @@
   position: relative;
 }
 
+/* Mobile-first approach - ensure text is always visible */
 @media (max-width:640px) {
   .hero-gradient-word {
-    background: linear-gradient(45deg,#00e6d6,#8c1aff) !important; /* simplify */
-    text-shadow: 0 0 14px rgba(0,230,214,0.35); /* softer glow */
+    background: none !important; /* Remove gradient background on mobile */
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #00e6d6 !important; /* Solid cyan color */
+    color: #00e6d6 !important; /* Fallback solid color */
+    text-shadow: 0 0 14px rgba(0,230,214,0.35) !important; /* Keep the glow effect */
+  }
+}
+
+/* Additional fallback for webkit issues on mobile browsers */
+@supports not (-webkit-background-clip: text) {
+  .hero-gradient-word {
+    background: none !important;
+    -webkit-text-fill-color: #00e6d6 !important;
+    color: #00e6d6 !important;
+    text-shadow: 0 0 20px rgba(0,230,214,0.5);
+  }
+}
+
+/* Fallback for older mobile browsers that might not support webkit features */
+@media (max-width: 768px) and (-webkit-min-device-pixel-ratio: 1) {
+  .hero-gradient-word {
+    background: none !important;
+    -webkit-text-fill-color: #00e6d6 !important;
+    color: #00e6d6 !important;
+    text-shadow: 0 0 15px rgba(0,230,214,0.4) !important;
   }
 }
 

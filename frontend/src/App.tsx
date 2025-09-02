@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, lazy } from "react";
 import Landing from "./pages/Landing";
 import { addResourceHints, preloadComponent } from "@/utils/lazyLoader";
 
@@ -17,7 +17,6 @@ import SSOCallback from "./pages/SSOCallback";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PublicRoute from "@/components/PublicRoute";
-import { lazy } from "react";
 import PerformanceMonitor from "@/components/PerformanceMonitor";
 import { MobileOptimizations, IOSOptimizations } from "@/components/MobileOptimizations";
 
