@@ -850,7 +850,10 @@ const Chat = () => {
   }
 
   return (
-  <div className="min-app-height flex bg-background relative overflow-hidden">
+  <div className={cn(
+    "flex bg-background relative overflow-hidden",
+    isMobile ? "min-app-height" : "h-screen"
+  )}>
       <OptimizedHolographicBackground variant="default" />
       
       <AnimatePresence>
@@ -982,8 +985,6 @@ const Chat = () => {
       <div className={cn(
         // Flex column so header, scrollable messages, and input stack; input naturally at bottom
         "flex flex-col h-full min-h-0 relative",
-        // On desktop ensure it fills available height even when few messages
-        !isMobile && "justify-between",
         isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
       )}>
         {/* Chat Header */}
@@ -1103,7 +1104,7 @@ const Chat = () => {
           )}
           
           <div className={cn(
-            "py-8 space-y-6 min-h-full relative z-10",
+            "py-8 space-y-6 relative z-10",
             isMobile && "space-y-3 py-6" // tighter vertical rhythm on mobile
           )}>
             <AnimatePresence mode="wait">
