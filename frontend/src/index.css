@@ -585,6 +585,8 @@
     -webkit-text-fill-color: #00e6d6 !important; /* Solid cyan color */
     color: #00e6d6 !important; /* Fallback solid color */
     text-shadow: 0 0 14px rgba(0,230,214,0.35) !important; /* Keep the glow effect */
+    word-break: break-word !important; /* Prevent text overflow */
+    hyphens: auto !important; /* Enable hyphenation */
   }
 }
 
@@ -668,6 +670,14 @@
   .text-responsive-4xl {
     font-size: 2.25rem;
     line-height: 2.5rem;
+  }
+  
+  /* Extra small screens - ensure CAPABILITIES text fits */
+  @media (max-width: 480px) {
+    .text-responsive-4xl {
+      font-size: 1.875rem !important; /* Smaller on very small screens */
+      line-height: 2.25rem !important;
+    }
   }
   
   /* Reduce complex gradients on mobile */

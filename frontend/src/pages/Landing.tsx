@@ -452,8 +452,8 @@ const Landing = () => {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow">
-              ADVANCED <span className="hero-gradient-word text-6xl">CAPABILITIES</span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-holo-cyan-300 mb-6 font-orbitron tracking-wide text-holo-glow break-words">
+              ADVANCED <span className="hero-gradient-word text-responsive-4xl block sm:inline">CAPABILITIES</span>
             </h2>
             <p className="text-xl text-holo-cyan-100 font-space">
               Beyond conventional AI – this is your neural interface companion
