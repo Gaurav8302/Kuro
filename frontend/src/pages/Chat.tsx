@@ -980,7 +980,10 @@ const Chat = () => {
 
       {/* Main Chat Area */}
       <div className={cn(
+        // Flex column so header, scrollable messages, and input stack; input naturally at bottom
         "flex flex-col h-full min-h-0 relative",
+        // On desktop ensure it fills available height even when few messages
+        !isMobile && "justify-between",
         isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
       )}>
         {/* Chat Header */}
@@ -1086,6 +1089,7 @@ const Chat = () => {
         <div
           ref={scrollContainerRef}
           className={cn(
+            // flex-1 so it grows and leaves room for input; min-h-0 to allow shrinking
             "flex-1 overflow-y-auto min-h-0 relative scroll-smooth",
             isMobile && "pb-28 px-1"
           )}

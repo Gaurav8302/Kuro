@@ -160,7 +160,10 @@ const AnimatedChatInput: React.FC<OptimizedChatInputProps> = memo(({
   return (
     <motion.div
       ref={containerRef}
-      className="border-t border-holo-cyan-500/20 backdrop-blur-md bg-gradient-to-b from-background/60 to-background/80 sticky bottom-0 z-20 relative"
+    /* NOTE: Removed sticky positioning for desktop to ensure the input sits at the true bottom
+      of the flex column even when there are few/no messages (fixes laptop height bug where
+      it appeared mid‑screen). Mobile version still uses sticky in LightweightChatInput. */
+    className="border-t border-holo-cyan-500/20 backdrop-blur-md bg-gradient-to-b from-background/60 to-background/80 w-full relative"
       initial={{ y: 50, opacity: 0, scale: 0.9 }}
       animate={{ 
         y: 0, 
