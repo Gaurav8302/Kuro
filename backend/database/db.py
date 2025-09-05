@@ -355,6 +355,22 @@ session_titles_collection = LazyCollection(get_session_titles_collection)
 users_collection = LazyCollection(get_users_collection)
 conversation_summaries_collection = LazyCollection(get_conversation_summaries_collection)
 
+# Lazy database and client access (not collections)
+class LazyDatabaseAccess:
+    def __getattr__(self, name):
+        return getattr(get_database(), name)
+    
+    def __getitem__(self, key):
+        return get_database()[key]
+
+class LazyClientAccess:
+    def __getattr__(self, name):
+        return getattr(get_client(), name)
+
+# Export database and client for backward compatibility
+database = LazyDatabaseAccess()
+client = LazyClientAccess()
+
 def get_database():
     """
     Get database instance
