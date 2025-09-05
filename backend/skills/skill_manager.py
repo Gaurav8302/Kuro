@@ -20,7 +20,7 @@ import time
 import logging
 import os
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Set
+from typing import List, Dict, Optional, Tuple, Set, Any
 from routing.regex_intent_detector import get_regex_intent_detector
 from routing.session_tracker import get_session_manager
 
@@ -209,7 +209,10 @@ class SkillManager:
                 data = json.load(f)
             
             self.skills = []
-            for skill_data in data.get("skills", []):
+            # Handle both array format and object format
+            skill_list = data if isinstance(data, list) else data.get("skills", [])
+            
+            for skill_data in skill_list:
                 try:
                     skill = Skill(skill_data)
                     self.skills.append(skill)
@@ -349,6 +352,64 @@ class SkillManager:
             explanations.append(f"{skill.name}(score={score:.1f}, {reason_str})")
         
         return f"Selected skills: {'; '.join(explanations)}"
+    
+    def build_injected_system_prompt(self, base_system: str, user_text: str, 
+                                   session_id: Optional[str] = None) -> Tuple[str, List[str], Dict[str, Any]]:
+        """Build enhanced system prompt with skill injection and metadata.
+        
+        Args:
+            base_system: Base system prompt
+            user_text: User message text
+            session_id: Session ID for adaptive behavior
+            
+        Returns:
+            Tuple of (enhanced_prompt, skill_names, metadata)
+        """
+        start_time = time.time()
+        
+        # Detect intents first
+        regex_detector = get_regex_intent_detector()
+        detected_intents, _ = regex_detector.detect_intents(user_text)
+        
+        # Select skills
+        selected_skills = self.select_skills(user_text, detected_intents, session_id)
+        
+        if not selected_skills:
+            return base_system, [], {
+                'selection_time_ms': (time.time() - start_time) * 1000,
+                'skills_evaluated': len(self.skills),
+                'skills_selected': 0,
+                'detected_intents': list(detected_intents)
+            }
+        
+        # Build enhanced prompt
+        skill_prompts = self.get_skill_prompts(selected_skills)
+        enhanced_system = base_system
+        if skill_prompts:
+            enhanced_system += "\n\n" + skill_prompts
+        
+        # Get skill names
+        skill_names = [skill.name for skill, _, _ in selected_skills]
+        
+        # Build metadata
+        metadata = {
+            'selection_time_ms': (time.time() - start_time) * 1000,
+            'skills_evaluated': len(self.skills),
+            'skills_selected': len(selected_skills),
+            'detected_intents': list(detected_intents),
+            'selection_details': [
+                {
+                    'name': skill.name,
+                    'category': skill.category,
+                    'priority': skill.priority,
+                    'score': score,
+                    'reasons': reasons[:3]  # Limit for readability
+                }
+                for skill, score, reasons in selected_skills
+            ]
+        }
+        
+        return enhanced_system, skill_names, metadata
 
 # Global skill manager instance
 _skill_manager = None
@@ -359,3 +420,6 @@ def get_skill_manager() -> SkillManager:
     if _skill_manager is None:
         _skill_manager = SkillManager()
     return _skill_manager
+
+# Global instance for backward compatibility
+skill_manager = get_skill_manager()

@@ -82,6 +82,11 @@ class LightweightSessionManager:
             session['model_failures'][model_id] += 1
             session['model_preferences'][model_id] -= 0.2
     
+    def record_model_performance(self, session_id: str, model_id: str, success: bool, latency_ms: float):
+        """Backward compatibility method for record_model_result."""
+        self.record_model_result(session_id, model_id, success)
+        # Note: latency_ms is ignored in lightweight version for simplicity
+    
     def get_preferred_skills(self, session_id: str) -> Set[str]:
         """Get frequently used skills for this session."""
         if not session_id:
