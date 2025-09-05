@@ -371,15 +371,6 @@ class LazyClientAccess:
 database = LazyDatabaseAccess()
 client = LazyClientAccess()
 
-def get_database():
-    """
-    Get database instance
-    
-    Returns:
-        Database: MongoDB database instance
-    """
-    return database
-
 def get_collection(collection_name: str):
     """
     Get a specific collection
