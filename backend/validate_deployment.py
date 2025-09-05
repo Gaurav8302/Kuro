@@ -76,13 +76,14 @@ def check_problematic_files():
     """Check for files with problematic imports that shouldn't be loaded"""
     print("🔍 Checking for problematic files...")
     
+    # AI/ML libraries that should not be used (commented for removal)
     problematic_imports = [
-        'sentence_transformers',
-        'sklearn',
-        'scikit-learn',
-        'transformers',
-        'torch',
-        'tensorflow'
+        # 'sentence_transformers',  # REMOVED: Replaced with regex patterns
+        # 'sklearn',               # REMOVED: Not needed for lightweight system  
+        # 'scikit-learn',          # REMOVED: Not needed for lightweight system
+        # 'transformers',          # REMOVED: Replaced with rule-based routing
+        # 'torch',                 # REMOVED: Replaced with lightweight alternatives
+        # 'tensorflow'             # REMOVED: Not used in this system
     ]
     
     backend_dir = os.path.dirname(os.path.abspath(__file__))
