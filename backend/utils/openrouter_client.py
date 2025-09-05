@@ -23,24 +23,36 @@ DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Canonical -> OpenRouter slug mapping (updated with actual available models)
 DEFAULT_MODEL_MAP: Dict[str, str] = {
-    # High-quality reasoning models
+    # === New registry models (OpenRouter free models) ===
+    "meta-llama/llama-3.3-8b-instruct:free": "meta-llama/llama-3.3-8b-instruct:free",
+    "deepseek/deepseek-r1:free": "deepseek/deepseek-r1:free", 
+    "qwen/qwen3-30b-a3b:free": "qwen/qwen3-30b-a3b:free",
+    "mistralai/mistral-small-3.2-24b-instruct:free": "mistralai/mistral-small-3.2-24b-instruct:free",
+    "z-ai/glm-4.5-air:free": "z-ai/glm-4.5-air:free",
+    "meta-llama/llama-3.3-70b-instruct:free": "meta-llama/llama-3.3-70b-instruct:free",
+    "moonshotai/kimi-dev-72b:free": "moonshotai/kimi-dev-72b:free",
+    
+    # === Alias mappings ===
+    "llama-3.3-8b-free": "meta-llama/llama-3.3-8b-instruct:free",
+    "deepseek-r1-free": "deepseek/deepseek-r1:free",
+    "qwen3-30b-free": "qwen/qwen3-30b-a3b:free", 
+    "mistral-small-free": "mistralai/mistral-small-3.2-24b-instruct:free",
+    "glm-4.5-free": "z-ai/glm-4.5-air:free",
+    "llama-3.3-70b-free": "meta-llama/llama-3.3-70b-instruct:free",
+    "kimi-dev-free": "moonshotai/kimi-dev-72b:free",
+    
+    # === Legacy high-quality models (kept for backward compatibility) ===
     "deepseek-r1": "deepseek/r1",
     "deepseek-r1-distill": "deepseek/r1-distill-qwen-14b",
-    
-    # Fast, reliable models
     "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct",
     "llama-3.2-3b": "meta-llama/llama-3.2-3b-instruct", 
     "llama-3.1-405b": "meta-llama/llama-3.1-405b-instruct",
-    
-    # Google models
     "gemini-2.0-flash": "google/gemini-2.0-flash-exp:free",
     "gemini-2.5-pro": "google/gemini-2.5-pro-exp:free",
-    
-    # Specialized models
     "mistral-nemo": "mistralai/mistral-nemo",
     "qwen3-coder": "qwen/qwen-3-coder-480b-a35b",
     
-    # Legacy mappings for backward compatibility
+    # === Paid model mappings (for fallback) ===
     "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet",
     "claude-3-opus": "anthropic/claude-3-opus",
     "claude-3-haiku": "anthropic/claude-3-haiku",

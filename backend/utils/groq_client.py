@@ -43,28 +43,28 @@ class GroqClient:
         
         # Model ID mapping for router compatibility (router ID -> actual Groq model ID)
         self.groq_model_map = {
-            # === Primary Groq models (canonical names) ===
-            "llama-3-8b-groq": "llama-3.1-8b-instant",
-            "llama-3-70b-groq": "llama-3.3-70b-versatile", 
-            "gemma2-9b": "gemma2-9b-it",
-            "deepseek-r1": "deepseek-r1-distill-llama-70b",
-            "deepseek-r1-groq": "deepseek-r1-distill-llama-70b",
-            "qwen3-32b": "qwen/qwen3-32b",
+            # === New registry models (Groq only) ===
+            "llama-3.1-8b-instant": "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile": "llama-3.3-70b-versatile", 
+            "mixtral-8x7b-32k": "mixtral-8x7b-32768",  # Groq API uses 32768 suffix
+            "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
             
             # === Legacy router IDs ===
             "llama3-8b-8192": "llama-3.1-8b-instant", 
             "llama3-70b-8192": "llama-3.3-70b-versatile",
-            "mixtral-8x7b-groq": "qwen/qwen3-32b",  # Using Qwen as alternative
-            "mixtral-8x7b-32768": "qwen/qwen3-32b",
             "llama-3.3-70B-versatile": "llama-3.3-70b-versatile",
             "llama-3.1-8B-instant": "llama-3.1-8b-instant",
+            "mixtral-8x7b-groq": "mixtral-8x7b-32768",
+            "mixtral-8x7b-32768": "mixtral-8x7b-32768",
+            "mixtral-8x7B-32k": "mixtral-8x7b-32768",
             
-            # === Direct mappings (exact Groq API names) ===
-            "llama-3.1-8b-instant": "llama-3.1-8b-instant",
-            "llama-3.3-70b-versatile": "llama-3.3-70b-versatile", 
+            # === Alternative names ===
+            "llama-3-8b-groq": "llama-3.1-8b-instant",
+            "llama-3-70b-groq": "llama-3.3-70b-versatile", 
+            "deepseek-r1": "deepseek-r1-distill-llama-70b",
+            "deepseek-r1-groq": "deepseek-r1-distill-llama-70b",
+            "gemma2-9b": "gemma2-9b-it",
             "gemma2-9b-it": "gemma2-9b-it",
-            "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
-            "qwen/qwen3-32b": "qwen/qwen3-32b",
         }
         
         # Default parameters
