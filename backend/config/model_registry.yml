@@ -2,7 +2,7 @@ models:
   - id: llama-3.3-70B-versatile
     label: general
     capabilities: [general, high_quality]
-    fallback: ["llama-3.1-8B-instant", "mixtral-8x7B-32k"]
+    fallback: ["qwen/qwen3-32b", "deepseek-r1-distill-llama-70b", "mixtral-8x7B-32k"]
     max_context_tokens: 8192
     avg_latency_ms: 900
     quality_tier: high
@@ -10,6 +10,7 @@ models:
   - id: llama-3.1-8B-instant
     label: fast
     capabilities: [general, fast]
+    fallback: ["llama-3.3-70B-versatile", "gemma2-9b-it", "qwen/qwen3-32b"]
     max_context_tokens: 8192
     avg_latency_ms: 350
     quality_tier: medium
@@ -17,6 +18,7 @@ models:
   - id: mixtral-8x7B-32k
     label: long_context
     capabilities: [general, long_context]
+    fallback: ["qwen/qwen3-32b", "deepseek-r1-distill-llama-70b", "gemma2-9b-it"]
     max_context_tokens: 32768
     avg_latency_ms: 1100
     quality_tier: high
@@ -24,10 +26,35 @@ models:
   - id: deepseek-r1
     label: reasoning
     capabilities: [reasoning, complex]
+    fallback: ["deepseek-r1-distill-llama-70b", "qwen/qwen3-32b", "llama-3.3-70B-versatile"]
     max_context_tokens: 16384
     avg_latency_ms: 1400
     quality_tier: high
     cost_score: 2
+  - id: gemma2-9b-it
+    label: efficient
+    capabilities: [general, fast]
+    fallback: []
+    max_context_tokens: 8192
+    avg_latency_ms: 400
+    quality_tier: medium
+    cost_score: 1
+  - id: qwen/qwen3-32b
+    label: advanced
+    capabilities: [general, reasoning, long_context]
+    fallback: ["gemma2-9b-it"]
+    max_context_tokens: 32768
+    avg_latency_ms: 800
+    quality_tier: high
+    cost_score: 2
+  - id: deepseek-r1-distill-llama-70b
+    label: reasoning_distilled  
+    capabilities: [reasoning, complex, high_quality]
+    fallback: ["qwen/qwen3-32b", "gemma2-9b-it"]
+    max_context_tokens: 16384
+    avg_latency_ms: 1200
+    quality_tier: high
+    cost_score: 3
 routing_rules:
   - name: tool_call
     intent: "tool_call"
