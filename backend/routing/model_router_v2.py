@@ -12,15 +12,19 @@ from __future__ import annotations
 import asyncio
 import re
 import time
+import logging
 from typing import Dict, Any, List, Optional, Tuple
 
 from config.model_config import (
     get_rule_keywords,
     get_fallback_chain,
     get_model_source,
+    normalize_model_id,
     CLAUDE_SONNET,
 )
 from observability.instrumentation_middleware import update_llm_call
+
+logger = logging.getLogger(__name__)
 
 # Simple in-memory caches
 _route_cache: Dict[str, Tuple[str, float]] = {}
@@ -40,9 +44,11 @@ def rule_based_router(query: str) -> Tuple[Optional[str], float, str]:
     for tag, patterns, model in get_rule_keywords():
         for pat in patterns:
             if re.search(pat, text):
-                # Choose the first matching model with high confidence
-                best = model
+                # Choose the first matching model with high confidence and normalize
+                best = normalize_model_id(model)
                 reason = f"rule:{tag}:{pat}"
+                if best != model:
+                    logger.debug("Normalized rule model %s -> %s", model, best)
                 return best, 0.9, reason
     return None, 0.0, "no_rule_match"
 
@@ -63,6 +69,7 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
     if key in _route_cache:
         model, ts = _route_cache[key]
         if now - ts < _CACHE_TTL:
+            model = normalize_model_id(model)
             return {
                 "chosen_model": model,
                 "source": get_model_source(model),
@@ -76,10 +83,11 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
     # Stage A: rule-based
     rb_model, rb_conf, rb_reason = rule_based_router(query)
     if rb_model and rb_conf >= 0.8:
-        _route_cache[key] = (rb_model, now)
+        rb_model_norm = normalize_model_id(rb_model)
+        _route_cache[key] = (rb_model_norm, now)
         return {
-            "chosen_model": rb_model,
-            "source": get_model_source(rb_model),
+            "chosen_model": rb_model_norm,
+            "source": get_model_source(rb_model_norm),
             "reason": rb_reason,
             "confidence": rb_conf,
             "fallback_used": False,
@@ -91,9 +99,12 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
     except asyncio.TimeoutError:
         model, conf, reason = CLAUDE_SONNET, 0.6, "router_timeout_default_claude"
 
-    # If low confidence, default to Claude Sonnet
+    # Normalize the model from LLM router
+    model = normalize_model_id(model)
+
+    # If low confidence, default to Claude Sonnet (normalized)
     if conf < 0.6:
-        model = CLAUDE_SONNET
+        model = normalize_model_id(CLAUDE_SONNET)
         reason = f"low_conf_default:{reason}"
         conf = 0.6
 
@@ -152,7 +163,7 @@ async def execute_with_fallbacks(model_chain: List[str], query: str, system: Opt
 
 
 def build_fallback_chain(primary_model: str) -> List[str]:
-    return get_fallback_chain(primary_model)
+    return get_fallback_chain(primary_model)  # get_fallback_chain now returns normalized IDs
 
 
 __all__ = [

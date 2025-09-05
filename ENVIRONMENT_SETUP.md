@@ -16,6 +16,7 @@ GOOGLE_API_KEY=your_google_gemini_api_key
 PINECONE_API_KEY=your_pinecone_api_key
 PINECONE_ENVIRONMENT=your_pinecone_environment
 PINECONE_INDEX_NAME=your_pinecone_index_name
+OPENROUTER_API_KEY=your_openrouter_api_key  # Required for orchestrator layer
 PORT=8000
 ```
 
@@ -41,6 +42,7 @@ MONGODB_URI=your_mongodb_connection_string
 GEMINI_API_KEY=your_google_gemini_api_key
 PINECONE_API_KEY=your_pinecone_api_key
 PINECONE_INDEX_NAME=your_pinecone_index_name
+OPENROUTER_API_KEY=your_openrouter_api_key  # Required for orchestrator layer
 DEBUG=false
 ENVIRONMENT=production
 FRONTEND_URL=https://your-vercel-app.vercel.app

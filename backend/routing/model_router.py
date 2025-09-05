@@ -5,11 +5,15 @@ Returns: { 'model_id': str, 'rule': str }
 """
 from __future__ import annotations
 import re
+import logging
 from typing import Optional, Dict, Any
 from config.config_loader import get_routing_rules, list_models, get_model
+from config.model_config import normalize_model_id
 from typing import Set
 
-SAFE_DEFAULT = "llama-3.3-70B-versatile"
+logger = logging.getLogger(__name__)
+
+SAFE_DEFAULT = normalize_model_id("llama-3.3-70B-versatile")
 
 # Simple expression evaluator for rule condition subset
 _allowed_names = {"context_tokens", "message_len_chars"}
@@ -62,9 +66,14 @@ def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] =
     # Back-compat: some callers pass 'intent' singular; merge into intents set
     if intent and not intents:
         intents = {intent}
-    # Forced override
-    if forced_model and get_model(forced_model):
-        return {"model_id": forced_model, "rule": "forced_override"}
+    
+    # Forced override with normalization
+    if forced_model:
+        forced_norm = normalize_model_id(forced_model)
+        if forced_norm != forced_model:
+            logger.debug("Normalized forced_model %s -> %s", forced_model, forced_norm)
+        if get_model(forced_norm):
+            return {"model_id": forced_norm, "rule": "forced_override"}
 
     first_intent = None
     if intents:
@@ -74,11 +83,14 @@ def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] =
     rules = get_routing_rules()
     for rule in rules:
         r_intent = rule.get("intent")
+        chosen = rule.get("choose", SAFE_DEFAULT)
+        chosen_norm = normalize_model_id(chosen)
         if r_intent and first_intent and r_intent == first_intent:
-            return {"model_id": rule.get("choose", SAFE_DEFAULT), "rule": rule.get("name", "intent_match")}
+            return {"model_id": chosen_norm, "rule": rule.get("name", "intent_match")}
         cond = rule.get("condition")
         if cond and _eval_condition(cond, vars):
-            return {"model_id": rule.get("choose", SAFE_DEFAULT), "rule": rule.get("name", "condition_match")}
+            return {"model_id": chosen_norm, "rule": rule.get("name", "condition_match")}
+    
     # Score based selection
     models = list_models()
     if not models:
@@ -91,7 +103,9 @@ def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] =
             best = m
             best_score = s
     if best:
-        return {"model_id": best["id"], "rule": "scored_selection", "score": best_score}
+        best_id = normalize_model_id(best["id"])
+        return {"model_id": best_id, "rule": "scored_selection", "score": best_score}
+    
     return {"model_id": SAFE_DEFAULT, "rule": "final_default"}
 
 __all__ = ["route_model"]

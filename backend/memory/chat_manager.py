@@ -45,6 +45,15 @@ load_dotenv()
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Import the new orchestrator after logger is configured
+try:
+    from orchestrator import orchestrate
+    ORCHESTRATOR_AVAILABLE = True
+    logger.info("✅ Orchestrator module loaded successfully")
+except ImportError as e:
+    ORCHESTRATOR_AVAILABLE = False
+    logger.warning(f"⚠️ Orchestrator module not available: {str(e)}")
+
 class ChatManager:
     """
     Chat management class for handling AI conversations
@@ -495,6 +504,52 @@ Instructions for responding:
                     return "I didn't find anything matching to forget."  # early return
                 # fallthrough on error to normal handling
 
+            # 3.5. Orchestrator Integration - analyze and expand the user query
+            orchestration_result = None
+            enhanced_message = message  # Default to original message
+            task_type = "other"  # Default task type
+            
+            if ORCHESTRATOR_AVAILABLE:
+                try:
+                    session_meta = {
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "user_name": user_name
+                    }
+                    
+                    # Run orchestration asynchronously
+                    import asyncio
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    
+                    orchestration_result = loop.run_until_complete(orchestrate(message, session_meta))
+                    
+                    if orchestration_result and orchestration_result.get("confidence", 0) > 0.1:
+                        enhanced_message = orchestration_result.get("expanded_prompt", message)
+                        task_type = orchestration_result.get("task", "other")
+                        
+                        logger.info(f"🎯 Orchestrator enhanced query: task={task_type}, confidence={orchestration_result.get('confidence')}")
+                        
+                        # Handle special task routing
+                        if task_type == "math":
+                            logger.info("🧮 Math task detected - routing to specialized handling")
+                            # Could add math solver integration here in the future
+                        elif task_type == "rag":
+                            logger.info("🔍 RAG task detected - will prioritize retrieval")
+                        elif task_type == "code":
+                            logger.info("💻 Code task detected - will use expanded prompt")
+                        
+                    else:
+                        logger.info("📝 Orchestrator provided low-confidence result, using original message")
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ Orchestrator failed, continuing with original message: {str(e)}")
+            else:
+                logger.debug("🔄 Orchestrator not available, using original message")
+
             # 4. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
             relevant_memories = []
             rag_context = None
@@ -507,8 +562,16 @@ Instructions for responding:
             try:
                 if rag_retrieval_enabled():
                     rag_pipeline = get_rag_pipeline()
+                    
+                    # Use orchestrator-enhanced query for RAG if task is 'rag'
+                    rag_query = message
+                    if task_type == "rag" and orchestration_result and orchestration_result.get("confidence", 0) > 0.3:
+                        # For RAG tasks, use the orchestrator's input field as it should contain the optimized search query
+                        rag_query = orchestration_result.get("input", message)
+                        logger.info(f"🔍 Using orchestrator-enhanced RAG query: {rag_query[:100]}...")
+                    
                     rag_result = rag_pipeline.retrieve(
-                        query=message,
+                        query=rag_query,
                         user_id=user_id,
                         user_pref_tags=None  # Future: fetch from user profile
                     )
@@ -637,14 +700,27 @@ Instructions for responding:
                 )
             context = " | ".join(context_parts) if context_parts else None
             
-            # 8. Generate response using Kuro system with repetition check
-            response = self.generate_ai_response(message, context)
+            # 8. Generate response using Kuro system with orchestrator enhancement
+            # Use enhanced message from orchestrator if available, otherwise use original
+            effective_message = enhanced_message if orchestration_result and orchestration_result.get("confidence", 0) > 0.1 else message
+            
+            # Add orchestrator context if available
+            orchestrator_context = ""
+            if orchestration_result and orchestration_result.get("confidence", 0) > 0.1:
+                tools_suggestion = f" | Suggested tools: {', '.join(orchestration_result.get('tools', []))}" if orchestration_result.get('tools') else ""
+                expected_format = f" | Expected format: {orchestration_result.get('expected_response_format', 'text')}"
+                orchestrator_context = f"Task type: {task_type}{tools_suggestion}{expected_format}"
+            
+            # Combine all context
+            combined_context = " | ".join(filter(None, [context, orchestrator_context])) if context or orchestrator_context else None
+            
+            response = self.generate_ai_response(effective_message, combined_context)
             
             # 8.1. Check for repetition and regenerate if needed
             if self._check_response_repetition(user_id, response):
                 logger.info("Detected repetitive response, regenerating with variation prompt...")
-                variation_context = context + "\n\nIMPORTANT: Your previous responses were similar. Provide a different, varied response even if the user's message is similar." if context else "IMPORTANT: Vary your response from previous ones."
-                response = self.generate_ai_response(message, variation_context)
+                variation_context = combined_context + "\n\nIMPORTANT: Your previous responses were similar. Provide a different, varied response even if the user's message is similar." if combined_context else "IMPORTANT: Vary your response from previous ones."
+                response = self.generate_ai_response(effective_message, variation_context)
             
             # 8.2. Store the response to track repetition
             self._store_response(user_id, response)

@@ -10,6 +10,50 @@ so existing behavior remains intact. The new multi-model router consumes this fi
 """
 from __future__ import annotations
 from typing import Dict, List, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+# --- begin normalization helpers ---
+MODEL_NORMALIZATION: Dict[str, str] = {
+    # canonical -> provider ID (expand as needed)
+    "deepseek-r1": "deepseek/r1",
+    "deepseek-r1-distill": "deepseek/r1-distill-qwen-14b",
+    "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
+    "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct",
+    "llama-3.2-3b": "meta-llama/llama-3.2-3b-instruct",
+    "llama-3.1-405b": "meta-llama/llama-3.1-405b-instruct",
+    "qwen3-coder": "qwen/qwen-3-coder-480b-a35b",
+    "qwen/qwen3-32b": "qwen/qwen3-32b",
+    "gemini-2.0-flash": "google/gemini-2.0-flash-exp:free",
+    "gemini-2.5-pro": "google/gemini-2.5-pro-exp:free",
+    "mistral-nemo": "mistralai/mistral-nemo",
+    "llama-3.1-8b-instant": "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
+    "gemma2-9b-it": "gemma2-9b-it",
+    # legacy compatibility
+    "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet",
+    "claude-3-opus": "anthropic/claude-3-opus",
+    "claude-3-haiku": "anthropic/claude-3-haiku",
+    "gpt-4-turbo": "openai/gpt-4-turbo",
+    "gpt-4o": "openai/gpt-4o",
+    "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+    "mixtral-8x7b-openrouter": "mistralai/mixtral-8x7b-instruct",
+    "llama-3-70b-openrouter": "meta-llama/llama-3-70b-instruct",
+    "gemini-1.5-pro": "google/gemini-pro-1.5",
+    "gemini-1.5-flash": "google/gemini-flash-1.5",
+}
+
+def normalize_model_id(model_id: str) -> str:
+    """Normalize model ID to provider-ready format"""
+    if not model_id:
+        return model_id
+    key = model_id.strip().lower()
+    normalized = MODEL_NORMALIZATION.get(key, model_id)
+    if normalized != model_id:
+        logger.debug("Normalized model_id %s -> %s", model_id, normalized)
+    return normalized
+# --- end normalization helpers ---
 
 # Canonical model IDs used by the new router (updated with best available models)
 
@@ -244,12 +288,25 @@ RULE_KEYWORDS: List[Tuple[str, List[str], str]] = [
 
 
 def get_model_source(model_id: str) -> str:
-    return MODEL_SOURCES.get(model_id, "OpenRouter")
+    """Get model source with normalization"""
+    norm = normalize_model_id(model_id)
+    return MODEL_SOURCES.get(norm, MODEL_SOURCES.get(model_id, "OpenRouter"))
 
 
 def get_fallback_chain(primary_model: str) -> List[str]:
-    # default self-only chain
-    return FALLBACK_CHAINS.get(primary_model, [primary_model])
+    """Get normalized and deduplicated fallback chain"""
+    raw_chain = FALLBACK_CHAINS.get(primary_model, [primary_model])
+    seen = set()
+    out = []
+    for m in raw_chain:
+        norm = normalize_model_id(m)
+        if norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    # if out empty, fallback to SAFE_DEFAULT_MODEL normalized
+    if not out:
+        out = [normalize_model_id(SAFE_DEFAULT_MODEL)]
+    return out
 
 
 def get_rule_keywords() -> List[Tuple[str, List[str], str]]:
