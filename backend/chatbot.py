@@ -163,6 +163,9 @@ frontend_urls = [
     # Production frontend URLs
     "https://kuro-tau.vercel.app",
     "https://kuro-tau.vercel.app/",
+    # Add wildcard pattern for Vercel deployments
+    "https://kuro.vercel.app",
+    "https://kuro.vercel.app/",
 ]
 
 """
@@ -171,7 +174,7 @@ Allow dynamic CORS for Vercel preview deployments and custom domains:
 - FRONTEND_URL_PATTERN: optional substring to match (e.g., .vercel.app) for preview URLs
 """
 frontend_prod_url = os.getenv("FRONTEND_URL")
-frontend_url_pattern = os.getenv("FRONTEND_URL_PATTERN")
+frontend_url_pattern = os.getenv("FRONTEND_URL_PATTERN", ".vercel.app")  # Default pattern for Vercel
 if frontend_prod_url:
     frontend_urls.extend([
         frontend_prod_url,
@@ -184,16 +187,27 @@ async def cors_middleware(request: Request, call_next):
     """Handle CORS requests with manual headers for reliability"""
     origin = request.headers.get("origin")
     method = request.method
+    
+    # Debug logging for CORS issues
+    if origin:
+        logger.info(f"🌐 CORS request from origin: {origin}")
+        logger.info(f"📋 Allowed origins: {frontend_urls}")
+    
     # Precompute allow_origin for this request
     allow_origin = False
     if origin:
         if origin in frontend_urls:
             allow_origin = True
+            logger.info(f"✅ Origin allowed (exact match): {origin}")
         elif frontend_url_pattern and frontend_url_pattern in origin:
             allow_origin = True
+            logger.info(f"✅ Origin allowed (pattern match): {origin}")
+        else:
+            logger.warning(f"❌ Origin not allowed: {origin}")
 
     # Handle preflight OPTIONS requests
     if method == "OPTIONS":
+        logger.info(f"🔍 Handling OPTIONS preflight request from {origin}")
         response = Response(status_code=200)
         if allow_origin:
             response.headers["Access-Control-Allow-Origin"] = origin
@@ -201,6 +215,9 @@ async def cors_middleware(request: Request, call_next):
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
             response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
             response.headers["Access-Control-Max-Age"] = "86400"
+            logger.info(f"✅ CORS headers added for OPTIONS: {origin}")
+        else:
+            logger.warning(f"❌ CORS denied for OPTIONS: {origin}")
         return response
     
     response = await call_next(request)
