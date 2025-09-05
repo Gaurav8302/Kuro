@@ -13,6 +13,10 @@ export PYTHONDONTWRITEBYTECODE=1
 export MALLOC_TRIM_THRESHOLD_=100000
 export MALLOC_MMAP_THRESHOLD_=100000
 
+# Temporarily disable embeddings for faster startup
+# Can be enabled later by setting DISABLE_EMBEDDINGS=false
+export DISABLE_EMBEDDINGS=true
+
 # Ultra-minimal gunicorn configuration
 exec gunicorn chatbot:app \
     --bind 0.0.0.0:$PORT \
@@ -20,9 +24,11 @@ exec gunicorn chatbot:app \
     --worker-class uvicorn.workers.UvicornWorker \
     --max-requests 1000 \
     --max-requests-jitter 100 \
-    --timeout 180 \
+    --timeout 300 \
+    --graceful-timeout 120 \
     --keep-alive 30 \
     --worker-tmp-dir /dev/shm \
     --log-level info \
     --access-logfile - \
-    --error-logfile -
+    --error-logfile - \
+    --preload

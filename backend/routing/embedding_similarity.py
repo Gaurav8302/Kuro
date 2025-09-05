@@ -24,19 +24,29 @@ class EmbeddingSimilarity:
         self._lock = threading.Lock()
         self._initialization_attempted = False
         
-        # Initialize model in background to avoid blocking startup
-        self._initialize_model()
+        # Don't initialize model at startup - wait until first use
+        # This prevents blocking the startup process
     
     def _initialize_model(self):
-        """Initialize sentence transformer model with error handling."""
+        """Initialize sentence transformer model with error handling and timeout."""
         if self._initialization_attempted:
             return
             
         self._initialization_attempted = True
         
         try:
+            # Skip initialization in production if disabled
+            if os.getenv('DISABLE_EMBEDDINGS', 'false').lower() == 'true':
+                logger.info("🚫 Embeddings disabled by environment variable")
+                self.model = None
+                return
+            
             # Only import when actually needed to avoid startup delays
             from sentence_transformers import SentenceTransformer
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError("Model loading timeout")
             
             # Use CPU to keep memory usage low for free tier deployments
             device = 'cpu'
@@ -44,8 +54,20 @@ class EmbeddingSimilarity:
                 device = os.getenv('EMBEDDING_DEVICE')
             
             logger.info(f"Loading embedding model {self.model_name} on device: {device}")
-            self.model = SentenceTransformer(self.model_name, device=device)
-            logger.info("✅ Embedding model loaded successfully")
+            
+            # Set a timeout for model loading (10 seconds max)
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(10)
+            
+            try:
+                self.model = SentenceTransformer(self.model_name, device=device)
+                signal.alarm(0)  # Cancel timeout
+                logger.info("✅ Embedding model loaded successfully")
+            except TimeoutError:
+                logger.warning("⚠️ Model loading timeout, falling back to regex-only routing")
+                self.model = None
+            finally:
+                signal.signal(signal.SIGALRM, old_handler)
             
         except ImportError:
             logger.warning("⚠️ sentence-transformers not available, semantic similarity disabled")
@@ -56,7 +78,13 @@ class EmbeddingSimilarity:
     
     @lru_cache(maxsize=1024)
     def get_embedding(self, text: str) -> Optional[np.ndarray]:
-        """Get embedding for text with caching."""
+        """Get embedding for text with caching and lazy model loading."""
+        # Initialize model on first use if not already attempted
+        if not self._initialization_attempted:
+            with self._lock:
+                if not self._initialization_attempted:
+                    self._initialize_model()
+        
         if not self.model:
             return None
         
