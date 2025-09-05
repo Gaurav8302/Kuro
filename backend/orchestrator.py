@@ -273,14 +273,28 @@ async def orchestrate(user_query: str, session_meta: Optional[Dict[str, Any]] = 
             context_note += "]"
             enhanced_query = user_query + context_note
         
-        # Call OpenRouter model
-        raw_response = await client._call_openrouter(selected_model, enhanced_query)
+        # Call OpenRouter model with timeout
+        try:
+            raw_response = await asyncio.wait_for(
+                client._call_openrouter(selected_model, enhanced_query),
+                timeout=25.0  # Slightly less than the httpx timeout to allow proper error handling
+            )
+            logger.debug(f"🔄 Raw orchestration response length: {len(raw_response)} chars")
+        except asyncio.TimeoutError:
+            logger.error(f"❌ Orchestration timeout after 25s with model {selected_model}")
+            raise Exception("Orchestration request timed out")
         
         # Parse JSON safely
         orchestration_result = _parse_json_safe(raw_response)
         
+        # Validate confidence range
+        confidence = orchestration_result.get("confidence", 0.0)
+        if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+            logger.warning(f"⚠️ Invalid confidence value {confidence}, clamping to [0,1]")
+            orchestration_result["confidence"] = max(0.0, min(1.0, float(confidence) if confidence else 0.0))
+        
         # Log successful orchestration
-        logger.info(f"✅ Orchestration completed: task={orchestration_result['task']}, confidence={orchestration_result['confidence']}")
+        logger.info(f"✅ Orchestration completed: task={orchestration_result['task']}, confidence={orchestration_result['confidence']:.2f}")
         
         return orchestration_result
         
@@ -312,13 +326,43 @@ def orchestrate_sync(user_query: str, session_meta: Optional[Dict[str, Any]] = N
         Dict[str, Any]: Orchestration result
     """
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        # No event loop running, create a new one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    return loop.run_until_complete(orchestrate(user_query, session_meta))
+        # Check if we're already in an async context
+        try:
+            asyncio.get_running_loop()
+            logger.warning("⚠️ orchestrate_sync called from async context - this may cause deadlocks")
+            # Return low-confidence fallback to avoid deadlock
+            return {
+                "task": "other",
+                "input": user_query,
+                "expanded_prompt": user_query,
+                "instructions": ["process user query directly"],
+                "tools": [],
+                "expected_response_format": "text",
+                "confidence": 0.0,
+                "error": "sync_in_async_context"
+            }
+        except RuntimeError:
+            # Not in an async context, safe to use run_until_complete
+            logger.debug("🔄 Running orchestration in new event loop")
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(orchestrate(user_query, session_meta))
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+    except Exception as e:
+        logger.error(f"❌ Sync orchestration failed: {str(e)}")
+        return {
+            "task": "other",
+            "input": user_query,
+            "expanded_prompt": user_query,
+            "instructions": ["process user query directly"],
+            "tools": [],
+            "expected_response_format": "text",
+            "confidence": 0.0,
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     # Simple test

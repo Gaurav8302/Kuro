@@ -259,12 +259,21 @@ const Chat = () => {
       });
       
       // Show intro animation after name setup is complete
-      setTimeout(() => {
+      const introTimeout1 = setTimeout(() => {
         if (!showFirstTimeIntro) {
           setShowFirstTimeIntro(true);
-          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+          const introTimeout2 = setTimeout(() => setShowFirstTimeIntro(false), 7000);
+          // Store timeout reference for potential cleanup
+          return () => {
+            clearTimeout(introTimeout2);
+          };
         }
       }, 500);
+      
+      // Store timeout for cleanup if needed
+      return () => {
+        clearTimeout(introTimeout1);
+      };
     } catch (error) {
       console.error('Error setting name:', error);
       setShowNameModal(false); // Close modal even if error to avoid blocking user

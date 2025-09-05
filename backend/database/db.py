@@ -11,10 +11,12 @@ Features:
 - Connection testing and validation
 """
 
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import os
 import logging
+import threading
+from typing import Optional
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -29,56 +31,80 @@ DATABASE_NAME = "chatbot_db"
 
 class DatabaseConnection:
     """
-    MongoDB database connection manager
+    Fork-safe MongoDB database connection manager
     
-    This class provides a singleton pattern for database connections
-    and includes connection validation and error handling.
+    This class provides lazy initialization and per-process connections
+    to avoid PyMongo fork safety issues with Gunicorn workers.
     """
     
-    _instance = None
-    _client = None
+    _instances = {}  # Per-process instances
+    _lock = threading.RLock()
     
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(DatabaseConnection, cls).__new__(cls)
-        return cls._instance
-    
-    def __init__(self):
-        if self._client is None:
-            self._connect()
+        # Use process ID to ensure per-process connections
+        import os
+        pid = os.getpid()
+        
+        with cls._lock:
+            if pid not in cls._instances:
+                cls._instances[pid] = super(DatabaseConnection, cls).__new__(cls)
+                cls._instances[pid]._client = None
+                cls._instances[pid]._initialized = False
+                logger.debug("🔧 Created new DatabaseConnection for PID %s", pid)
+            
+            return cls._instances[pid]
     
     def _connect(self):
-        """Establish connection to MongoDB"""
+        """Establish connection to MongoDB with fork safety"""
+        if self._initialized and self._client is not None:
+            # Test existing connection
+            try:
+                self._client.admin.command('ping')
+                return  # Connection still valid
+            except Exception:
+                logger.warning("🔄 Existing connection failed, reconnecting...")
+                self._client = None
+        
         try:
+            logger.info("🔌 Connecting to MongoDB (PID: %s)...", os.getpid())
             self._client = MongoClient(
                 MONGO_URI,
                 serverSelectionTimeoutMS=5000,  # 5 second timeout
                 connectTimeoutMS=10000,         # 10 second connection timeout
                 socketTimeoutMS=20000,          # 20 second socket timeout
+                maxPoolSize=10,                 # Connection pool size
+                minPoolSize=1,
+                maxIdleTimeMS=45000,           # Close connections after 45s idle
             )
             
             # Test the connection
             self._client.admin.command('ping')
-            logger.info("✅ Successfully connected to MongoDB")
+            self._initialized = True
+            logger.info("✅ Successfully connected to MongoDB (PID: %s)", os.getpid())
             
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            logger.error(f"❌ Failed to connect to MongoDB: {str(e)}")
+            logger.error("❌ Failed to connect to MongoDB (PID: %s): %s", os.getpid(), str(e))
+            self._client = None
+            self._initialized = False
             raise ConnectionError(f"Database connection failed: {str(e)}")
         
         except Exception as e:
-            logger.error(f"❌ Unexpected database error: {str(e)}")
+            logger.error("❌ Unexpected database error (PID: %s): %s", os.getpid(), str(e))
+            self._client = None
+            self._initialized = False
             raise
     
     @property
     def client(self):
-        """Get the MongoDB client"""
-        if self._client is None:
-            self._connect()
-        return self._client
+        """Get the MongoDB client with lazy initialization"""
+        with self._lock:
+            if not self._initialized or self._client is None:
+                self._connect()
+            return self._client
     
     @property
     def database(self):
-        """Get the main database"""
+        """Get the main database with lazy initialization"""
         return self.client[DATABASE_NAME]
     
     def test_connection(self):
@@ -87,15 +113,35 @@ class DatabaseConnection:
             self.client.admin.command('ping')
             return True
         except Exception as e:
-            logger.error(f"Database connection test failed: {str(e)}")
+            logger.error("Database connection test failed: %s", str(e))
             return False
     
     def close_connection(self):
         """Close the database connection"""
-        if self._client:
-            self._client.close()
-            self._client = None
-            logger.info("Database connection closed")
+        with self._lock:
+            if self._client:
+                self._client.close()
+                self._client = None
+                self._initialized = False
+                logger.info("Database connection closed (PID: %s)", os.getpid())
+
+# Lazy connection functions for global use
+_db_connection: Optional[DatabaseConnection] = None
+
+def get_database_connection() -> DatabaseConnection:
+    """Get database connection with proper fork safety"""
+    global _db_connection
+    if _db_connection is None:
+        _db_connection = DatabaseConnection()
+    return _db_connection
+
+def get_client():
+    """Get MongoDB client with lazy initialization"""
+    return get_database_connection().client
+
+def get_database():
+    """Get main database with lazy initialization"""
+    return get_database_connection().database
 
 # Create a global database connection instance
 if os.getenv("DISABLE_MEMORY_INIT") == "1":
@@ -243,22 +289,71 @@ if os.getenv("DISABLE_MEMORY_INIT") == "1":
 
     database = InMemoryDatabase(DATABASE_NAME)
     client = _DummyClient(DATABASE_NAME)
+    
+    def get_chat_collection():
+        return database["chat_sessions"]
+    
+    def get_session_titles_collection():
+        return database["session_titles"]
+    
+    def get_users_collection():
+        return database["users"]
+    
+    def get_conversation_summaries_collection():
+        return database["conversation_summaries"]
+        
+    # Legacy exports for compatibility
     chat_collection = database["chat_sessions"]
     session_titles_collection = database["session_titles"]
     users_collection = database["users"]
     conversation_summaries_collection = database["conversation_summaries"]
 else:
-    db_connection = DatabaseConnection()
-    # Export the client and database for easy importing
-    client = db_connection.client
-    database = db_connection.database
+    # Production: use lazy initialization to avoid fork issues
+    def get_chat_collection():
+        return get_database()["chat_sessions"]
+    
+    def get_session_titles_collection():
+        return get_database()["session_titles"]
+    
+    def get_users_collection():
+        return get_database()["users"]
+    
+    def get_conversation_summaries_collection():
+        return get_database()["conversation_summaries"]
 
-# Collection shortcuts for common use
-chat_collection = database["chat_sessions"]
-session_titles_collection = database["session_titles"]
-users_collection = database["users"]
-# Progressive summarization collection
-conversation_summaries_collection = database["conversation_summaries"]
+# Legacy exports for backward compatibility (lazy initialization)
+@property
+def chat_collection():
+    return get_chat_collection()
+
+@property  
+def session_titles_collection():
+    return get_session_titles_collection()
+
+@property
+def users_collection():
+    return get_users_collection()
+
+@property
+def conversation_summaries_collection():
+    return get_conversation_summaries_collection()
+
+# For modules that access these as properties, create lazy property objects
+class LazyCollection:
+    def __init__(self, collection_getter):
+        self._getter = collection_getter
+    
+    def __getattr__(self, name):
+        return getattr(self._getter(), name)
+    
+    def __call__(self, *args, **kwargs):
+        return self._getter()(*args, **kwargs)
+
+# Create lazy collection instances
+chat_collection = LazyCollection(get_chat_collection)
+session_titles_collection = LazyCollection(get_session_titles_collection) 
+users_collection = LazyCollection(get_users_collection)
+conversation_summaries_collection = LazyCollection(get_conversation_summaries_collection)
 
 def get_database():
     """

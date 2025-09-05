@@ -18,6 +18,10 @@ load_dotenv()
 
 import os
 import logging
+import signal
+import sys
+import atexit
+from contextlib import asynccontextmanager
 
 # Validate critical environment variables on startup
 required_env_vars = ["GROQ_API_KEY", "GEMINI_API_KEY", "PINECONE_API_KEY", "MONGODB_URI"]
@@ -70,6 +74,48 @@ app = FastAPI(
     docs_url="/docs" if DEBUG else None,  # Hide docs in production
     redoc_url="/redoc" if DEBUG else None  # Hide redoc in production
 )
+
+# --- Graceful Shutdown Handling ---
+_shutdown_handlers = []
+
+def register_shutdown_handler(handler):
+    """Register a function to be called during shutdown"""
+    _shutdown_handlers.append(handler)
+
+def graceful_shutdown(signum=None, frame=None):
+    """Handle graceful shutdown"""
+    logger.info(f"🛑 Graceful shutdown initiated (signal: {signum})")
+    
+    # Call all registered shutdown handlers
+    for handler in _shutdown_handlers:
+        try:
+            handler()
+        except Exception as e:
+            logger.error(f"❌ Shutdown handler error: {e}")
+    
+    # Close database connections
+    try:
+        from database.db import get_database_connection
+        db_conn = get_database_connection()
+        db_conn.close_connection()
+        logger.info("✅ Database connections closed")
+    except Exception as e:
+        logger.error(f"❌ Database cleanup error: {e}")
+    
+    logger.info("👋 Shutdown complete")
+
+# Register signal handlers for graceful shutdown
+def setup_signal_handlers():
+    """Setup signal handlers for graceful shutdown"""
+    try:
+        signal.signal(signal.SIGTERM, graceful_shutdown)
+        signal.signal(signal.SIGINT, graceful_shutdown)
+        atexit.register(lambda: graceful_shutdown(signum="ATEXIT"))
+        logger.info("✅ Signal handlers registered")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not register signal handlers: {e}")
+
+setup_signal_handlers()
 
 # Fast startup signal
 @app.on_event("startup")

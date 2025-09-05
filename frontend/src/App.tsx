@@ -51,24 +51,58 @@ const App = () => {
       return;
     }
 
-    console.log('🚀 Starting auto-warm ping for production backend');
+    console.log('🚀 Starting enhanced auto-warm ping for production backend');
+    
+    let pingAttempts = 0;
+    const maxPingAttempts = 3;
+    
+    const sendPing = async (reason: string) => {
+      try {
+        const response = await fetch(`${apiUrl}/ping`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+        
+        if (response.ok) {
+          console.log(`🔥 ${reason} ping successful (attempt ${pingAttempts + 1})`);
+          pingAttempts = 0; // Reset attempts on success
+          return true;
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      } catch (error) {
+        pingAttempts++;
+        console.warn(`⚠️ ${reason} ping failed (attempt ${pingAttempts}):`, error);
+        
+        // If all attempts failed, try one more time after a delay
+        if (pingAttempts >= maxPingAttempts) {
+          console.error('💥 All ping attempts failed - backend may be sleeping');
+          pingAttempts = 0; // Reset for next interval
+        }
+        return false;
+      }
+    };
     
     // Ping immediately on load
-    fetch(`${apiUrl}/ping`)
-      .then(() => console.log('✅ Initial ping sent to backend'))
-      .catch(() => console.warn('⚠️ Initial ping failed'));
+    sendPing('Initial');
 
-    // Set up interval to ping every 4.5 minutes
-    const interval = setInterval(() => {
-      fetch(`${apiUrl}/ping`)
-        .then(() => console.log('🔥 Auto-warm ping sent to keep backend awake'))
-        .catch(() => console.warn('⚠️ Auto-warm ping failed – backend might be sleeping'));
-    }, 1000 * 60 * 4.5); // 270,000ms = 4.5 minutes
+    // Set up multiple ping intervals for better reliability
+    const primaryInterval = setInterval(() => {
+      sendPing('Primary auto-warm');
+    }, 1000 * 60 * 4); // 4 minutes (more frequent)
 
-    // Cleanup interval on unmount
+    // Secondary ping every 10 minutes as backup
+    const secondaryInterval = setInterval(() => {
+      sendPing('Secondary backup');
+    }, 1000 * 60 * 10); // 10 minutes
+
+    // Cleanup intervals on unmount
     return () => {
-      console.log('🧹 Cleaning up auto-warm ping interval');
-      clearInterval(interval);
+      console.log('🧹 Cleaning up auto-warm ping intervals');
+      clearInterval(primaryInterval);
+      clearInterval(secondaryInterval);
     };
   }, []);
 

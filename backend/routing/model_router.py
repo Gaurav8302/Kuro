@@ -67,45 +67,93 @@ def route_model(message: str, context_tokens: int, intents: Optional[Set[str]] =
     if intent and not intents:
         intents = {intent}
     
-    # Forced override with normalization
+    # Forced override with normalization and validation
     if forced_model:
         forced_norm = normalize_model_id(forced_model)
         if forced_norm != forced_model:
             logger.debug("Normalized forced_model %s -> %s", forced_model, forced_norm)
-        if get_model(forced_norm):
-            return {"model_id": forced_norm, "rule": "forced_override"}
+        try:
+            model_config = get_model(forced_norm)
+            if model_config:
+                logger.debug("Using forced model: %s", forced_norm)
+                return {"model_id": forced_norm, "rule": "forced_override"}
+            else:
+                logger.warning("Forced model %s not found in registry, falling back to routing", forced_norm)
+        except Exception as e:
+            logger.warning("Error validating forced model %s: %s, falling back to routing", forced_norm, str(e))
 
+    # Rule evaluation with error handling
     first_intent = None
     if intents:
         sorted_intents = sorted(intents)
         first_intent = sorted_intents[0]
+        logger.debug("Processing intents: %s (primary: %s)", sorted_intents, first_intent)
+    
     vars = {"context_tokens": context_tokens, "message_len_chars": len(message)}
-    rules = get_routing_rules()
+    
+    try:
+        rules = get_routing_rules()
+        logger.debug("Evaluating %d routing rules", len(rules))
+    except Exception as e:
+        logger.error("Failed to load routing rules: %s", str(e))
+        return {"model_id": SAFE_DEFAULT, "rule": "rules_load_error"}
+    
     for rule in rules:
-        r_intent = rule.get("intent")
-        chosen = rule.get("choose", SAFE_DEFAULT)
-        chosen_norm = normalize_model_id(chosen)
-        if r_intent and first_intent and r_intent == first_intent:
-            return {"model_id": chosen_norm, "rule": rule.get("name", "intent_match")}
-        cond = rule.get("condition")
-        if cond and _eval_condition(cond, vars):
-            return {"model_id": chosen_norm, "rule": rule.get("name", "condition_match")}
+        try:
+            r_intent = rule.get("intent")
+            chosen = rule.get("choose", SAFE_DEFAULT)
+            chosen_norm = normalize_model_id(chosen)
+            
+            if chosen_norm != chosen:
+                logger.debug("Normalized rule model %s -> %s", chosen, chosen_norm)
+            
+            # Intent-based matching
+            if r_intent and first_intent and r_intent == first_intent:
+                logger.debug("Intent match: %s -> %s", r_intent, chosen_norm)
+                return {"model_id": chosen_norm, "rule": rule.get("name", "intent_match")}
+            
+            # Condition-based matching
+            cond = rule.get("condition")
+            if cond and _eval_condition(cond, vars):
+                logger.debug("Condition match: %s -> %s", cond, chosen_norm)
+                return {"model_id": chosen_norm, "rule": rule.get("name", "condition_match")}
+                
+        except Exception as e:
+            logger.warning("Error evaluating rule %s: %s", rule.get("name", "unnamed"), str(e))
+            continue
     
-    # Score based selection
-    models = list_models()
-    if not models:
-        return {"model_id": SAFE_DEFAULT, "rule": "unavailable_registry"}
-    best = None
-    best_score = -1e9
-    for m in models:
-        s = _score_model(m, intents or {"casual_chat"}, context_tokens)
-        if s > best_score:
-            best = m
-            best_score = s
-    if best:
-        best_id = normalize_model_id(best["id"])
-        return {"model_id": best_id, "rule": "scored_selection", "score": best_score}
+    # Score-based selection with error handling
+    try:
+        models = list_models()
+        if not models:
+            logger.warning("No models available in registry, using safe default")
+            return {"model_id": SAFE_DEFAULT, "rule": "unavailable_registry"}
+        
+        logger.debug("Scoring %d available models", len(models))
+        best = None
+        best_score = -1e9
+        
+        for m in models:
+            try:
+                s = _score_model(m, intents or {"casual_chat"}, context_tokens)
+                if s > best_score:
+                    best = m
+                    best_score = s
+            except Exception as e:
+                logger.warning("Error scoring model %s: %s", m.get("id", "unknown"), str(e))
+                continue
+                
+        if best:
+            best_id = normalize_model_id(best["id"])
+            if best_id != best["id"]:
+                logger.debug("Normalized scored model %s -> %s", best["id"], best_id)
+            logger.debug("Selected model %s with score %.2f", best_id, best_score)
+            return {"model_id": best_id, "rule": "scored_selection", "score": best_score}
     
+    except Exception as e:
+        logger.error("Error during model scoring: %s", str(e))
+    
+    logger.debug("Falling back to safe default: %s", SAFE_DEFAULT)
     return {"model_id": SAFE_DEFAULT, "rule": "final_default"}
 
 __all__ = ["route_model"]

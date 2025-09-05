@@ -517,15 +517,29 @@ Instructions for responding:
                         "user_name": user_name
                     }
                     
-                    # Run orchestration asynchronously
+                    # Run orchestration with proper async handling
                     import asyncio
                     try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    
-                    orchestration_result = loop.run_until_complete(orchestrate(message, session_meta))
+                        # Check if we're already in an async context
+                        try:
+                            # This will raise RuntimeError if no event loop is running
+                            asyncio.get_running_loop()
+                            # If we reach here, we're in an async context - don't use run_until_complete
+                            logger.warning("⚠️ Orchestration called from async context - skipping to avoid deadlock")
+                            orchestration_result = None
+                        except RuntimeError:
+                            # Not in an async context, safe to use run_until_complete
+                            logger.debug("🔄 Running orchestration in new event loop")
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                orchestration_result = loop.run_until_complete(orchestrate(message, session_meta))
+                            finally:
+                                loop.close()
+                                asyncio.set_event_loop(None)
+                    except Exception as orch_err:
+                        logger.warning(f"⚠️ Orchestration setup failed: {str(orch_err)}")
+                        orchestration_result = None
                     
                     if orchestration_result and orchestration_result.get("confidence", 0) > 0.1:
                         enhanced_message = orchestration_result.get("expanded_prompt", message)

@@ -13,6 +13,7 @@ import asyncio
 import re
 import time
 import logging
+import threading
 from typing import Dict, Any, List, Optional, Tuple
 
 from config.model_config import (
@@ -26,7 +27,8 @@ from observability.instrumentation_middleware import update_llm_call
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory caches
+# Thread-safe in-memory caches with locks
+_cache_lock = threading.RLock()
 _route_cache: Dict[str, Tuple[str, float]] = {}
 _last_model_per_session: Dict[str, str] = {}
 _CACHE_TTL = 300.0  # seconds
@@ -66,25 +68,34 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
     # Cache by normalized query fragment to avoid repeated detection
     key = query.strip().lower()[:128]
     now = _now()
-    if key in _route_cache:
-        model, ts = _route_cache[key]
-        if now - ts < _CACHE_TTL:
-            model = normalize_model_id(model)
-            return {
-                "chosen_model": model,
-                "source": get_model_source(model),
-                "reason": "cache_hit",
-                "confidence": 0.95,
-                "fallback_used": False,
-            }
-        else:
-            _route_cache.pop(key, None)
+    
+    # Thread-safe cache access
+    with _cache_lock:
+        if key in _route_cache:
+            model, ts = _route_cache[key]
+            if now - ts < _CACHE_TTL:
+                model = normalize_model_id(model)
+                logger.debug("🔄 Cache hit for query fragment: %s -> %s", key[:50], model)
+                return {
+                    "chosen_model": model,
+                    "source": get_model_source(model),
+                    "reason": "cache_hit",
+                    "confidence": 0.95,
+                    "fallback_used": False,
+                }
+            else:
+                _route_cache.pop(key, None)
+                logger.debug("🗑️ Expired cache entry removed for query: %s", key[:50])
 
     # Stage A: rule-based
     rb_model, rb_conf, rb_reason = rule_based_router(query)
     if rb_model and rb_conf >= 0.8:
         rb_model_norm = normalize_model_id(rb_model)
-        _route_cache[key] = (rb_model_norm, now)
+        
+        with _cache_lock:
+            _route_cache[key] = (rb_model_norm, now)
+        
+        logger.debug("✅ Rule-based selection: %s (confidence: %.2f)", rb_model_norm, rb_conf)
         return {
             "chosen_model": rb_model_norm,
             "source": get_model_source(rb_model_norm),
@@ -98,6 +109,7 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
         model, conf, reason = await asyncio.wait_for(llm_router(query, history, system), timeout=5.0)
     except asyncio.TimeoutError:
         model, conf, reason = CLAUDE_SONNET, 0.6, "router_timeout_default_claude"
+        logger.warning("⏰ LLM router timeout, using Claude Sonnet default")
 
     # Normalize the model from LLM router
     model = normalize_model_id(model)
@@ -107,16 +119,22 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
         model = normalize_model_id(CLAUDE_SONNET)
         reason = f"low_conf_default:{reason}"
         conf = 0.6
+        logger.debug("🔻 Low confidence, defaulting to Claude Sonnet")
 
-    # Sticky last model per session for stability
+    # Sticky last model per session for stability (thread-safe)
     if session_id:
-        last = _last_model_per_session.get(session_id)
-        if last and last == model:
-            reason += ":sticky_session"
-            conf = max(conf, 0.7)
-        _last_model_per_session[session_id] = model
+        with _cache_lock:
+            last = _last_model_per_session.get(session_id)
+            if last and last == model:
+                reason += ":sticky_session"
+                conf = max(conf, 0.7)
+                logger.debug("📌 Sticky session model: %s", model)
+            _last_model_per_session[session_id] = model
 
-    _route_cache[key] = (model, now)
+    # Update cache thread-safely
+    with _cache_lock:
+        _route_cache[key] = (model, now)
+
     result = {
         "chosen_model": model,
         "source": get_model_source(model),
@@ -136,30 +154,46 @@ async def get_best_model(query: str, session_id: Optional[str] = None, history: 
 
 
 async def execute_with_fallbacks(model_chain: List[str], query: str, system: Optional[str] = None) -> Tuple[str, str, bool]:
-    # This function is provider-agnostic; actual execution should be integrated with provider clients.
-    # Here we simulate execution by raising to trigger fallback only if model id contains "fail:" prefix.
-    # Replace with real execution wiring in orchestrator.
+    """Execute query with fallback chain, returning (response, used_model, fallback_used)."""
+    logger.debug("🔄 Starting fallback execution chain: %s", model_chain)
+    
     last_err: Optional[Exception] = None
     for idx, model in enumerate(model_chain):
         try:
+            # Normalize model ID for consistency
+            model = normalize_model_id(model)
+            logger.debug("🎯 Trying model %d/%d: %s", idx + 1, len(model_chain), model)
+            
             if model.startswith("fail:"):
                 raise RuntimeError("simulated failure")
+            
             # Minimal placeholder response
             reply = f"[model:{model}] OK"
+            
+            # Log fallback usage if not the first model
             if idx > 0:
+                logger.warning("⚠️ Fallback used: model %d succeeded (%s)", idx + 1, model)
                 try:
                     await update_llm_call({
                         "fallback_hop": idx,
                         "model_selected": model,
                     })
-                except Exception:
-                    pass
+                except Exception as telemetry_err:
+                    logger.error("❌ Telemetry error: %s", telemetry_err)
+            else:
+                logger.debug("✅ Primary model succeeded: %s", model)
+            
             return reply, model, idx > 0
+            
         except Exception as e:
             last_err = e
+            logger.warning("❌ Model %s failed: %s", model, e)
             continue
-    # All failed
-    raise RuntimeError(f"All models failed; last_error={last_err}")
+    
+    # All models failed
+    error_msg = f"All {len(model_chain)} models failed; last_error={last_err}"
+    logger.error("💥 %s", error_msg)
+    raise RuntimeError(error_msg)
 
 
 def build_fallback_chain(primary_model: str) -> List[str]:
