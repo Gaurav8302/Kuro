@@ -32,10 +32,13 @@ class ChatDatabase:
     def __init__(self):
         self.chat_collection = chat_collection
         self.session_titles = session_titles_collection
-        self._ensure_indexes()
+        self._indexes_ensured = False
 
     def _ensure_indexes(self):
         """Ensure all necessary indexes exist for optimal performance"""
+        if self._indexes_ensured:
+            return
+            
         try:
             # Indexes for chat collection
             self.chat_collection.create_index([("session_id", 1), ("timestamp", 1)])
@@ -49,6 +52,7 @@ class ChatDatabase:
             self.session_titles.create_index([("user_id", 1), ("created_at", -1)])
             self.session_titles.create_index("session_id", unique=True)
             
+            self._indexes_ensured = True
             logger.info("Database indexes verified")
         except Exception as e:
             logger.error(f"Error ensuring indexes: {str(e)}")
@@ -93,6 +97,9 @@ class ChatDatabase:
             logger.error(f"Error updating session metadata: {str(e)}")
 
     def save_chat_to_db(self, user_id: str, message: str, reply: str, session_id: Optional[str] = None) -> str:
+        # Ensure indexes are created (lazy initialization)
+        self._ensure_indexes()
+        
         try:
             if not session_id:
                 session_id = f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
