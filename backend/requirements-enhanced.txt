@@ -1,0 +1,14 @@
+# Enhanced Requirements - Use this when enabling embeddings
+# These packages are large and may cause build timeouts on free tier
+
+# Embedding Models for Smart Routing
+sentence-transformers>=3.0.0
+torch>=2.0.0
+
+# Additional ML libraries for advanced features
+scikit-learn>=1.3.0
+
+# Instructions:
+# 1. First deploy with requirements.txt (minimal)
+# 2. Once stable, add these dependencies to requirements.txt
+# 3. Set DISABLE_EMBEDDINGS=false in Render environment
