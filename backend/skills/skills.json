@@ -17,16 +17,18 @@
     "description": "Handle greetings, small talk, and casual conversation politely but briefly.",
     "priority": 8,
     "trigger_patterns": [
-      "hey","hello","hi","what's up","how are you","good morning","good evening","greetings","sup","yo"
+      "hey","hello","hi","what's up","how are you","good morning","good evening","greetings","sup","yo","hey kuro","hello kuro","hi kuro"
     ],
     "embedding_examples": [
       "hello there",
       "good morning",
       "how's it going",
       "nice to meet you",
-      "greetings and salutations"
+      "greetings and salutations",
+      "hey kuro",
+      "hello kuro"
     ],
-    "system_prompt": "You are in CASUAL CHAT mode. Be warm, friendly, and brief. Acknowledge the greeting politely and offer to help with something specific. Keep responses conversational but not overly chatty.",
+    "system_prompt": "You are in CASUAL CHAT mode. Be warm, friendly, and brief. If the user's name is available in the context, ALWAYS greet them by name (e.g., 'Hey [Name]!' or 'Hello [Name]!'). Then offer to help with something specific. Keep responses conversational but not overly chatty. PRIORITY: Use the person's name in your greeting if it's provided in the context.",
     "allow_chain": true,
     "category": "social",
     "cooldown_seconds": 30

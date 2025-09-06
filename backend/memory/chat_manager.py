@@ -494,7 +494,37 @@ Instructions for responding:
                 
                 return response
             
-            # 3. Forget intent (explicit user request)
+            # 3. Handle simple greetings with personalized response
+            simple_greeting_patterns = [
+                r'^\s*(hey|hello|hi)\s*(kuro)?\s*$',
+                r'^\s*(good\s+(morning|afternoon|evening))\s*(kuro)?\s*$',
+                r'^\s*(what\'?s\s+up|sup)\s*(kuro)?\s*$'
+            ]
+            
+            message_clean = message.lower().strip()
+            is_simple_greeting = any(re.match(pattern, message_clean, re.IGNORECASE) for pattern in simple_greeting_patterns)
+            
+            if is_simple_greeting and user_name and user_name != "there":
+                # Generate personalized greeting response
+                greeting_responses = [
+                    f"Hey {user_name}! How can I help you today?",
+                    f"Hello {user_name}! What's on your mind?",
+                    f"Hi {user_name}! What can I do for you?",
+                    f"Hey there {user_name}! How are you doing?",
+                    f"Hello {user_name}! Good to see you again!"
+                ]
+                
+                # Use a simple hash to pick a consistent but varied response
+                response_index = hash(f"{user_id}_{session_id}_{message}") % len(greeting_responses)
+                response = greeting_responses[response_index]
+                
+                # Store the greeting exchange
+                self._store_chat_memory(user_id, message, response, session_id)
+                save_chat_to_db(user_id, message, response, session_id)
+                
+                return response
+
+            # 4. Forget intent (explicit user request)
             forget_target = detect_forget_intent(message)
             if forget_target:
                 result = forget_correction(user_id, forget_target)
@@ -504,7 +534,7 @@ Instructions for responding:
                     return "I didn't find anything matching to forget."  # early return
                 # fallthrough on error to normal handling
 
-            # 3.5. Orchestrator Integration - analyze and expand the user query
+            # 5. Orchestrator Integration - analyze and expand the user query
             orchestration_result = None
             enhanced_message = message  # Default to original message
             task_type = "other"  # Default task type
@@ -564,7 +594,7 @@ Instructions for responding:
             else:
                 logger.debug("🔄 Orchestrator not available, using original message")
 
-            # 4. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
+            # 6. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
             relevant_memories = []
             rag_context = None
             recall_context_text = None
@@ -625,7 +655,7 @@ Instructions for responding:
                 except Exception:
                     relevant_memories = []
             
-            # 5. Get recent session history for context (increased window for better memory)
+            # 7. Get recent session history for context (increased window for better memory)
             session_history = None
             if session_id:
                 try:
@@ -644,14 +674,14 @@ Instructions for responding:
             except Exception as e:
                 logger.debug(f"Rolling memory context unavailable: {e}")
 
-            # 6. Retrieve relevant user corrections (pseudo-learning)
+            # 8. Retrieve relevant user corrections (pseudo-learning)
             corrections = []
             try:
                 corrections = retrieve_relevant_corrections(user_id, message, top_k=3)
             except Exception as e:
                 logger.debug(f"Correction retrieval failed: {e}")
             
-            # 7. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
+            # 9. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
             context_parts = []
             
             # Add recent session context (but avoid repetitive patterns)
@@ -701,18 +731,18 @@ Instructions for responding:
                 context_parts.append("Corrections: " + " | ".join(corr_lines))
             
             # Only add user name if it's contextually relevant and not repetitive
-            if user_name and (
-                "name" in message.lower() or 
-                any(greeting in message.lower() for greeting in ["hello", "hi", "hey"]) or
-                (not session_history or len(session_history) <= 1)  # First message in session
-            ):
-                context_parts.append(f"User: {user_name}")
+            if user_name and user_name != "there":
+                # Always include name for greetings, also for other cases as before
+                if (any(greeting in message.lower() for greeting in ["hello", "hi", "hey", "good morning", "good evening", "greetings"]) or
+                    "name" in message.lower() or 
+                    (not session_history or len(session_history) <= 1)):  # First message in session
+                    context_parts.append(f"User: {user_name}")
             
             # Remove the explicit recall instruction that causes repetitive responses
             # The AI should respond naturally based on the context provided
             context = " | ".join(context_parts) if context_parts else None
             
-            # 8. Generate response using Kuro system with orchestrator enhancement
+            # 10. Generate response using Kuro system with orchestrator enhancement
             # Use enhanced message from orchestrator if available, otherwise use original
             effective_message = enhanced_message if orchestration_result and orchestration_result.get("confidence", 0) > 0.1 else message
             
@@ -728,20 +758,20 @@ Instructions for responding:
             
             response = self.generate_ai_response(effective_message, combined_context)
             
-            # 8.1. Check for repetition and regenerate if needed
+            # 10.1. Check for repetition and regenerate if needed
             if self._check_response_repetition(user_id, response):
                 logger.info("Detected repetitive response, regenerating with variation prompt...")
                 variation_context = combined_context + "\n\nIMPORTANT: Your previous responses were similar. Provide a different, varied response even if the user's message is similar." if combined_context else "IMPORTANT: Vary your response from previous ones."
                 response = self.generate_ai_response(effective_message, variation_context)
             
-            # 8.2. Store the response to track repetition
+            # 10.2. Store the response to track repetition
             self._store_response(user_id, response)
             
-            # 9. Store the conversation in memory and database
+            # 11. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
             save_chat_to_db(user_id, message, response, session_id)
 
-            # 10. Store correction if current message is a correction referencing previous answer
+            # 12. Store correction if current message is a correction referencing previous answer
             try:
                 if detect_correction_intent(message) and session_history:
                     prev = session_history[-1]
