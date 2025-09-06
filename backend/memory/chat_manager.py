@@ -654,64 +654,62 @@ Instructions for responding:
             # 7. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
             context_parts = []
             
-            # Add recent session context (more natural and comprehensive)
-            if session_history:
-                recent_exchanges = session_history[-4:]  # Increased from 2 to 4 messages for better context
+            # Add recent session context (but avoid repetitive patterns)
+            if session_history and len(session_history) > 1:
+                recent_exchanges = session_history[-2:]  # Only last 2 exchanges to avoid repetition
                 session_context = []
                 for msg in recent_exchanges:
-                    session_context.append(f"Previous: {msg['user']} → {msg['assistant']}")
-                context_parts.append("Recent context: " + " | ".join(session_context))
+                    # Only include if not repetitive questions about the same topic
+                    user_msg = msg['user'].lower()
+                    if not any(topic in user_msg for topic in ['gaurav', 'creator', 'who are you']) or len(session_history) <= 2:
+                        session_context.append(f"U: {msg['user'][:100]} A: {msg['assistant'][:100]}")
+                if session_context:
+                    context_parts.append("Recent: " + " | ".join(session_context))
             
             # Add RAG formatted context if available, else fallback to simple snippets
             if rag_context:
-                context_parts.append("HybridContext:\n" + rag_context)
+                context_parts.append("Knowledge:\n" + rag_context)
             elif relevant_memories:
                 memory_snippets = []
-                for memory in relevant_memories[:3]:
-                    text = memory["text"][:100]
-                    memory_snippets.append(text)
-                context_parts.append("Past context: " + " | ".join(memory_snippets))
+                for memory in relevant_memories[:2]:  # Reduced from 3 to 2
+                    text = memory["text"][:80]  # Reduced from 100 to 80 chars
+                    # Skip memories that are just repetitive conversation logs
+                    if not any(phrase in text.lower() for phrase in ['based on our previous', 'i recall that', 'i mentioned']):
+                        memory_snippets.append(text)
+                if memory_snippets:
+                    context_parts.append("Context: " + " | ".join(memory_snippets))
 
-            # If recall context is built due to memory trigger, prepend explicit recall section
-            if recall_context_text:
-                # Place recall context early to increase salience
-                context_parts.insert(0, "MemoryRecall:\n" + recall_context_text)
+            # If recall context is built due to memory trigger, add concise version
+            if recall_context_text and not any('creator' in part for part in context_parts):
+                # Only include recall context if it's not repetitive
+                recall_lines = recall_context_text.split('\n')
+                useful_lines = [line for line in recall_lines if not any(phrase in line.lower() for phrase in ['based on our previous', 'i recall that', 'i mentioned'])]
+                if useful_lines:
+                    context_parts.append("Memory: " + ' '.join(useful_lines[:2]))
 
-            # Add summarized long-term memory
+            # Add summarized long-term memory (avoid repetitive summaries)
             if rolling_context and rolling_context.get("long_term_summaries"):
-                summaries_joined = " \n".join(rolling_context["long_term_summaries"][:3])
-                context_parts.append("LT Summaries:\n" + summaries_joined)
-
-            # Add short-term detailed exchanges for precision (avoid duplicates with session_history slice)
-            if rolling_context and rolling_context.get("short_term"):
-                st_lines = []
-                for m in rolling_context["short_term"][-8:]:  # Increased from 5 to 8 turns for better context
-                    st_lines.append(f"U:{m['user'][:150]} A:{m['assistant'][:150]}")  # Increased from 120 to 150 chars
-                context_parts.append("ShortTerm:\n" + "\n".join(st_lines))
+                summaries = [s for s in rolling_context["long_term_summaries"][:2] if len(s) > 20]
+                if summaries:
+                    context_parts.append("Summary: " + " | ".join(summaries))
 
             # Add authoritative user corrections (override conflicting info)
             if corrections:
                 corr_lines = []
-                for c in corrections:
-                    corr_lines.append(f"- {c['correction_text']}")
-                context_parts.append("AuthoritativeUserCorrections (override if conflict):\n" + "\n".join(corr_lines))
+                for c in corrections[:2]:  # Limit to 2 corrections
+                    corr_lines.append(f"- {c['correction_text'][:150]}")
+                context_parts.append("Corrections: " + " | ".join(corr_lines))
             
-            # Only add user name if it's relevant to the conversation
+            # Only add user name if it's contextually relevant and not repetitive
             if user_name and (
                 "name" in message.lower() or 
                 any(greeting in message.lower() for greeting in ["hello", "hi", "hey"]) or
-                not session_history  # First message in session
+                (not session_history or len(session_history) <= 1)  # First message in session
             ):
                 context_parts.append(f"User: {user_name}")
             
-            # Add explicit instruction if this is a recall-triggered query
-            if recall_context_text:
-                context_parts.append(
-                    (
-                        "INSTRUCTION: If the user's message is asking about identity or memory, use PROFILE, PAST_SUMMARIES, and RECENT_TURNS to answer first. "
-                        "If profile name exists, address the user by name. If unsure, state what you remember explicitly."
-                    )
-                )
+            # Remove the explicit recall instruction that causes repetitive responses
+            # The AI should respond naturally based on the context provided
             context = " | ".join(context_parts) if context_parts else None
             
             # 8. Generate response using Kuro system with orchestrator enhancement

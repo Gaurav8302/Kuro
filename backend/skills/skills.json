@@ -1,5 +1,18 @@
 [
   {
+    "name": "creator_info",
+    "description": "Provide information about Kuro's creator Gaurav and his work",
+    "priority": 9,
+    "trigger_patterns": [
+      "gaurav","creator","who created you","who made you","about your creator","tell me about gaurav","your maker","who built you"
+    ],
+    "keywords": ["gaurav", "creator", "developer", "made", "built", "created"],
+    "system_prompt": "You are in CREATOR INFO mode. Provide helpful, informative details about Gaurav based on the sophisticated AI system he built. Mention his technical skills (Python, AI/ML, full-stack development, system architecture), the complexity of this project, and his apparent interests in AI development and intelligent systems. Be informative and positive while staying factual about what can be inferred from the technical work.",
+    "allow_chain": false,
+    "category": "identity",
+    "cooldown_seconds": 60
+  },
+  {
     "name": "casual_chat",
     "description": "Handle greetings, small talk, and casual conversation politely but briefly.",
     "priority": 8,
