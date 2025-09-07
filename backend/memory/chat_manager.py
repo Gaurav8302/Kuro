@@ -524,7 +524,42 @@ Instructions for responding:
                 
                 return response
 
-            # 4. Forget intent (explicit user request)
+            # 4. Handle simple farewells with personalized response
+            simple_farewell_patterns = [
+                r'^\s*(bye|goodbye|good\s*bye)\s*(kuro)?\s*!?\s*$',
+                r'^\s*(see\s+(you|ya)\s+(later|soon))\s*(kuro)?\s*!?\s*$',
+                r'^\s*(farewell|adieu|ciao)\s*(kuro)?\s*!?\s*$',
+                r'^\s*(good\s+(night|evening))\s*(kuro)?\s*!?\s*$',
+                r'^\s*(take\s+care|until\s+next\s+time)\s*(kuro)?\s*!?\s*$',
+                r'^\s*(catch\s+(you|ya)\s+later|ttyl)\s*(kuro)?\s*!?\s*$',
+                r'^\s*(later|peace\s+out)\s*(kuro)?\s*!?\s*$'
+            ]
+            
+            is_simple_farewell = any(re.match(pattern, message_clean, re.IGNORECASE) for pattern in simple_farewell_patterns)
+            
+            if is_simple_farewell and user_name and user_name != "there":
+                # Generate personalized farewell response
+                farewell_responses = [
+                    f"Goodbye {user_name}! Take care and have a great day!",
+                    f"See you later {user_name}! Thanks for chatting with me!",
+                    f"Bye {user_name}! Feel free to come back anytime!",
+                    f"Farewell {user_name}! Hope to talk with you again soon!",
+                    f"Take care {user_name}! Have a wonderful rest of your day!",
+                    f"Until next time {user_name}! It was great talking with you!",
+                    f"Goodbye {user_name}! Thanks for the conversation!"
+                ]
+                
+                # Use a simple hash to pick a consistent but varied response
+                response_index = hash(f"{user_id}_{session_id}_{message}_farewell") % len(farewell_responses)
+                response = farewell_responses[response_index]
+                
+                # Store the farewell exchange
+                self._store_chat_memory(user_id, message, response, session_id)
+                save_chat_to_db(user_id, message, response, session_id)
+                
+                return response
+
+            # 5. Forget intent (explicit user request)
             forget_target = detect_forget_intent(message)
             if forget_target:
                 result = forget_correction(user_id, forget_target)
@@ -534,7 +569,7 @@ Instructions for responding:
                     return "I didn't find anything matching to forget."  # early return
                 # fallthrough on error to normal handling
 
-            # 5. Orchestrator Integration - analyze and expand the user query
+            # 6. Orchestrator Integration - analyze and expand the user query
             orchestration_result = None
             enhanced_message = message  # Default to original message
             task_type = "other"  # Default task type
@@ -594,7 +629,7 @@ Instructions for responding:
             else:
                 logger.debug("🔄 Orchestrator not available, using original message")
 
-            # 6. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
+            # 7. Advanced RAG retrieval (hybrid multi-pass) or recall-triggered fallback
             relevant_memories = []
             rag_context = None
             recall_context_text = None
@@ -655,7 +690,7 @@ Instructions for responding:
                 except Exception:
                     relevant_memories = []
             
-            # 7. Get recent session history for context (increased window for better memory)
+            # 8. Get recent session history for context (increased window for better memory)
             session_history = None
             if session_id:
                 try:
@@ -674,14 +709,14 @@ Instructions for responding:
             except Exception as e:
                 logger.debug(f"Rolling memory context unavailable: {e}")
 
-            # 8. Retrieve relevant user corrections (pseudo-learning)
+            # 9. Retrieve relevant user corrections (pseudo-learning)
             corrections = []
             try:
                 corrections = retrieve_relevant_corrections(user_id, message, top_k=3)
             except Exception as e:
                 logger.debug(f"Correction retrieval failed: {e}")
             
-            # 9. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
+            # 10. Build concise context from memories, rolling memory, corrections, and history (prefer RAG formatted context)
             context_parts = []
             
             # Add recent session context (but avoid repetitive patterns)
@@ -742,7 +777,7 @@ Instructions for responding:
             # The AI should respond naturally based on the context provided
             context = " | ".join(context_parts) if context_parts else None
             
-            # 10. Generate response using Kuro system with orchestrator enhancement
+            # 11. Generate response using Kuro system with orchestrator enhancement
             # Use enhanced message from orchestrator if available, otherwise use original
             effective_message = enhanced_message if orchestration_result and orchestration_result.get("confidence", 0) > 0.1 else message
             
@@ -758,20 +793,20 @@ Instructions for responding:
             
             response = self.generate_ai_response(effective_message, combined_context)
             
-            # 10.1. Check for repetition and regenerate if needed
+            # 11.1. Check for repetition and regenerate if needed
             if self._check_response_repetition(user_id, response):
                 logger.info("Detected repetitive response, regenerating with variation prompt...")
                 variation_context = combined_context + "\n\nIMPORTANT: Your previous responses were similar. Provide a different, varied response even if the user's message is similar." if combined_context else "IMPORTANT: Vary your response from previous ones."
                 response = self.generate_ai_response(effective_message, variation_context)
             
-            # 10.2. Store the response to track repetition
+            # 11.2. Store the response to track repetition
             self._store_response(user_id, response)
             
-            # 11. Store the conversation in memory and database
+            # 12. Store the conversation in memory and database
             self._store_chat_memory(user_id, message, response, session_id)
             save_chat_to_db(user_id, message, response, session_id)
 
-            # 12. Store correction if current message is a correction referencing previous answer
+            # 13. Store correction if current message is a correction referencing previous answer
             try:
                 if detect_correction_intent(message) and session_history:
                     prev = session_history[-1]

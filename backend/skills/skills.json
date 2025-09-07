@@ -34,6 +34,27 @@
     "cooldown_seconds": 30
   },
   {
+    "name": "farewell_chat",
+    "description": "Handle farewells, goodbyes, and leaving messages with personalized responses.",
+    "priority": 8,
+    "trigger_patterns": [
+      "bye","goodbye","good bye","farewell","see you","see ya","ciao","adieu","take care","good night","later","peace out","ttyl","catch you later","until next time"
+    ],
+    "keywords": ["bye", "goodbye", "farewell", "see you", "take care", "good night", "later"],
+    "embedding_examples": [
+      "goodbye kuro",
+      "bye for now",
+      "see you later",
+      "take care kuro",
+      "good night",
+      "farewell my friend"
+    ],
+    "system_prompt": "You are in FAREWELL mode. Be warm, appreciative, and memorable. If the user's name is available in the context, ALWAYS use their name in your farewell (e.g., 'Goodbye [Name]!' or 'Take care [Name]!'). Express gratitude for the conversation and leave them with a positive, encouraging message. PRIORITY: Use the person's name in your farewell if it's provided in the context.",
+    "allow_chain": false,
+    "category": "social",
+    "cooldown_seconds": 30
+  },
+  {
     "name": "fact_check",
     "description": "Verify or clarify factual queries with reliable information.",
     "priority": 7,
