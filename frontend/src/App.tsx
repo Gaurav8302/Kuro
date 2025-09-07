@@ -87,15 +87,49 @@ const App = () => {
     
     // Ping immediately on load
     sendPing('Initial');
+    
+    // Ping when page becomes visible (user comes back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        sendPing('Tab focus');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Ping on mouse movement (user is active)
+    let lastActivityPing = Date.now();
+    const handleActivity = () => {
+      const now = Date.now();
+      // Only ping once per minute on activity
+      if (now - lastActivityPing > 60000) {
+        sendPing('User activity');
+        lastActivityPing = now;
+      }
+    };
+    
+    document.addEventListener('mousemove', handleActivity);
+    document.addEventListener('click', handleActivity);
 
-    // Set up multiple ping intervals for better reliability
+    // Set up multiple ping intervals for better reliability - AGGRESSIVE MODE
     const primaryInterval = setInterval(() => {
       sendPing('Primary auto-warm');
-    }, 1000 * 60 * 4); // 4 minutes (more frequent)
+    }, 1000 * 60 * 2); // 2 minutes (more aggressive)
 
-    // Secondary ping every 10 minutes as backup
+    // Secondary ping every 3 minutes as backup
     const secondaryInterval = setInterval(() => {
       sendPing('Secondary backup');
+    }, 1000 * 60 * 3); // 3 minutes
+
+    // Emergency ping every 90 seconds for first 10 minutes
+    const emergencyInterval = setInterval(() => {
+      sendPing('Emergency keep-alive');
+    }, 1000 * 90); // 90 seconds
+    
+    // Clear emergency ping after 10 minutes
+    setTimeout(() => {
+      clearInterval(emergencyInterval);
+      console.log('🎯 Emergency ping mode disabled - switching to normal intervals');
     }, 1000 * 60 * 10); // 10 minutes
 
     // Cleanup intervals on unmount
@@ -103,6 +137,10 @@ const App = () => {
       console.log('🧹 Cleaning up auto-warm ping intervals');
       clearInterval(primaryInterval);
       clearInterval(secondaryInterval);
+      if (emergencyInterval) clearInterval(emergencyInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('mousemove', handleActivity);
+      document.removeEventListener('click', handleActivity);
     };
   }, []);
 
