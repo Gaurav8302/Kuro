@@ -213,7 +213,7 @@ async def cors_middleware(request: Request, call_next):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-            response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
+            response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, cache-control, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
             response.headers["Access-Control-Max-Age"] = "86400"
             logger.info(f"✅ CORS headers added for OPTIONS: {origin}")
         else:
@@ -227,7 +227,7 @@ async def cors_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
+        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, cache-control, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
     
     return response
 
