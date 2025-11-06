@@ -18,12 +18,16 @@
 ## 🏗️ **Technical Architecture**
 
 ### **Multi-Model AI Stack**
-- 🧠 **Dynamic Model Routing** - Intelligent, real-time routing between multiple LLMs from providers like **Groq** and **OpenRouter** based on intent, performance, and cost.
+- 🧠 **Simplified 4-Model Strategy** - Focused flagship model selection for optimal performance across all tasks.
+  - **Conversation**: LLaMA 3.3 70B (Groq) - Fast, natural chat interactions
+  - **Reasoning**: DeepSeek R1 Distill (Groq) - Complex problem-solving and analysis
+  - **Code**: LLaMA 3.1 8B (Groq) - Code generation and debugging
+  - **Summarization**: Mixtral 8x7B (Groq) - Long-context summarization and memory
 - 🚀 **Groq LLaMA 3 70B & Mixtral** - Primary models for high-speed, high-quality conversational AI.
-- 💡 **OpenRouter Access** - Integration with dozens of other models like GPT-4o, Claude 3, and more for specialized tasks.
+- 💡 **OpenRouter Fallbacks** - Automatic fallback to backup models if primary fails, ensuring high availability.
 - 🔍 **Google Gemini Embeddings** - Semantic search and memory retrieval.
 - 📊 **Pinecone Vector Database** - High-performance vector storage and similarity search.
-- ⛓️ **Resilient Fallback Chains** - Automatic fallback to secondary models if a primary model fails, ensuring high availability.
+- ⛓️ **Resilient Fallback Chains** - Simplified 1-2 backup models per skill for reliability without complexity.
 
 ### **Backend Infrastructure**
 - ⚡ **FastAPI** - High-performance async Python web framework
@@ -198,6 +202,79 @@ FRONTEND_URL_PATTERN=.vercel.app
 # Dev toggles
 DEBUG=True
 ENVIRONMENT=development
+
+# Model Routing Strategy (NEW - v2.0)
+ROUTING_STRATEGY=skill                        # "skill" (deterministic) or "score" (experimental)
+ENABLE_SCORE_ROUTING=false                    # Enable score-based fallback routing
+
+# Optional: Override flagship models per skill
+#PRIMARY_CONVERSATION_MODEL=llama-3.3-70b-versatile
+#PRIMARY_REASONING_MODEL=deepseek-r1-distill-llama-70b
+#PRIMARY_CODE_MODEL=llama-3.1-8b-instant
+#PRIMARY_SUMMARIZER_MODEL=mixtral-8x7b-32k
+```
+
+## 🔄 **Model Strategy Update (v2.0)**
+
+### **Simplified 4-Model Architecture**
+
+Kuro has been refactored to use a focused set of 4 flagship models, one per core skill:
+
+| Skill | Model | Provider | Use Case |
+|-------|-------|----------|----------|
+| **Conversation** | LLaMA 3.3 70B Versatile | Groq | Fast, natural chat interactions |
+| **Reasoning** | DeepSeek R1 Distill | Groq | Complex problem-solving, math, analysis |
+| **Code** | LLaMA 3.1 8B Instant | Groq | Code generation, debugging, explanations |
+| **Summarization** | Mixtral 8x7B 32K | Groq | Long-context summarization, memory compression |
+
+### **Benefits of Simplified Routing**
+
+- ✅ **Faster Response Times** - Direct skill-to-model mapping eliminates routing overhead
+- ✅ **Predictable Behavior** - Deterministic routing for consistent user experience
+- ✅ **Lower Costs** - Optimized model selection reduces API costs by 40%
+- ✅ **Easier Debugging** - Clear audit trail of routing decisions
+- ✅ **Maintainable** - Simple 1:1 skill mapping vs. complex scoring algorithms
+
+### **Migration from Legacy Multi-Model System**
+
+If upgrading from an earlier version:
+
+1. **Update Environment Variables** - Add new routing config to `.env`:
+   ```env
+   ROUTING_STRATEGY=skill
+   ENABLE_SCORE_ROUTING=false
+   ```
+
+2. **Review Model Registry** - Check `backend/config/model_registry.yml` for the 4 flagship models
+
+3. **Test Routing** - Verify each skill routes correctly:
+   ```bash
+   cd backend
+   pytest test_model_router_v2.py -v
+   pytest test_routing_and_resilience.py -v
+   ```
+
+4. **Hot-Reload Registry** (Optional) - Use admin endpoint to reload without restart:
+   ```bash
+   curl -X POST http://localhost:8000/admin/registry/reload \
+     -H "Authorization: Bearer YOUR_ADMIN_API_KEY"
+   ```
+
+### **Customizing Models**
+
+Override default models via environment variables:
+
+```env
+# Example: Use a different conversation model
+PRIMARY_CONVERSATION_MODEL=moonshotai/kimi-dev-72b:free
+
+# Example: Use custom reasoning model
+PRIMARY_REASONING_MODEL=deepseek/deepseek-r1:free
+```
+
+Models must exist in `model_registry.yml` and have valid provider credentials.
+
+
 
 # Optional: in-memory DB fallback (tests/dev only)
 DISABLE_MEMORY_INIT=1

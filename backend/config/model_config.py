@@ -55,6 +55,59 @@ def normalize_model_id(model_id: str) -> str:
     return normalized
 # --- end normalization helpers ---
 
+# ========================================
+# FLAGSHIP MODELS - Simplified 4-Model Strategy
+# ========================================
+# One model per skill: conversation, reasoning, code, summarization
+# Provider: Groq (low latency) + OpenRouter (quality/diversity)
+# ========================================
+
+# === CONVERSATION - Fast, Natural Chat ===
+KIMMI_CONVERSATIONAL = "llama-3.3-70b-versatile"  # Groq - Low latency, high quality
+
+# === REASONING - Complex, Chain-of-Thought ===
+DEEPSEEK_REASONING = "deepseek-r1-distill-llama-70b"  # Groq - Best reasoning
+
+# === CODE - Programming, Debugging, Explain ===
+GROQ_CODE = "llama-3.1-8b-instant"  # Groq - Fast code generation
+
+# === SUMMARIZATION - Memory, Compression ===
+SUMMARIZER_MEMORY = "mixtral-8x7b-32k"  # Groq - Long context summarization
+
+# ========================================
+# FLAGSHIP MODEL CONFIGURATION
+# ========================================
+
+# Skill-to-model mapping (deterministic routing)
+SKILL_TO_MODEL: Dict[str, str] = {
+    "conversation": KIMMI_CONVERSATIONAL,
+    "reasoning": DEEPSEEK_REASONING,
+    "code": GROQ_CODE,
+    "summarization": SUMMARIZER_MEMORY,
+}
+
+# Simplified fallback chains (max 2 backups per model)
+FLAGSHIP_FALLBACK_CHAINS: Dict[str, List[str]] = {
+    KIMMI_CONVERSATIONAL: [KIMMI_CONVERSATIONAL, "moonshotai/kimi-dev-72b:free"],
+    DEEPSEEK_REASONING: [DEEPSEEK_REASONING, KIMMI_CONVERSATIONAL],
+    GROQ_CODE: [GROQ_CODE, DEEPSEEK_REASONING],
+    SUMMARIZER_MEMORY: [SUMMARIZER_MEMORY, KIMMI_CONVERSATIONAL],
+}
+
+# Model source registry for flagship models
+FLAGSHIP_MODEL_SOURCES: Dict[str, str] = {
+    KIMMI_CONVERSATIONAL: "Groq",
+    DEEPSEEK_REASONING: "Groq",
+    GROQ_CODE: "Groq",
+    SUMMARIZER_MEMORY: "Groq",
+    "moonshotai/kimi-dev-72b:free": "OpenRouter",
+    "mixtral-8x7b-32k": "Groq",  # Add explicit mapping
+}
+
+# ========================================
+# LEGACY MODEL CONSTANTS (Preserved for backward compatibility)
+# ========================================
+
 # Canonical model IDs used by the new router (updated with best available models)
 
 # === REASONING & COMPLEX TASKS ===
@@ -288,21 +341,46 @@ RULE_KEYWORDS: List[Tuple[str, List[str], str]] = [
 
 
 def get_model_source(model_id: str) -> str:
-    """Get model source with normalization"""
+    """Get model source with normalization - prioritizes flagship models"""
     norm = normalize_model_id(model_id)
+    
+    # Check flagship models first
+    if norm in FLAGSHIP_MODEL_SOURCES:
+        return FLAGSHIP_MODEL_SOURCES[norm]
+    
+    # Fall back to legacy mappings
     return MODEL_SOURCES.get(norm, MODEL_SOURCES.get(model_id, "OpenRouter"))
 
 
 def get_fallback_chain(primary_model: str) -> List[str]:
-    """Get normalized and deduplicated fallback chain"""
-    raw_chain = FALLBACK_CHAINS.get(primary_model, [primary_model])
+    """Get normalized and deduplicated fallback chain - prioritizes flagship chains"""
+    norm = normalize_model_id(primary_model)
+    
+    # Check flagship fallback chains first (simplified, max 2 backups)
+    if norm in FLAGSHIP_FALLBACK_CHAINS:
+        raw_chain = FLAGSHIP_FALLBACK_CHAINS[norm]
+    else:
+        # Fall back to legacy chains
+        raw_chain = FALLBACK_CHAINS.get(norm, FALLBACK_CHAINS.get(primary_model, [primary_model]))
+    
+    # Limit to max 2 fallbacks (primary + 2 backups = 3 total)
+    raw_chain = raw_chain[:3]
+    
     seen = set()
     out = []
     for m in raw_chain:
-        norm = normalize_model_id(m)
-        if norm not in seen:
-            seen.add(norm)
-            out.append(norm)
+        norm_m = normalize_model_id(m)
+        if norm_m not in seen:
+            seen.add(norm_m)
+            out.append(norm_m)
+    
+    # If no fallbacks, add safe default
+    if len(out) < 2:
+        safe = normalize_model_id(KIMMI_CONVERSATIONAL)
+        if safe not in seen:
+            out.append(safe)
+    
+    return out
     # if out empty, fallback to SAFE_DEFAULT_MODEL normalized
     if not out:
         out = [normalize_model_id(SAFE_DEFAULT_MODEL)]

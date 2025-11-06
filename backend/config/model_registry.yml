@@ -1,136 +1,125 @@
+# ========================================
+# SIMPLIFIED FLAGSHIP MODEL REGISTRY
+# ========================================
+# Kuro AI - 4 Core Models Strategy
+# One model per skill: conversation, reasoning, code, summarization
+# Provider: Groq (low latency) + OpenRouter (quality/diversity)
+# ========================================
+
 models:
-  # === FAST CHAT MODELS ===
-  - id: llama-3.1-8b-instant
-    label: fast_chat
-    capabilities: [general, fast, casual]
-    fallback: ["llama-3.3-70b-versatile", "meta-llama/llama-3.3-8b-instruct:free"]
-    max_context_tokens: 8192
-    avg_latency_ms: 350
-    quality_tier: medium
-    cost_score: 1
-  - id: meta-llama/llama-3.3-8b-instruct:free
-    label: fast_chat_openrouter
-    capabilities: [general, fast, casual]
-    fallback: ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]
-    max_context_tokens: 8192
-    avg_latency_ms: 400
-    quality_tier: medium
-    cost_score: 1
-
-  # === HIGH-QUALITY REASONING MODELS ===
-  - id: deepseek-r1-distill-llama-70b
-    label: reasoning_groq
-    capabilities: [reasoning, complex, high_quality]
-    fallback: ["deepseek/deepseek-r1:free", "qwen/qwen3-30b-a3b:free", "llama-3.3-70b-versatile"]
-    max_context_tokens: 16384
-    avg_latency_ms: 1200
-    quality_tier: high
-    cost_score: 2
-  - id: deepseek/deepseek-r1:free
-    label: reasoning_openrouter
-    capabilities: [reasoning, complex, high_quality]
-    fallback: ["deepseek-r1-distill-llama-70b", "qwen/qwen3-30b-a3b:free"]
-    max_context_tokens: 16384
-    avg_latency_ms: 1400
-    quality_tier: high
-    cost_score: 2
-  - id: qwen/qwen3-30b-a3b:free
-    label: reasoning_strong
-    capabilities: [reasoning, complex, general]
-    fallback: ["deepseek-r1-distill-llama-70b", "llama-3.3-70b-versatile"]
-    max_context_tokens: 16384
-    avg_latency_ms: 1000
-    quality_tier: high
-    cost_score: 2
-
-  # === LONG-CONTEXT MODELS ===
-  - id: mixtral-8x7b-32k
-    label: long_context_groq
-    capabilities: [general, long_context, summarization]
-    fallback: ["mistralai/mistral-small-3.2-24b-instruct:free", "z-ai/glm-4.5-air:free"]
-    max_context_tokens: 32768
-    avg_latency_ms: 1100
-    quality_tier: high
-    cost_score: 3
-  - id: mistralai/mistral-small-3.2-24b-instruct:free
-    label: long_context_openrouter
-    capabilities: [general, long_context, summarization, high_quality]
-    fallback: ["z-ai/glm-4.5-air:free", "mixtral-8x7b-32k"]
-    max_context_tokens: 131072
-    avg_latency_ms: 1300
-    quality_tier: high
-    cost_score: 3
-  - id: z-ai/glm-4.5-air:free
-    label: long_context_alt
-    capabilities: [general, long_context, summarization]
-    fallback: ["mistralai/mistral-small-3.2-24b-instruct:free", "llama-3.3-70b-versatile"]
-    max_context_tokens: 131072
-    avg_latency_ms: 1200
-    quality_tier: medium
-    cost_score: 2
-
-  # === BALANCED GENERAL MODELS ===
+  # === CONVERSATION - Fast, Natural Chat ===
   - id: llama-3.3-70b-versatile
-    label: general_groq
-    capabilities: [general, high_quality, versatile]
-    fallback: ["meta-llama/llama-3.3-70b-instruct:free", "moonshotai/kimi-dev-72b:free"]
-    max_context_tokens: 8192
-    avg_latency_ms: 900
+    label: kimmi-conversational
+    capabilities: [conversation, fast, low_latency, general, casual]
+    fallback: ["moonshotai/kimi-dev-72b:free"]
+    max_context_tokens: 16384
+    avg_latency_ms: 800
     quality_tier: high
     cost_score: 3
-  - id: meta-llama/llama-3.3-70b-instruct:free
-    label: general_openrouter
-    capabilities: [general, high_quality, versatile]
-    fallback: ["llama-3.3-70b-versatile", "moonshotai/kimi-dev-72b:free"]
-    max_context_tokens: 8192
+
+  # === REASONING - Complex, Chain-of-Thought ===
+  - id: deepseek-r1-distill-llama-70b
+    label: deepseek-reasoning
+    capabilities: [complex_reasoning, long_context, math, analysis]
+    fallback: ["llama-3.3-70b-versatile"]
+    max_context_tokens: 32768
+    avg_latency_ms: 2000
+    quality_tier: high
+    cost_score: 5
+
+  # === CODE - Programming, Debugging, Explain ===
+  - id: llama-3.1-8b-instant
+    label: groq-code
+    capabilities: [code, explain_code, run_thought, debugging]
+    fallback: ["deepseek-r1-distill-llama-70b"]
+    max_context_tokens: 16384
     avg_latency_ms: 1000
     quality_tier: high
-    cost_score: 3
-  - id: moonshotai/kimi-dev-72b:free
-    label: creative_general
-    capabilities: [general, creative, long_context, versatile]
-    fallback: ["llama-3.3-70b-versatile", "meta-llama/llama-3.3-70b-instruct:free"]
-    max_context_tokens: 131072
-    avg_latency_ms: 1100
-    quality_tier: high
+    cost_score: 4
+
+  # === SUMMARIZATION - Memory, Compression ===
+  - id: mixtral-8x7b-32k
+    label: summarizer-memory
+    capabilities: [summarization, memory, compression, long_context]
+    fallback: ["llama-3.3-70b-versatile"]
+    max_context_tokens: 32768
+    avg_latency_ms: 1200
+    quality_tier: medium
     cost_score: 2
+
+# ========================================
+# ARCHIVED MODELS (commented for reference)
+# ========================================
+# Uncomment these if you need to restore old routing behavior
+#
+# - id: meta-llama/llama-3.3-8b-instruct:free
+#   label: fast_chat_openrouter
+#   capabilities: [general, fast, casual]
+#   fallback: ["llama-3.1-8b-instant"]
+#
+# - id: deepseek/deepseek-r1:free
+#   label: reasoning_openrouter
+#   capabilities: [reasoning, complex]
+#   fallback: ["deepseek-r1-distill-llama-70b"]
+#
+# - id: mistralai/mistral-small-3.2-24b-instruct:free
+#   label: long_context_openrouter
+#   capabilities: [long_context, summarization]
+#   fallback: ["mixtral-8x7b-32k"]
+
+
+# ========================================
+# SIMPLIFIED ROUTING RULES
+# ========================================
+# Maps intents and conditions to flagship models
+# Priority: forced override → skill mapping → these rules → score-based fallback
+# ========================================
 
 routing_rules:
-  # Casual greetings get fast chat with casual_chat skill
+  # === CONVERSATION SKILL ===
   - name: casual_greeting
     intent: "casual_chat"
-    choose: "llama-3.1-8b-instant"
+    choose: "llama-3.3-70b-versatile"
   
-  # Long documents/articles get long-context models
-  - name: long_document
-    condition: "context_tokens > 20000"
-    choose: "mixtral-8x7b-32k"
-  
-  # Medium-long content gets OpenRouter long-context
-  - name: medium_long_content
-    condition: "context_tokens > 10000"
-    choose: "mistralai/mistral-small-3.2-24b-instruct:free"
-  
-  # Math/reasoning queries get reasoning models
+  - name: short_query
+    condition: "context_tokens < 2000 and message_len_chars < 300"
+    choose: "llama-3.3-70b-versatile"
+
+  # === REASONING SKILL ===
   - name: reasoning_tasks
     intent: "math_solver"
     choose: "deepseek-r1-distill-llama-70b"
   
-  # Fact checking gets high-quality models
+  - name: complex_reasoning
+    intent: "complex_reasoning"
+    choose: "deepseek-r1-distill-llama-70b"
+  
   - name: fact_checking
     intent: "fact_check"
-    choose: "llama-3.3-70b-versatile"
-  
-  # Short casual queries get fast models
-  - name: short_query
-    condition: "context_tokens < 2000 and message_len_chars < 300"
+    choose: "deepseek-r1-distill-llama-70b"
+
+  # === CODE SKILL ===
+  - name: code_generation
+    intent: "code_generation"
     choose: "llama-3.1-8b-instant"
   
-  # Creative tasks get creative model
-  - name: creative_tasks
-    intent: "storytelling"
-    choose: "moonshotai/kimi-dev-72b:free"
+  - name: debugging
+    intent: "debugging"
+    choose: "llama-3.1-8b-instant"
+
+  # === SUMMARIZATION SKILL ===
+  - name: long_document
+    condition: "context_tokens > 20000"
+    choose: "mixtral-8x7b-32k"
   
-  # Default fallback
+  - name: medium_long_content
+    condition: "context_tokens > 10000"
+    choose: "mixtral-8x7b-32k"
+  
+  - name: summarization
+    intent: "long_context_summary"
+    choose: "mixtral-8x7b-32k"
+
+  # === DEFAULT FALLBACK ===
   - name: default
     choose: "llama-3.3-70b-versatile"
