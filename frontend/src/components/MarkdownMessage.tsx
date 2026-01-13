@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import 'highlight.js/styles/atom-one-dark.css';
 import hljs from 'highlight.js';
-import { motion } from 'framer-motion';
 import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +13,119 @@ interface MarkdownMessageProps {
   // Content can be a string, object, or array (LLM tool responses, rich blocks, etc.)
   content: any;
 }
+
+// Extracted code block component to properly manage state (fixes React hooks violation)
+interface CodeBlockProps {
+  raw: string;
+  language?: string;
+  className?: string;
+}
+
+const CodeBlock = memo(({ raw, language, className = '' }: CodeBlockProps) => {
+  const lines = useMemo(() => raw.split('\n'), [raw]);
+  const isLong = lines.length > COLLAPSE_LINE_THRESHOLD;
+  const [collapsed, setCollapsed] = useState(isLong);
+  const [copied, setCopied] = useState(false);
+  
+  const hiddenCount = lines.length - COLLAPSE_LINE_THRESHOLD;
+
+  const visibleHighlighted = useMemo(() => {
+    const vRaw = collapsed ? lines.slice(0, COLLAPSE_LINE_THRESHOLD).join('\n') : raw;
+    try {
+      if (language && hljs.getLanguage(language)) {
+        return hljs.highlight(vRaw, { language }).value;
+      }
+      return hljs.highlightAuto(vRaw).value;
+    } catch {
+      return vRaw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  }, [collapsed, lines, raw, language]);
+
+  const visibleLines = useMemo(() => visibleHighlighted.split('\n'), [visibleHighlighted]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(raw);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = raw;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/40 backdrop-blur-md overflow-hidden transform-gpu transition-transform duration-150 hover:scale-[1.005]">
+      {/* Code block header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-holo-cyan-500/10 border-b border-holo-cyan-400/20">
+        <span className="text-xs text-holo-cyan-400 font-orbitron tracking-wider">
+          {language ? language.toUpperCase() : 'CODE'}
+        </span>
+        <div className="flex gap-1 opacity-0 group-hover/code:opacity-100 transition-opacity duration-150">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="px-2 h-6 text-[10px] rounded bg-holo-cyan-500/20 hover:bg-holo-cyan-500/30 text-holo-cyan-300 border border-holo-cyan-400/30 font-orbitron tracking-wide hover:shadow-holo-glow transition-all duration-150 transform-gpu hover:scale-105 active:scale-95"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3 h-3 mr-1 inline" />
+                COPIED
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3 mr-1 inline" />
+                COPY
+              </>
+            )}
+          </button>
+          {isLong && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(c => !c)}
+              className="px-2 h-6 text-[10px] rounded bg-holo-blue-500/20 hover:bg-holo-blue-500/30 text-holo-blue-300 border border-holo-blue-400/30 font-orbitron tracking-wide hover:shadow-holo-blue transition-all duration-150 transform-gpu hover:scale-105 active:scale-95"
+            >
+              {collapsed ? (
+                <>
+                  <ChevronDown className="w-3 h-3 mr-1 inline" />
+                  EXPAND ({hiddenCount})
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-3 h-3 mr-1 inline" />
+                  COLLAPSE
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <pre className="p-4 overflow-auto max-h-[32rem] text-xs with-line-numbers bg-black/20 font-orbitron" aria-live="polite">
+        <code className={cn(className, "text-holo-cyan-300")}>
+          {visibleLines.map((l, i) => (
+            <span 
+              key={i} 
+              className="code-line block hover:bg-holo-cyan-500/10 transition-colors duration-150" 
+              dangerouslySetInnerHTML={{ __html: l || ' ' }}
+            />
+          ))}
+        </code>
+      </pre>
+      {collapsed && (
+        <div className="text-[10px] px-4 pb-2 text-holo-cyan-400/50 font-orbitron tracking-wide bg-holo-cyan-500/5">
+          TRUNCATED ({hiddenCount} MORE LINE{hiddenCount === 1 ? '' : 'S'})
+        </div>
+      )}
+    </div>
+  );
+});
+
+CodeBlock.displayName = 'CodeBlock';
 
 // Recursively coerce arbitrary content (string | object | array) into Markdown text.
 // If we detect a code payload + language, we wrap with triple backticks.
@@ -76,7 +188,7 @@ function preprocess(raw: string): string {
     .replace(/\n{3,}/g, '\n\n');
 }
 
-export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => {
+export const MarkdownMessage: React.FC<MarkdownMessageProps> = memo(({ content }) => {
   const prepared = useMemo(() => {
     const normalized = coerceToMarkdown(content);
     return preprocess(normalized);
@@ -131,137 +243,13 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
                 </code>
               );
             }
-            const lines = raw.split('\n');
-            const isLong = lines.length > COLLAPSE_LINE_THRESHOLD;
-            // local component state for collapse
-            const [collapsed, setCollapsed] = useState(isLong);
-            const visibleContent = collapsed ? lines.slice(0, COLLAPSE_LINE_THRESHOLD).join('\n') : raw;
-            const hiddenCount = lines.length - COLLAPSE_LINE_THRESHOLD;
-
-            const handleCopy = async () => {
-              try {
-                await navigator.clipboard.writeText(raw);
-              } catch (e) {
-                // Fallback
-                const textarea = document.createElement('textarea');
-                textarea.value = raw;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-              }
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            };
-
+            
+            // Extract language from className
             const langMatch = /language-([a-z0-9]+)/i.exec(className);
             const language = langMatch?.[1];
-            let highlighted: string;
-            try {
-              if (language && hljs.getLanguage(language)) {
-                highlighted = hljs.highlight(raw, { language }).value;
-              } else {
-                highlighted = hljs.highlightAuto(raw).value;
-              }
-            } catch {
-              highlighted = raw
-                .replace(/&/g,'&amp;')
-                .replace(/</g,'&lt;')
-                .replace(/>/g,'&gt;');
-            }
-
-            const visibleHighlighted = (() => {
-              const vRaw = collapsed ? lines.slice(0, COLLAPSE_LINE_THRESHOLD).join('\n') : raw;
-              let vHighlighted: string;
-              try {
-                if (language && hljs.getLanguage(language)) {
-                  vHighlighted = hljs.highlight(vRaw, { language }).value;
-                } else {
-                  vHighlighted = hljs.highlightAuto(vRaw).value;
-                }
-              } catch { vHighlighted = vRaw; }
-              return vHighlighted;
-            })();
-
-            const visibleLines = visibleHighlighted.split('\n');
-            const [copied, setCopied] = useState(false);
-
-            return (
-              <motion.div 
-                className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/40 backdrop-blur-md overflow-hidden"
-                whileHover={{ scale: 1.01 }}
-                transition={{ duration: 0.2 }}
-              >
-                {/* Code block header */}
-                <div className="flex items-center justify-between px-3 py-2 bg-holo-cyan-500/10 border-b border-holo-cyan-400/20">
-                  <span className="text-xs text-holo-cyan-400 font-orbitron tracking-wider">
-                    {language ? language.toUpperCase() : 'CODE'}
-                  </span>
-                  <div className="flex gap-1 opacity-0 group-hover/code:opacity-100 transition-opacity">
-                    <motion.button
-                    type="button"
-                    onClick={handleCopy}
-                    className="px-2 h-6 text-[10px] rounded bg-holo-cyan-500/20 hover:bg-holo-cyan-500/30 text-holo-cyan-300 border border-holo-cyan-400/30 font-orbitron tracking-wide hover:shadow-holo-glow transition-all duration-300"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3 h-3 mr-1 inline" />
-                        COPIED
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3 mr-1 inline" />
-                        COPY
-                      </>
-                    )}
-                  </motion.button>
-                  {isLong && (
-                    <motion.button
-                      type="button"
-                      onClick={() => setCollapsed(c => !c)}
-                      className="px-2 h-6 text-[10px] rounded bg-holo-blue-500/20 hover:bg-holo-blue-500/30 text-holo-blue-300 border border-holo-blue-400/30 font-orbitron tracking-wide hover:shadow-holo-blue transition-all duration-300"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {collapsed ? (
-                        <>
-                          <ChevronDown className="w-3 h-3 mr-1 inline" />
-                          EXPAND ({hiddenCount})
-                        </>
-                      ) : (
-                        <>
-                          <ChevronUp className="w-3 h-3 mr-1 inline" />
-                          COLLAPSE
-                        </>
-                      )}
-                    </motion.button>
-                  )}
-                  </div>
-                </div>
-                
-                <pre className="p-4 overflow-auto max-h-[32rem] text-xs with-line-numbers bg-black/20 font-orbitron" aria-live="polite">
-                  <code className={cn(className, "text-holo-cyan-300")} {...props}>
-                    {visibleLines.map((l, i) => (
-                      <motion.span 
-                        key={i} 
-                        className="code-line block hover:bg-holo-cyan-500/10 transition-colors duration-200" 
-                        dangerouslySetInnerHTML={{ __html: l || ' ' }}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.02, duration: 0.3 }}
-                      />
-                    ))}
-                  </code>
-                </pre>
-                {collapsed && (
-                  <div className="text-[10px] px-4 pb-2 text-holo-cyan-400/50 font-orbitron tracking-wide bg-holo-cyan-500/5">
-                    TRUNCATED ({hiddenCount} MORE LINE{hiddenCount === 1 ? '' : 'S'})
-                  </div>
-                )}
-              </motion.div>
-            );
+            
+            // Use extracted CodeBlock component (properly manages useState)
+            return <CodeBlock raw={raw} language={language} className={className} />;
           },
           blockquote: (p) => (
             <blockquote 
@@ -270,11 +258,8 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
             />
           ),
           hr: (p: any) => (
-            <motion.hr 
-              className="my-6 border-holo-cyan-500/30 border-t-2"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.5 }}
+            <hr 
+              className="my-6 border-holo-cyan-500/30 border-t-2 animate-[shimmer_0.5s_ease-out]"
               {...p} 
             />
           )
@@ -284,6 +269,8 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
       </ReactMarkdown>
     </div>
   );
-};
+});
+
+MarkdownMessage.displayName = 'MarkdownMessage';
 
 export default MarkdownMessage;

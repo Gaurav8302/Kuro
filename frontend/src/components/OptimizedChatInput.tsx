@@ -158,35 +158,15 @@ const AnimatedChatInput: React.FC<OptimizedChatInputProps> = memo(({
   }, []);
 
   return (
-    <motion.div
+    <div
       ref={containerRef}
     /* NOTE: Removed sticky positioning for desktop to ensure the input sits at the true bottom
       of the flex column even when there are few/no messages (fixes laptop height bug where
       it appeared mid‑screen). Mobile version still uses sticky in LightweightChatInput. */
-    className="border-t border-holo-cyan-500/20 backdrop-blur-md bg-gradient-to-b from-background/60 to-background/80 w-full relative"
-      initial={{ y: 50, opacity: 0, scale: 0.9 }}
-      animate={{ 
-        y: 0, 
-        opacity: 1,
-        scale: sending ? 0.98 : 1
-      }}
-      transition={{ 
-        duration: animationDuration * 2,
-        ease: "easeOut"
-      }}
-      data-typing={sending ? "true" : "false"}
+    className="border-t border-holo-cyan-500/20 backdrop-blur-md bg-gradient-to-b from-background/60 to-background/80 w-full relative transform-gpu"
     >
       {/* Holographic scan line */}
       <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent" />
-      
-      {/* Particle drift effect */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute inset-0 particle-bg opacity-20"
-          animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        />
-      </div>
       
       <div className="max-w-4xl mx-auto p-4">
         <OptimizedHolographicCard
@@ -199,21 +179,6 @@ const AnimatedChatInput: React.FC<OptimizedChatInputProps> = memo(({
           )}
         >
           <div className="flex items-end gap-3 p-4">
-          
-          {/* Holographic sparkle decoration */}
-          {isFocused && (
-            <motion.div
-              className="absolute -top-3 -right-3 z-10"
-              initial={{ scale: 0, rotate: 0, opacity: 0 }}
-              animate={{ scale: 1, rotate: 360, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={{ duration: 0.6, ease: 'backOut' }}
-            >
-              <div className="w-6 h-6 bg-holo-cyan-400 rounded-full shadow-holo-glow flex items-center justify-center">
-                <HoloSparklesIcon size={14} className="text-white" />
-              </div>
-            </motion.div>
-          )}
 
           {/* Message input */}
           <div className="flex-1">
@@ -231,50 +196,28 @@ const AnimatedChatInput: React.FC<OptimizedChatInputProps> = memo(({
           </div>
 
           {/* Send button */}
-          <motion.div
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            whileTap={{ scale: 0.9 }}
-            transition={{ duration: animationDuration }}
+          <button
+            onClick={handleSend}
+            disabled={isDisabled}
+            className={cn(
+              "w-12 h-12 rounded-full relative overflow-hidden transform-gpu",
+              "bg-gradient-to-br from-holo-cyan-500 to-holo-blue-500",
+              "border-2 border-holo-cyan-400/50 shadow-holo-glow",
+              "hover:shadow-holo-blue hover:border-holo-cyan-400/80",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-all duration-200 flex items-center justify-center",
+              "glass-panel backdrop-blur-md",
+              !isDisabled && "hover:scale-110 active:scale-95"
+            )}
           >
-            <motion.button
-              onClick={handleSend}
-              disabled={isDisabled}
-              className={cn(
-                "w-12 h-12 rounded-full relative overflow-hidden",
-                "bg-gradient-to-br from-holo-cyan-500 to-holo-blue-500",
-                "border-2 border-holo-cyan-400/50 shadow-holo-glow",
-                "hover:shadow-holo-blue hover:border-holo-cyan-400/80",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-                "transition-all duration-300 flex items-center justify-center",
-                "glass-panel backdrop-blur-md"
-              )}
-              whileHover={!isDisabled ? {
-                boxShadow: '0 0 40px rgba(0, 230, 214, 0.6)',
-                scale: 1.1
-              } : undefined}
-            >
-              {/* Pulse ring effect */}
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-holo-cyan-400"
-                animate={!isDisabled ? {
-                  scale: [1, 1.2, 1],
-                  opacity: [0.5, 0, 0.5]
-                } : {}}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              
-              {sending ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  <Zap className="w-5 h-5 text-white" />
-                </motion.div>
-              ) : (
-                <HoloSendIcon size={20} className="text-white" />
-              )}
-            </motion.button>
-          </motion.div>
+            {sending ? (
+              <div className="animate-spin">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+            ) : (
+              <HoloSendIcon size={20} className="text-white" />
+            )}
+          </button>
           </div>
         </OptimizedHolographicCard>
 
@@ -285,7 +228,7 @@ const AnimatedChatInput: React.FC<OptimizedChatInputProps> = memo(({
           <kbd className="px-2 py-1 text-xs bg-holo-cyan-500/20 border border-holo-cyan-400/30 rounded font-orbitron">Shift + Enter</kbd> for a new line
         </p>
       </div>
-    </motion.div>
+    </div>
   );
 });
 

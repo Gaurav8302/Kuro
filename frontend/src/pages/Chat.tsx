@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OptimizedSidebar } from '@/components/OptimizedSidebar';
@@ -6,6 +6,8 @@ import { OptimizedKuroIntro } from '@/components/OptimizedKuroIntro';
 import { OptimizedChatBubble } from '@/components/OptimizedChatBubble';
 import { OptimizedChatInput } from '@/components/OptimizedChatInput';
 import { OptimizedHolographicBackground } from '@/components/OptimizedHolographicBackground';
+import { TypingIndicator } from '@/components/TypingIndicator';
+import { MessageList } from '@/components/MessageList';
 import NameSetupModal from '@/components/NameSetupModal';
 import { Input } from '@/components/ui/input';
 import { 
@@ -150,13 +152,13 @@ const Chat = () => {
     });
   };
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     const el = scrollContainerRef.current;
     const threshold = 160; // px from bottom to still auto-stick
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     isUserNearBottomRef.current = distanceFromBottom < threshold;
-  };
+  }, []);
 
   // Attach scroll listener to main messages container
   useEffect(() => {
@@ -961,13 +963,12 @@ const Chat = () => {
                 ? "fixed left-0 top-0 h-full w-80 shadow-holo-glow border-r border-holo-cyan-500/30" 
                 : "relative w-80 border-r border-holo-cyan-500/20"
             )}
-            initial={isMobile ? { x: "-100%", opacity: 0, filter: 'blur(10px)' } : { opacity: 1, x: 0 }}
-            animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-            exit={isMobile ? { x: "-100%", opacity: 0, filter: 'blur(10px)' } : { opacity: 0, x: 0 }}
+            initial={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 1, x: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 0, x: 0 }}
             transition={{ 
-              duration: shouldReduceAnimations ? 0.2 : 0.5, 
-              ease: "easeInOut",
-              opacity: { duration: shouldReduceAnimations ? 0.2 : (isMobile ? 0.3 : 0.5) }
+              duration: shouldReduceAnimations ? 0.15 : 0.25, 
+              ease: [0.25, 0.1, 0.25, 1]
             }}
           >
             <OptimizedSidebar
@@ -1013,15 +1014,13 @@ const Chat = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Menu Button for all devices */}
-              <motion.button
+              <button
                 onClick={toggleSidebar}
-                className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
-                whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
                 title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
               >
                 <HoloMenuIcon size={20} />
-              </motion.button>
+              </button>
               
               {isEditingTitle ? (
                 <div className="flex items-center gap-2">
@@ -1035,36 +1034,30 @@ const Chat = () => {
                     className="h-8 min-w-[200px] glass-panel border-holo-cyan-400/30 text-holo-cyan-100 font-space"
                     autoFocus
                   />
-                  <motion.button 
+                  <button 
                     onClick={handleSaveTitle}
-                    className="w-8 h-8 rounded glass-panel border-holo-green-400/30 hover:shadow-holo-green transition-all duration-300 flex items-center justify-center"
-                    whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    className="w-8 h-8 rounded glass-panel border-holo-green-400/30 hover:shadow-holo-green transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
                   >
                     <Check className="w-4 h-4 text-holo-green-400" />
-                  </motion.button>
-                  <motion.button 
+                  </button>
+                  <button 
                     onClick={() => setIsEditingTitle(false)}
-                    className="w-8 h-8 rounded glass-panel border-holo-magenta-400/30 hover:shadow-holo-magenta transition-all duration-300 flex items-center justify-center"
-                    whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    className="w-8 h-8 rounded glass-panel border-holo-magenta-400/30 hover:shadow-holo-magenta transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
                   >
                     <X className="w-4 h-4 text-holo-magenta-400" />
-                  </motion.button>
+                  </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-semibold text-holo-cyan-300 text-holo-glow font-orbitron tracking-wide">
                     {currentSession?.title || 'New Chat'}
                   </h1>
-                  <motion.button
+                  <button
                     onClick={() => setIsEditingTitle(true)}
-                    className="w-6 h-6 rounded glass-panel border-holo-cyan-400/20 hover:border-holo-cyan-400/40 hover:shadow-holo-glow transition-all duration-300 flex items-center justify-center"
-                    whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    className="w-6 h-6 rounded glass-panel border-holo-cyan-400/20 hover:border-holo-cyan-400/40 hover:shadow-holo-glow transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
                   >
                     <Edit3 className="w-3 h-3 text-holo-cyan-400" />
-                  </motion.button>
+                  </button>
                   <HolographicButton
                     variant="ghost"
                     size="sm"
@@ -1178,52 +1171,13 @@ const Chat = () => {
                   </div>
                 </motion.div>
               ) : (
-                <motion.div
+                <MessageList
                   key="messages"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="space-y-6"
-                >
-                  {messages.map((message, idx) => (
-                    <motion.div
-                      key={message.timestamp + idx}
-                      initial={{ opacity: 0, y: 30, scale: 0.9, filter: 'blur(5px)' }}
-                      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                      transition={{ 
-                        delay: shouldReduceAnimations ? 0 : idx * 0.1, 
-                        duration: animationDuration, 
-                        ease: 'easeOut' 
-                      }}
-                    >
-                      <OptimizedChatBubble
-                        message={message}
-                        userAvatar={user?.imageUrl || ''}
-                        onRetry={handleRetryMessage}
-                      />
-                    </motion.div>
-                  ))}
-                  {isTyping && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 30, scale: 0.8 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 30, scale: 0.8 }}
-                      transition={{ duration: animationDuration }}
-                      className="flex items-center justify-center"
-                    >
-                      <OptimizedHolographicCard variant="glow" scanLine={!shouldReduceAnimations} className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex space-x-2">
-                            <div className="w-3 h-3 rounded-full bg-holo-cyan-400 shadow-holo-glow animate-typing-dots"></div>
-                            <div className="w-3 h-3 rounded-full bg-holo-blue-400 shadow-holo-blue animate-typing-dots [animation-delay:0.2s]"></div>
-                            <div className="w-3 h-3 rounded-full bg-holo-purple-400 shadow-holo-purple animate-typing-dots [animation-delay:0.4s]"></div>
-                          </div>
-                          <span className="text-sm text-holo-cyan-300 font-orbitron tracking-wide">KURO IS PROCESSING...</span>
-                        </div>
-                      </OptimizedHolographicCard>
-                    </motion.div>
-                  )}
-                </motion.div>
+                  messages={messages}
+                  userAvatar={user?.imageUrl || ''}
+                  isTyping={isTyping}
+                  onRetry={handleRetryMessage}
+                />
               )}
             </AnimatePresence>
             <div ref={messagesEndRef} />

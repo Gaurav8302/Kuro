@@ -39,7 +39,7 @@ const LightweightCard: React.FC<OptimizedHolographicCardProps> = memo(({
   );
 });
 
-// Full animated card for desktop
+// Full animated card for desktop - optimized
 const AnimatedCard: React.FC<OptimizedHolographicCardProps> = memo(({ 
   children, 
   className = '', 
@@ -56,36 +56,27 @@ const AnimatedCard: React.FC<OptimizedHolographicCardProps> = memo(({
   };
 
   return (
-    <motion.div
+    <div
       className={cn(
-        'relative rounded-xl overflow-hidden',
+        'relative rounded-xl overflow-hidden transform-gpu',
         variants[variant],
-        hover && 'hover:shadow-holo-glow hover:border-holo-cyan-500/40',
+        hover && 'transition-all duration-200 hover:scale-[1.01] hover:shadow-holo-glow hover:border-holo-cyan-500/40',
         className
       )}
-      whileHover={hover ? { 
-        scale: 1.02,
-        boxShadow: '0 0 40px rgba(0, 230, 214, 0.3)'
-      } : undefined}
-      transition={{ duration: animationDuration, ease: 'easeOut' }}
     >
-      {/* Scan line effect */}
+      {/* Scan line effect - CSS only */}
       {scanLine && (
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.div
-            className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
-            animate={{ y: ['0%', '100%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div
+            className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent animate-scan-line"
           />
         </div>
       )}
       
-      {/* Shimmer effect on hover */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full"
-          whileHover={{ x: '200%' }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
+      {/* Shimmer effect on hover - CSS only */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full hover:translate-x-full transition-transform duration-700"
         />
       </div>
       
@@ -93,7 +84,7 @@ const AnimatedCard: React.FC<OptimizedHolographicCardProps> = memo(({
       <div className="relative z-10">
         {children}
       </div>
-    </motion.div>
+    </div>
   );
 });
 

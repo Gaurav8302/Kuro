@@ -296,18 +296,12 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
   );
 });
 
-// Full animated sidebar for desktop
+// Full animated sidebar for desktop - now uses CSS animations for better performance
 const AnimatedSidebar: React.FC<OptimizedSidebarProps> = memo((props) => {
-  const { animationDuration } = useOptimizedAnimations();
-  
   return (
-    <motion.div
-      initial={{ x: -320, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: animationDuration * 2, ease: 'easeOut' }}
-    >
+    <div className="animate-slide-in-holo transform-gpu">
       <LightweightSidebar {...props} />
-    </motion.div>
+    </div>
   );
 });
 

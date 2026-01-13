@@ -66,14 +66,23 @@ export const usePerformance = (): PerformanceMetrics => {
 };
 
 export const useOptimizedAnimations = () => {
-  const { isLowEndDevice, prefersReducedMotion } = usePerformance();
+  const { isLowEndDevice, prefersReducedMotion, connectionSpeed } = usePerformance();
   const shouldReduceAnimations = isLowEndDevice || prefersReducedMotion;
+  const isSlowConnection = connectionSpeed === 'slow';
 
   return {
     shouldReduceAnimations,
-    animationDuration: shouldReduceAnimations ? 0.2 : 0.5,
-    particleCount: shouldReduceAnimations ? 10 : 40,
-    enableComplexAnimations: !shouldReduceAnimations,
-    enableParticles: !shouldReduceAnimations
+    // Faster animation durations for smoother feel
+    animationDuration: shouldReduceAnimations ? 0.1 : 0.25,
+    // Reduced particle count for better performance
+    particleCount: shouldReduceAnimations ? 5 : 20,
+    enableComplexAnimations: !shouldReduceAnimations && !isSlowConnection,
+    enableParticles: !shouldReduceAnimations && !isSlowConnection,
+    // New: transition config for framer-motion
+    springConfig: shouldReduceAnimations 
+      ? { type: 'tween', duration: 0.1 } 
+      : { type: 'spring', stiffness: 400, damping: 30 },
+    // New: whether to use CSS transitions instead of JS animations
+    preferCSSTransitions: shouldReduceAnimations
   };
 };

@@ -177,17 +177,14 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.8, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      transition={{ duration: animationDuration, ease: 'easeOut' }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: animationDuration, ease: [0.25, 0.1, 0.25, 1] }}
       className="max-w-4xl mx-auto px-4 py-4 flex items-start gap-3"
     >
       {/* Avatar */}
       <div className="flex-shrink-0">
-        <motion.div
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          transition={{ duration: animationDuration }}
-        >
+        <div className="transform-gpu hover:scale-110 transition-transform duration-200">
           <Avatar className="w-10 h-10 border-2 border-holo-cyan-400/50 shadow-holo-glow">
             {isUser ? (
               <>
@@ -203,9 +200,8 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
                   <HoloSparklesIcon size={16} />
                 </AvatarFallback>
               </>
-            )}
-          </Avatar>
-        </motion.div>
+            )}n          </Avatar>
+        </div>
       </div>
 
       {/* Message Bubble */}
@@ -235,19 +231,16 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
                 <MarkdownMessage content={message.message} />
               )}
 
-              {/* Holographic decorative elements */}
+              {/* Holographic decorative elements - simplified CSS animations */}
               {isUser && (
-                <motion.div 
-                  className="absolute -bottom-1 -right-1 w-3 h-3 bg-holo-cyan-400 rounded-full shadow-holo-glow"
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                <div 
+                  className="absolute -bottom-1 -right-1 w-3 h-3 bg-holo-cyan-400 rounded-full shadow-holo-glow animate-pulse"
                 />
               )}
               {!isUser && (
-                <motion.div 
-                  className="absolute -bottom-1 -left-1 w-3 h-3 bg-holo-purple-400 rounded-full shadow-holo-purple"
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                <div 
+                  className="absolute -bottom-1 -left-1 w-3 h-3 bg-holo-purple-400 rounded-full shadow-holo-purple animate-pulse"
+                  style={{ animationDelay: '0.5s' }}
                 />
               )}
             </motion.div>
@@ -255,13 +248,12 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
           
           {/* Copy button */}
           <div className="flex mt-1 justify-end">
-            <motion.button
+            <button
               type="button"
               onClick={handleCopyFull}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               className={cn(
-                "inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 transition-all duration-300 shadow-sm backdrop-blur-sm font-orbitron",
+                "inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 shadow-sm backdrop-blur-sm font-orbitron",
+                "transform-gpu transition-all duration-150 hover:scale-105 active:scale-95",
                 isUser
                   ? "border-holo-cyan-400/30 bg-holo-cyan-500/10 hover:bg-holo-cyan-500/20 text-holo-cyan-300 hover:shadow-holo-glow"
                   : "border-holo-purple-400/30 bg-holo-purple-500/10 hover:bg-holo-purple-500/20 text-holo-purple-300 hover:shadow-holo-purple hover:text-holo-purple-200"
@@ -269,7 +261,7 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
             >
               {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
               {copied ? 'Copied' : 'Copy'}
-            </motion.button>
+            </button>
           </div>
         </div>
         
@@ -285,7 +277,9 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
   );
 });
 
-export const OptimizedChatBubble: React.FC<OptimizedChatBubbleProps> = (props) => {
+AnimatedChatBubble.displayName = 'AnimatedChatBubble';
+
+export const OptimizedChatBubble: React.FC<OptimizedChatBubbleProps> = memo((props) => {
   const isMobile = useIsMobile();
   const { shouldReduceAnimations } = useOptimizedAnimations();
 
@@ -296,6 +290,8 @@ export const OptimizedChatBubble: React.FC<OptimizedChatBubbleProps> = (props) =
 
   // Use full animated bubble on desktop
   return <AnimatedChatBubble {...props} />;
-};
+});
+
+OptimizedChatBubble.displayName = 'OptimizedChatBubble';
 
 export default OptimizedChatBubble;

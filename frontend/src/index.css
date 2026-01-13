@@ -161,19 +161,23 @@
   .app-height { height: var(--app-height, 100vh); }
   .min-app-height { min-height: var(--app-height, 100vh); }
   .min-app-screen { min-height: var(--app-height, 100vh); }
-  /* Holographic Glass Effects */
+  /* Holographic Glass Effects - optimized for performance */
   .glass-panel {
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.25);
+    will-change: transform;
   }
 
   .glass-panel-strong {
     background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(15px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.6);
+    box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.4);
+    will-change: transform;
   }
 
   /* Holographic Borders */
@@ -470,19 +474,21 @@
 @media (max-width: 768px) {
   /* Reduce expensive effects on mobile */
   .glass-panel {
-    backdrop-filter: blur(5px) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
   }
   
+  /* Reduce shadow complexity */
   .shadow-holo-glow,
   .shadow-holo-blue,
   .shadow-holo-purple,
   .shadow-holo-magenta {
-    box-shadow: 0 0 10px rgba(0, 230, 214, 0.3) !important;
+    box-shadow: 0 0 8px rgba(0, 230, 214, 0.3) !important;
   }
   
   /* Simplify text shadows on mobile */
   .text-holo-glow {
-    text-shadow: 0 0 5px currentColor !important;
+    text-shadow: 0 0 4px currentColor !important;
   }
   
   /* Reduce particle complexity */
@@ -491,6 +497,18 @@
       radial-gradient(1px 1px at 20px 30px, rgba(0, 230, 214, 0.2), transparent),
       radial-gradient(1px 1px at 40px 70px, rgba(140, 26, 255, 0.2), transparent) !important;
     background-size: 100px 50px !important;
+    animation: none !important;
+  }
+  
+  /* Enable GPU acceleration for transforms */
+  .transform-gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Contain layout calculations */
+  .contain-layout {
+    contain: layout style;
   }
 }
 
@@ -538,7 +556,7 @@
 
 @keyframes typing-dots {
   0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-10px); }
+  30% { transform: translateY(-6px); }
 }
 
 @keyframes glitch {
