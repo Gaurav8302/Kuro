@@ -77,15 +77,17 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
 
   return (
     <div className={cn(
-      "h-full bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl border-r border-holo-cyan-500/20 flex flex-col relative overflow-hidden",
+      "h-full bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl border-r border-holo-cyan-500/20 flex flex-col overflow-hidden",
       isCollapsed ? "w-20" : "w-80",
       className
     )}>
       {/* Simple background pattern */}
-      <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-holo-cyan-500/5 to-holo-purple-500/5" />
+      <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-holo-cyan-500/5 to-holo-purple-500/5 pointer-events-none" />
       
-      {/* Header */}
-      <div className="p-4 border-b border-holo-cyan-500/20 relative flex-shrink-0">
+      {/* ============================================
+          HEADER SECTION - ALWAYS VISIBLE, NEVER SCROLLS
+          ============================================ */}
+      <div className="flex-shrink-0 p-4 border-b border-holo-cyan-500/20 relative z-10">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
@@ -107,7 +109,7 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           </button>
         </div>
 
-        {/* New Chat Button */}
+        {/* New Chat Button - ALWAYS VISIBLE */}
         {!isCollapsed && (
           <div className="mt-4">
             <HolographicButton
@@ -136,8 +138,10 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
         )}
       </div>
 
-      {/* Sessions List - Scrollable content with bottom padding for bottom section */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 relative min-h-0" style={{ paddingBottom: '200px' }}>
+      {/* ============================================
+          SESSIONS LIST - SCROLLABLE MIDDLE SECTION
+          ============================================ */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-3 relative z-10">
         {!isCollapsed && (
           <h3 className="text-xs font-semibold text-holo-cyan-400/80 uppercase tracking-wider mb-4 font-orbitron">
             CHATS
@@ -234,64 +238,79 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
         ))}
       </div>
 
-      {/* Bottom Section - Fixed at bottom with sponsor, user profile, and logout */}
-      {user && (
-        <div className="absolute bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-holo-cyan-500/20">
-          {!isCollapsed && (
-            <>
-              {/* Sponsor Button */}
-              <div className="p-4 pb-2">
-                <HolographicButton
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs font-orbitron tracking-wide"
-                  onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
-                >
-                  <Brain className="w-3 h-3 mr-2" />
-                  SPONSOR
-                </HolographicButton>
-              </div>
-              
-              {/* User Profile */}
-              <div className="px-4 pb-2">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+      {/* ============================================
+          FOOTER SECTION - ALWAYS VISIBLE, NEVER SCROLLS
+          Uses flex-shrink-0 and is NOT absolute positioned
+          ============================================ */}
+      <div className="flex-shrink-0 bg-background/95 backdrop-blur-sm border-t border-holo-cyan-500/20 relative z-10">
+        {!isCollapsed && (
+          <>
+            {/* Sponsor Button */}
+            <div className="p-4 pb-2">
+              <HolographicButton
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs font-orbitron tracking-wide"
+                onClick={() => window.open('https://github.com/sponsors/Gaurav8302', '_blank')}
+              >
+                <Brain className="w-3 h-3 mr-2" />
+                SPONSOR
+              </HolographicButton>
+            </div>
+            
+            {/* User Profile - show placeholder if no user yet */}
+            <div className="px-4 pb-2">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10 border-2 border-holo-blue-400/50">
+                  {user ? (
+                    <>
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-sm font-medium font-orbitron">
+                        {user.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </>
+                  ) : (
                     <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-sm font-medium font-orbitron">
-                      {user.name.split(' ').map(n => n[0]).join('')}
+                      ?
                     </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-holo-cyan-100 font-space">{user.name}</p>
-                    <p className="text-xs text-holo-cyan-400/60 truncate font-orbitron">{user.email}</p>
-                  </div>
+                  )}
+                </Avatar>
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-holo-cyan-100 font-space">
+                    {user?.name || 'Loading...'}
+                  </p>
+                  <p className="text-xs text-holo-cyan-400/60 truncate font-orbitron">
+                    {user?.email || ''}
+                  </p>
                 </div>
               </div>
-            </>
+            </div>
+          </>
+        )}
+        
+        {/* Logout Button - always visible */}
+        <div className="p-4 pt-2">
+          {!isCollapsed ? (
+            <button
+              onClick={onSignOut}
+              disabled={!user}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 h-10 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <LogOut className="w-4 h-4 text-holo-magenta-400" />
+              <span className="text-sm font-orbitron text-holo-magenta-300 tracking-wide">LOG OUT</span>
+            </button>
+          ) : (
+            <button
+              onClick={onSignOut}
+              disabled={!user}
+              className="w-full h-10 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 transition-all duration-300 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <LogOut className="w-4 h-4 text-holo-magenta-400" />
+            </button>
           )}
-          
-          {/* Logout Button */}
-          <div className="p-4 pt-2">
-            {!isCollapsed ? (
-              <button
-                onClick={onSignOut}
-                className="w-full inline-flex items-center justify-center gap-2 px-3 h-10 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 transition-all duration-300"
-              >
-                <LogOut className="w-4 h-4 text-holo-magenta-400" />
-                <span className="text-sm font-orbitron text-holo-magenta-300 tracking-wide">LOG OUT</span>
-              </button>
-            ) : (
-              <button
-                onClick={onSignOut}
-                className="w-full h-10 rounded-lg bg-holo-magenta-500/10 border border-holo-magenta-400/30 hover:bg-holo-magenta-500/20 transition-all duration-300 flex items-center justify-center"
-              >
-                <LogOut className="w-4 h-4 text-holo-magenta-400" />
-              </button>
-            )}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 });
