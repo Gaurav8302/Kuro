@@ -104,18 +104,23 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              e.preventDefault();
+              console.log('Close button clicked, onClose:', !!onClose);
               if (onClose) onClose();
               else setIsCollapsed(!isCollapsed);
             }}
             onTouchEnd={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('Close button touched, onClose:', !!onClose);
               if (onClose) onClose();
               else setIsCollapsed(!isCollapsed);
             }}
-            className="w-8 h-8 rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 transition-all duration-300 flex items-center justify-center touch-manipulation"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 active:bg-holo-cyan-500/30 transition-all duration-300 flex items-center justify-center touch-manipulation z-50"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            aria-label="Close sidebar"
           >
-            {isCollapsed ? <Menu className="w-4 h-4 text-holo-cyan-400" /> : <X className="w-4 h-4 text-holo-cyan-400" />}
+            {isCollapsed ? <Menu className="w-5 h-5 text-holo-cyan-400" /> : <X className="w-5 h-5 text-holo-cyan-400" />}
           </button>
         </div>
 
