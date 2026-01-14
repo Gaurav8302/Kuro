@@ -72,7 +72,10 @@ const MobileSidebar = memo<{
         isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       )}
       onClick={onOverlayClick}
-      onTouchStart={onOverlayClick}
+      onTouchEnd={(e) => {
+        e.preventDefault();
+        if (onOverlayClick) onOverlayClick();
+      }}
       aria-hidden={!isOpen}
     />
     

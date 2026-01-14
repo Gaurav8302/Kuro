@@ -102,8 +102,18 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           )}
           
           <button
-            onClick={onClose || (() => setIsCollapsed(!isCollapsed))}
-            className="w-8 h-8 rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 transition-all duration-300 flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onClose) onClose();
+              else setIsCollapsed(!isCollapsed);
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onClose) onClose();
+              else setIsCollapsed(!isCollapsed);
+            }}
+            className="w-8 h-8 rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 transition-all duration-300 flex items-center justify-center touch-manipulation"
           >
             {isCollapsed ? <Menu className="w-4 h-4 text-holo-cyan-400" /> : <X className="w-4 h-4 text-holo-cyan-400" />}
           </button>
@@ -318,23 +328,15 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
 // Full animated sidebar for desktop - now uses CSS animations for better performance
 const AnimatedSidebar: React.FC<OptimizedSidebarProps> = memo((props) => {
   return (
-    <div className="animate-slide-in-holo transform-gpu">
+    <div className="h-full animate-slide-in-holo transform-gpu">
       <LightweightSidebar {...props} />
     </div>
   );
 });
 
 export const OptimizedSidebar: React.FC<OptimizedSidebarProps> = (props) => {
-  const isMobile = useIsMobile();
-  const { shouldReduceAnimations } = useOptimizedAnimations();
-
-  // Use lightweight sidebar on mobile or when animations should be reduced
-  if (isMobile || shouldReduceAnimations) {
-    return <LightweightSidebar {...props} />;
-  }
-
-  // Use animated sidebar on desktop
-  return <AnimatedSidebar {...props} />;
+  // Always use LightweightSidebar for stability - animation wrapper was causing layout issues
+  return <LightweightSidebar {...props} />;
 };
 
 export default OptimizedSidebar;
