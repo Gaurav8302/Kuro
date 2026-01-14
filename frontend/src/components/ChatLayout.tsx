@@ -88,6 +88,10 @@ const MobileSidebar = memo<{
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}
       aria-hidden={!isOpen}
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {children}
     </div>

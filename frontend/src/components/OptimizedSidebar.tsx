@@ -77,17 +77,17 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
 
   return (
     <div className={cn(
-      "h-full bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl border-r border-holo-cyan-500/20 flex flex-col overflow-hidden",
+      "h-full bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-xl border-r border-holo-cyan-500/20 flex flex-col overflow-hidden relative",
       isCollapsed ? "w-20" : "w-80",
       className
     )}>
       {/* Simple background pattern */}
-      <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-holo-cyan-500/5 to-holo-purple-500/5 pointer-events-none" />
+      <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-holo-cyan-500/5 to-holo-purple-500/5 pointer-events-none z-0" />
       
       {/* ============================================
           HEADER SECTION - ALWAYS VISIBLE, NEVER SCROLLS
           ============================================ */}
-      <div className="flex-shrink-0 p-4 border-b border-holo-cyan-500/20 relative z-10">
+      <div className="flex-shrink-0 p-4 border-b border-holo-cyan-500/20 relative z-20">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
@@ -102,25 +102,29 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           )}
           
           <button
+            onPointerDown={(e) => {
+              // Use pointerdown for most reliable cross-device support
+              e.stopPropagation();
+              console.log('[CLOSE] Pointer down on close button');
+              const handler = onClose || (() => setIsCollapsed(!isCollapsed));
+              handler();
+            }}
             onClick={(e) => {
+              // Fallback for non-pointer devices
               e.stopPropagation();
               e.preventDefault();
-              console.log('Close button clicked, onClose:', !!onClose);
-              if (onClose) onClose();
-              else setIsCollapsed(!isCollapsed);
+              console.log('[CLOSE] Click on close button');
             }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Close button touched, onClose:', !!onClose);
-              if (onClose) onClose();
-              else setIsCollapsed(!isCollapsed);
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-holo-cyan-500/20 border-2 border-holo-cyan-400/50 hover:bg-holo-cyan-500/30 active:bg-holo-cyan-500/40 transition-all duration-300 flex items-center justify-center cursor-pointer select-none"
+            style={{ 
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
             }}
-            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-holo-cyan-500/10 border border-holo-cyan-400/30 hover:bg-holo-cyan-500/20 active:bg-holo-cyan-500/30 transition-all duration-300 flex items-center justify-center touch-manipulation z-50"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
             aria-label="Close sidebar"
+            type="button"
           >
-            {isCollapsed ? <Menu className="w-5 h-5 text-holo-cyan-400" /> : <X className="w-5 h-5 text-holo-cyan-400" />}
+            <X className="w-5 h-5 text-holo-cyan-400 pointer-events-none" />
+          </button>
           </button>
         </div>
 
