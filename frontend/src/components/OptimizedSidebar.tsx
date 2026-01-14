@@ -125,7 +125,6 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           >
             <X className="w-5 h-5 text-holo-cyan-400 pointer-events-none" />
           </button>
-          </button>
         </div>
 
         {/* New Chat Button - ALWAYS VISIBLE */}
