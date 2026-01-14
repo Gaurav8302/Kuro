@@ -8,6 +8,9 @@ import { OptimizedChatInput } from '@/components/OptimizedChatInput';
 import { OptimizedHolographicBackground } from '@/components/OptimizedHolographicBackground';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { MessageList } from '@/components/MessageList';
+import { ChatLayout } from '@/components/ChatLayout';
+import { ChatHeader } from '@/components/ChatHeader';
+import { ChatContent } from '@/components/ChatContent';
 import NameSetupModal from '@/components/NameSetupModal';
 import { Input } from '@/components/ui/input';
 import { 
@@ -860,13 +863,60 @@ const Chat = () => {
     );
   }
 
-  return (
-  <div className={cn(
-    "flex bg-background relative overflow-hidden",
-    isMobile ? "min-app-height" : "h-screen"
-  )}>
-      <OptimizedHolographicBackground variant="default" />
-      
+  // Memoized sidebar content - always rendered, visibility controlled by ChatLayout
+  const sidebarContent = (
+    <OptimizedSidebar
+      sessions={sessions}
+      currentSessionId={currentSession?.session_id}
+      user={user ? {
+        id: user.id,
+        name: displayedName || 'User',
+        email: user.emailAddresses?.[0]?.emailAddress || '',
+        avatar: user.imageUrl
+      } : undefined}
+      onNewChat={handleNewChat}
+      onSelectSession={handleSelectSession}
+      onRenameSession={handleRenameSession}
+      onDeleteSession={handleDeleteSession}
+      onSignOut={handleSignOut}
+      onClose={() => setIsSidebarOpen(false)}
+    />
+  );
+
+  // Memoized header content
+  const headerContent = (
+    <ChatHeader
+      title={currentSession?.title || 'New Chat'}
+      onToggleSidebar={toggleSidebar}
+      onRename={(newTitle) => {
+        if (currentSession) {
+          handleRenameSession(currentSession.session_id, newTitle);
+          setHasUserEditedTitle(true);
+        }
+      }}
+      onGenerateTitle={handleGenerateTitle}
+      isGeneratingTitle={isGeneratingTitle}
+      hasSession={!!currentSession}
+    />
+  );
+
+  // Memoized input content - always at bottom, never moves
+  const inputContent = (
+    <OptimizedChatInput
+      onSendMessage={handleSendMessage}
+      sending={isTyping || isLoading}
+      placeholder={
+        (isTyping || isLoading)
+          ? "KURO IS RESPONDING..." 
+          : "TRANSMIT YOUR QUERY..."
+      }
+    />
+  );
+
+  // Overlay content (modals, errors, intros) - rendered on top of layout
+  const overlayContent = (
+    <>
+      {/* First-time intro overlay */}
       <AnimatePresence>
         {showFirstTimeIntro && !showNameModal && (
           <motion.div
@@ -886,9 +936,8 @@ const Chat = () => {
               ]}
               cycleMs={1600}
               fullscreen
-              onFinish={() => {/* keep visible until user closes or timeout */}}
+              onFinish={() => {}}
             />
-            {/* Skip / Close button */}
             <motion.button
               onClick={() => setShowFirstTimeIntro(false)}
               className="absolute top-6 right-6 z-[10000] px-6 py-3 rounded-full glass-panel border-holo-cyan-400/30 text-holo-cyan-300 hover:text-holo-cyan-100 hover:shadow-holo-glow text-sm font-orbitron tracking-wide transition-all duration-300"
@@ -911,6 +960,7 @@ const Chat = () => {
         onSkip={handleNameSkip}
       />
       
+      {/* Error toast */}
       <AnimatePresence>
         {error && (
           <motion.div 
@@ -925,277 +975,45 @@ const Chat = () => {
                 <AlertTriangle className="h-5 w-5 text-holo-magenta-400" />
                 <p className="text-sm text-holo-magenta-200 font-space">{error}</p>
                 <motion.button
-                className="ml-auto w-6 h-6 rounded bg-holo-magenta-500/20 hover:bg-holo-magenta-500/30 border border-holo-magenta-400/30 flex items-center justify-center transition-all duration-300"
-                onClick={() => setError(null)}
-                whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <X className="h-3 w-3 text-holo-magenta-400" />
-              </motion.button>
+                  className="ml-auto w-6 h-6 rounded bg-holo-magenta-500/20 hover:bg-holo-magenta-500/30 border border-holo-magenta-400/30 flex items-center justify-center transition-all duration-300"
+                  onClick={() => setError(null)}
+                  whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <X className="h-3 w-3 text-holo-magenta-400" />
+                </motion.button>
               </div>
             </OptimizedHolographicCard>
           </motion.div>
         )}
       </AnimatePresence>
+    </>
+  );
 
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isMobile && isSidebarOpen && (
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: animationDuration }}
-            onClick={() => setIsSidebarOpen(false)}
-            onTouchStart={() => setIsSidebarOpen(false)} // Handle touch events
-          />
-        )}
-      </AnimatePresence>
+  // Background element
+  const backgroundContent = <OptimizedHolographicBackground variant="default" />;
 
-      {/* Sidebar */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div
-            className={cn(
-              "z-50 bg-background/95 backdrop-blur-xl",
-              isMobile 
-                ? "fixed left-0 top-0 h-full w-80 shadow-holo-glow border-r border-holo-cyan-500/30" 
-                : "relative w-80 border-r border-holo-cyan-500/20"
-            )}
-            initial={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 1, x: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={isMobile ? { x: "-100%", opacity: 0 } : { opacity: 0, x: 0 }}
-            transition={{ 
-              duration: shouldReduceAnimations ? 0.15 : 0.25, 
-              ease: [0.25, 0.1, 0.25, 1]
-            }}
-          >
-            <OptimizedSidebar
-              sessions={sessions}
-              currentSessionId={currentSession?.session_id}
-              user={user ? {
-                id: user.id,
-                name: displayedName || 'User',
-                email: user.emailAddresses?.[0]?.emailAddress || '',
-                avatar: user.imageUrl
-              } : undefined}
-              onNewChat={handleNewChat}
-              onSelectSession={handleSelectSession}
-              onRenameSession={handleRenameSession}
-              onDeleteSession={handleDeleteSession}
-              onSignOut={handleSignOut}
-              onClose={() => setIsSidebarOpen(false)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Chat Area */}
-      <div className={cn(
-        // Flex column so header, scrollable messages, and input stack; input naturally at bottom
-        "flex flex-col h-full min-h-0 relative",
-        isMobile ? "flex-1" : (isSidebarOpen ? "flex-1" : "w-full")
-      )}>
-        {/* Chat Header */}
-        <motion.header 
-          className="p-4 border-b border-holo-cyan-500/20 glass-panel backdrop-blur-xl relative overflow-hidden"
-          initial={{ y: -50, opacity: 0, filter: 'blur(10px)' }}
-          animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-          transition={{ duration: animationDuration, ease: 'easeOut' }}
-        >
-          {/* Header scan line */}
-          {!shouldReduceAnimations && <motion.div
-            className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-holo-cyan-400 to-transparent"
-            animate={{ opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          />}
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* Menu Button for all devices */}
-              <button
-                onClick={toggleSidebar}
-                className="shrink-0 w-10 h-10 rounded-lg glass-panel border-holo-cyan-400/30 hover:shadow-holo-glow transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
-                title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
-              >
-                <HoloMenuIcon size={20} />
-              </button>
-              
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveTitle();
-                      if (e.key === 'Escape') setIsEditingTitle(false);
-                    }}
-                    className="h-8 min-w-[200px] glass-panel border-holo-cyan-400/30 text-holo-cyan-100 font-space"
-                    autoFocus
-                  />
-                  <button 
-                    onClick={handleSaveTitle}
-                    className="w-8 h-8 rounded glass-panel border-holo-green-400/30 hover:shadow-holo-green transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
-                  >
-                    <Check className="w-4 h-4 text-holo-green-400" />
-                  </button>
-                  <button 
-                    onClick={() => setIsEditingTitle(false)}
-                    className="w-8 h-8 rounded glass-panel border-holo-magenta-400/30 hover:shadow-holo-magenta transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
-                  >
-                    <X className="w-4 h-4 text-holo-magenta-400" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold text-holo-cyan-300 text-holo-glow font-orbitron tracking-wide">
-                    {currentSession?.title || 'New Chat'}
-                  </h1>
-                  <button
-                    onClick={() => setIsEditingTitle(true)}
-                    className="w-6 h-6 rounded glass-panel border-holo-cyan-400/20 hover:border-holo-cyan-400/40 hover:shadow-holo-glow transition-all duration-200 flex items-center justify-center transform-gpu hover:scale-110 active:scale-95"
-                  >
-                    <Edit3 className="w-3 h-3 text-holo-cyan-400" />
-                  </button>
-                  <HolographicButton
-                    variant="ghost"
-                    size="sm"
-                    disabled={isGeneratingTitle || !currentSession}
-                    onClick={handleGenerateTitle}
-                    className="h-7 px-3 text-xs font-orbitron tracking-wide"
-                  >
-                    {isGeneratingTitle ? (
-                      <span className="flex items-center gap-1">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        >
-                          <Zap className="h-3 w-3" />
-                        </motion.div>
-                        GENERATING...
-                      </span>
-                    ) : (
-                      <>
-                        <Brain className="w-3 h-3 mr-1" />
-                        GENERATE TITLE
-                      </>
-                    )}
-                  </HolographicButton>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.header>
-
-        {/* Messages Area */}
-        <div
-          ref={scrollContainerRef}
-          className={cn(
-            // flex-1 so it grows and leaves room for input; min-h-0 to allow shrinking
-            "flex-1 overflow-y-auto min-h-0 relative scroll-smooth",
-            isMobile && "pb-28 px-1"
-          )}
-        >
-          {/* Chat area background effects */}
-          {!shouldReduceAnimations && (
-            <>
-              <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background/60" />
-              <div className="absolute inset-0 holo-grid-bg opacity-20" />
-            </>
-          )}
-          
-          <div className={cn(
-            "py-8 space-y-6 relative z-10",
-            isMobile && "space-y-3 py-6" // tighter vertical rhythm on mobile
-          )}>
-            <AnimatePresence mode="wait">
-              {messages.length === 0 && isLoading ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0, y: 30, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -30, scale: 0.8 }}
-                  transition={{ duration: animationDuration, ease: 'easeOut' }}
-                  className="text-center py-16"
-                >
-                  <div className="max-w-md mx-auto">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ 
-                        duration: shouldReduceAnimations ? 1 : 2, 
-                        repeat: Infinity, 
-                        ease: 'linear' 
-                      }}
-                      className="w-16 h-16 mx-auto mb-6"
-                    >
-                      <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
-                    </motion.div>
-                    <h3 className="text-xl font-semibold mb-2 text-holo-cyan-300 text-holo-glow font-orbitron">
-                      LOADING TRANSMISSION...
-                    </h3>
-                  </div>
-                </motion.div>
-              ) : messages.length === 0 && !isLoading ? (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0, y: 30, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -30, scale: 0.8 }}
-                  transition={{ duration: animationDuration * 1.2, ease: 'easeOut' }}
-                  className="text-center py-16"
-                >
-                  <div className="max-w-lg mx-auto">
-                    <motion.div
-                      animate={shouldReduceAnimations ? {} : { 
-                        scale: [1, 1.1, 1],
-                        rotate: [0, 5, -5, 0]
-                      }}
-                      transition={{ 
-                        duration: shouldReduceAnimations ? 0 : 4, 
-                        repeat: shouldReduceAnimations ? 0 : Infinity 
-                      }}
-                      className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-holo-cyan-500 to-holo-purple-500 rounded-full flex items-center justify-center shadow-holo-glow"
-                    >
-                      <HoloSparklesIcon size={32} className="text-white" />
-                    </motion.div>
-                    <h3 className="text-2xl font-semibold mb-4 text-holo-cyan-300 text-holo-glow font-orbitron tracking-wide">
-                      NEURAL INTERFACE READY
-                    </h3>
-                    <p className="text-holo-cyan-100 text-lg mb-3 font-space">
-                      How may I assist your mission today?
-                    </p>
-                    <p className="text-xs text-holo-cyan-400/60 font-orbitron tracking-wider">
-                      POWERED BY GROQ LLAMA 3 70B NEURAL CORE
-                    </p>
-                  </div>
-                </motion.div>
-              ) : (
-                <MessageList
-                  key="messages"
-                  messages={messages}
-                  userAvatar={user?.imageUrl || ''}
-                  isTyping={isTyping}
-                  onRetry={handleRetryMessage}
-                />
-              )}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Chat Input */}
-        <OptimizedChatInput
-          onSendMessage={handleSendMessage}
-          sending={isTyping || isLoading}
-          placeholder={
-            (isTyping || isLoading)
-              ? "KURO IS RESPONDING..." 
-              : "TRANSMIT YOUR QUERY..."
-          }
-        />
-      </div>
-    </div>
+  return (
+    <ChatLayout
+      sidebar={sidebarContent}
+      sidebarOpen={isSidebarOpen}
+      header={headerContent}
+      input={inputContent}
+      overlays={overlayContent}
+      background={backgroundContent}
+      onMobileOverlayClick={() => setIsSidebarOpen(false)}
+      scrollContainerRef={scrollContainerRef}
+    >
+      {/* ChatContent - only content inside changes, layout remains stable */}
+      <ChatContent
+        messages={messages}
+        userAvatar={user?.imageUrl || ''}
+        isTyping={isTyping}
+        isLoading={isLoading}
+        onRetry={handleRetryMessage}
+        messagesEndRef={messagesEndRef}
+      />
+    </ChatLayout>
   );
 }
 
