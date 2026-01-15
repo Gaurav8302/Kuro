@@ -56,47 +56,50 @@ const DesktopSidebar = memo<{ children: ReactNode; isOpen: boolean }>(({ childre
 DesktopSidebar.displayName = 'DesktopSidebar';
 
 /**
- * Mobile Sidebar drawer - always mounted, uses CSS transform for slide animation
+ * Mobile Sidebar drawer - simplified for reliability
+ * Uses inline styles to guarantee state is applied correctly
  */
-const MobileSidebar = memo<{ 
+const MobileSidebar: React.FC<{ 
   children: ReactNode; 
   isOpen: boolean; 
   onOverlayClick?: () => void;
-}>(({ children, isOpen, onOverlayClick }) => (
-  <>
-    {/* Backdrop overlay - always mounted, visibility via CSS */}
-    <div
-      className={cn(
-        "md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-md",
-        "transition-opacity duration-300",
-        isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-      )}
-      onClick={onOverlayClick}
-      onTouchEnd={(e) => {
-        e.preventDefault();
-        if (onOverlayClick) onOverlayClick();
-      }}
-      aria-hidden={!isOpen}
-    />
-    
-    {/* Sidebar drawer - always mounted, position via CSS transform */}
-    <div
-      className={cn(
-        "md:hidden fixed left-0 top-0 h-full w-80 z-50",
-        "bg-background/95 backdrop-blur-xl shadow-holo-glow border-r border-holo-cyan-500/30",
-        "transition-transform duration-300 ease-out transform-gpu",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}
-      aria-hidden={!isOpen}
-      onClick={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-      onTouchEnd={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      {children}
-    </div>
-  </>
-));
+}> = ({ children, isOpen, onOverlayClick }) => {
+  // Log state changes for debugging
+  React.useEffect(() => {
+    console.log('[MobileSidebar] isOpen changed to:', isOpen);
+  }, [isOpen]);
+
+  return (
+    <>
+      {/* Backdrop overlay */}
+      <div
+        className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
+        style={{
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'opacity 300ms ease-out'
+        }}
+        onClick={() => {
+          console.log('[MobileSidebar] Overlay clicked');
+          if (onOverlayClick) onOverlayClick();
+        }}
+        aria-hidden={!isOpen}
+      />
+      
+      {/* Sidebar drawer - uses inline transform for guaranteed state sync */}
+      <div
+        className="md:hidden fixed left-0 top-0 h-full w-80 z-50 bg-background/95 backdrop-blur-xl shadow-holo-glow border-r border-holo-cyan-500/30"
+        style={{
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 300ms ease-out'
+        }}
+        aria-hidden={!isOpen}
+      >
+        {children}
+      </div>
+    </>
+  );
+};
 
 MobileSidebar.displayName = 'MobileSidebar';
 
@@ -182,8 +185,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = memo(({
         {sidebar}
       </DesktopSidebar>
       
-      {/* Mobile sidebar drawer - always mounted */}
-      <MobileSidebar isOpen={sidebarOpen && isMobile} onOverlayClick={onMobileOverlayClick}>
+      {/* Mobile sidebar drawer - pass sidebarOpen directly, md:hidden handles desktop hiding */}
+      <MobileSidebar isOpen={sidebarOpen} onOverlayClick={onMobileOverlayClick}>
         {sidebar}
       </MobileSidebar>
       

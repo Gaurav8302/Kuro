@@ -132,8 +132,14 @@ const Chat = () => {
     return () => clearTimeout(failsafe);
   }, [isLoading]);
 
+  // Debug: Log sidebar state changes
+  useEffect(() => {
+    console.log('[Chat.tsx] isSidebarOpen changed to:', isSidebarOpen);
+  }, [isSidebarOpen]);
+
   // Update sidebar state when mobile state changes
   useEffect(() => {
+    console.log('[Chat.tsx] isMobile changed to:', isMobile);
     if (isMobile) {
       setIsSidebarOpen(false); // Always close sidebar on mobile
     } else {
@@ -879,7 +885,10 @@ const Chat = () => {
       onRenameSession={handleRenameSession}
       onDeleteSession={handleDeleteSession}
       onSignOut={handleSignOut}
-      onClose={() => setIsSidebarOpen(false)}
+      onClose={() => {
+        console.log('[Chat.tsx] onClose called, setting isSidebarOpen to false');
+        setIsSidebarOpen(false);
+      }}
     />
   );
 
