@@ -102,18 +102,15 @@ const LightweightSidebar: React.FC<OptimizedSidebarProps> = memo(({
           )}
           
           <button
-            onPointerDown={(e) => {
-              // Use pointerdown for most reliable cross-device support
-              e.stopPropagation();
-              console.log('[CLOSE] Pointer down on close button');
-              const handler = onClose || (() => setIsCollapsed(!isCollapsed));
-              handler();
-            }}
             onClick={(e) => {
-              // Fallback for non-pointer devices
               e.stopPropagation();
               e.preventDefault();
-              console.log('[CLOSE] Click on close button');
+              console.log('[CLOSE] Button clicked, calling onClose');
+              if (onClose) {
+                onClose();
+              } else {
+                setIsCollapsed(!isCollapsed);
+              }
             }}
             className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg bg-holo-cyan-500/20 border-2 border-holo-cyan-400/50 hover:bg-holo-cyan-500/30 active:bg-holo-cyan-500/40 transition-all duration-300 flex items-center justify-center cursor-pointer select-none"
             style={{ 
