@@ -1,16 +1,13 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { OptimizedSidebar } from '@/components/OptimizedSidebar';
-import { OptimizedKuroIntro } from '@/components/OptimizedKuroIntro';
-import { OptimizedChatBubble } from '@/components/OptimizedChatBubble';
-import { OptimizedChatInput } from '@/components/OptimizedChatInput';
-import { OptimizedHolographicBackground } from '@/components/OptimizedHolographicBackground';
-import { TypingIndicator } from '@/components/TypingIndicator';
-import { MessageList } from '@/components/MessageList';
+import { KuroSidebar } from '@/components/kuro/KuroSidebar';
+import { KuroIntro } from '@/components/kuro/KuroIntro';
+import { KuroBackground } from '@/components/kuro/KuroBackground';
+import { KuroChatHeader } from '@/components/kuro/KuroChatHeader';
+import { KuroChatContent } from '@/components/kuro/KuroChatContent';
+import { KuroChatInput } from '@/components/kuro/KuroChatInput';
 import { ChatLayout } from '@/components/ChatLayout';
-import { ChatHeader } from '@/components/ChatHeader';
-import { ChatContent } from '@/components/ChatContent';
 import NameSetupModal from '@/components/NameSetupModal';
 import { Input } from '@/components/ui/input';
 import { 
@@ -29,9 +26,7 @@ import { cn } from '@/lib/utils';
 import { useClerkApi, setUserName, getUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { OptimizedHolographicCard } from '@/components/OptimizedHolographicCard';
-import { HolographicButton } from '@/components/HolographicButton';
-import { HoloMenuIcon, HoloSparklesIcon } from '@/components/HolographicIcons';
+import { KuroButton, KuroCard } from '@/components/kuro';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
 
 const Chat = () => {
@@ -829,8 +824,8 @@ const Chat = () => {
   if (!isLoaded || !user || (isInitializing && user)) {
     return (
       <div className="h-screen flex items-center justify-center bg-background relative overflow-hidden">
-        <OptimizedHolographicBackground variant="subtle" />
-        <div className="text-center">
+        <KuroBackground variant="subtle" />
+        <div className="text-center relative z-10">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ 
@@ -840,26 +835,26 @@ const Chat = () => {
             }}
             className="w-16 h-16 mx-auto mb-6"
           >
-            <div className="w-full h-full rounded-full border-4 border-holo-cyan-400/30 border-t-holo-cyan-400 shadow-holo-glow" />
+            <div className="w-full h-full rounded-full border-4 border-primary/30 border-t-primary" />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: shouldReduceAnimations ? 0.1 : 0.3 }}
           >
-            <h3 className="text-xl font-orbitron text-holo-cyan-400 text-holo-glow mb-2">
-              INITIALIZING NEURAL INTERFACE
+            <h3 className="text-xl font-semibold text-foreground mb-2">
+              Initializing
             </h3>
-            <p className="text-holo-cyan-400/60 font-rajdhani tracking-wide">
+            <p className="text-muted-foreground text-sm">
             {!isLoaded ? "Loading..." : !user ? "Loading chat..." : "Setting up your session..."}
           </p>
           {isInitializing && (
-            <p className="text-xs text-holo-cyan-400/50 mt-4 font-orbitron">
-              HAVING TROUBLE CONNECTING? <button 
+            <p className="text-xs text-muted-foreground/60 mt-4">
+              Having trouble? <button 
                 onClick={() => setIsInitializing(false)} 
-                className="text-holo-cyan-400 underline hover:text-holo-cyan-300 transition-colors"
+                className="text-primary underline hover:text-primary/80 transition-colors"
               >
-                SKIP AND CONTINUE
+                Skip and continue
               </button>
             </p>
           )}
@@ -871,7 +866,7 @@ const Chat = () => {
 
   // Memoized sidebar content - always rendered, visibility controlled by ChatLayout
   const sidebarContent = (
-    <OptimizedSidebar
+    <KuroSidebar
       sessions={sessions}
       currentSessionId={currentSession?.session_id}
       user={user ? {
@@ -894,7 +889,7 @@ const Chat = () => {
 
   // Memoized header content
   const headerContent = (
-    <ChatHeader
+    <KuroChatHeader
       title={currentSession?.title || 'New Chat'}
       onToggleSidebar={toggleSidebar}
       onRename={(newTitle) => {
@@ -911,13 +906,13 @@ const Chat = () => {
 
   // Memoized input content - always at bottom, never moves
   const inputContent = (
-    <OptimizedChatInput
+    <KuroChatInput
       onSendMessage={handleSendMessage}
       sending={isTyping || isLoading}
       placeholder={
         (isTyping || isLoading)
-          ? "KURO IS RESPONDING..." 
-          : "TRANSMIT YOUR QUERY..."
+          ? "Kuro is responding..." 
+          : "Type a message..."
       }
     />
   );
@@ -936,7 +931,7 @@ const Chat = () => {
             transition={{ duration: animationDuration }}
             className="fixed inset-0 z-[9998]"
           >
-            <OptimizedKuroIntro
+            <KuroIntro
               phrases={[
                 displayedName ? `Welcome, ${displayedName}` : 'Welcome',
                 "Let's Imagine",
@@ -949,14 +944,13 @@ const Chat = () => {
             />
             <motion.button
               onClick={() => setShowFirstTimeIntro(false)}
-              className="absolute top-6 right-6 z-[10000] px-6 py-3 rounded-full glass-panel border-holo-cyan-400/30 text-holo-cyan-300 hover:text-holo-cyan-100 hover:shadow-holo-glow text-sm font-orbitron tracking-wide transition-all duration-300"
+              className="absolute top-6 right-6 z-[10000] px-6 py-3 rounded-full glass border border-white/10 text-muted-foreground hover:text-foreground hover:border-primary/50 text-sm font-medium tracking-wide transition-all duration-300"
               whileHover={shouldReduceAnimations ? undefined : { 
-                scale: 1.05, 
-                boxShadow: '0 0 30px rgba(0, 230, 214, 0.4)' 
+                scale: 1.05
               }}
               whileTap={{ scale: 0.95 }}
             >
-              SKIP TRANSMISSION
+              Skip
             </motion.button>
           </motion.div>
         )}
@@ -979,20 +973,20 @@ const Chat = () => {
             exit={{ opacity: 0, y: -30, scale: 0.8 }}
             transition={{ duration: animationDuration, ease: 'easeOut' }}
           >
-            <OptimizedHolographicCard variant="intense" className="bg-holo-magenta-500/10 border-holo-magenta-400/30">
+            <KuroCard variant="elevated" className="bg-red-500/10 border-red-500/30">
               <div className="px-4 py-3 flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-holo-magenta-400" />
-                <p className="text-sm text-holo-magenta-200 font-space">{error}</p>
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <p className="text-sm text-red-200">{error}</p>
                 <motion.button
-                  className="ml-auto w-6 h-6 rounded bg-holo-magenta-500/20 hover:bg-holo-magenta-500/30 border border-holo-magenta-400/30 flex items-center justify-center transition-all duration-300"
+                  className="ml-auto w-6 h-6 rounded bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 flex items-center justify-center transition-all duration-300"
                   onClick={() => setError(null)}
                   whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >
-                  <X className="h-3 w-3 text-holo-magenta-400" />
+                  <X className="h-3 w-3 text-red-400" />
                 </motion.button>
               </div>
-            </OptimizedHolographicCard>
+            </KuroCard>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1000,7 +994,7 @@ const Chat = () => {
   );
 
   // Background element
-  const backgroundContent = <OptimizedHolographicBackground variant="default" />;
+  const backgroundContent = <KuroBackground variant="subtle" />;
 
   return (
     <ChatLayout
@@ -1013,8 +1007,8 @@ const Chat = () => {
       onMobileOverlayClick={() => setIsSidebarOpen(false)}
       scrollContainerRef={scrollContainerRef}
     >
-      {/* ChatContent - only content inside changes, layout remains stable */}
-      <ChatContent
+      {/* KuroChatContent - Professional chat content with 3D bot empty state */}
+      <KuroChatContent
         messages={messages}
         userAvatar={user?.imageUrl || ''}
         isTyping={isTyping}

@@ -1,31 +1,35 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 font-rajdhani tracking-wide",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.98]",
   {
     variants: {
       variant: {
-        default: "glass-panel border-holo-cyan-400/30 text-holo-cyan-300 hover:shadow-holo-glow hover:border-holo-cyan-400/50",
+        default:
+          "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20",
         destructive:
-          "glass-panel border-holo-magenta-400/30 text-holo-magenta-300 hover:shadow-holo-magenta hover:border-holo-magenta-400/50",
+          "bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90",
         outline:
-          "glass-panel border-holo-cyan-400/20 text-holo-cyan-400 hover:bg-holo-cyan-500/10 hover:border-holo-cyan-400/40",
+          "border border-border bg-transparent hover:bg-secondary hover:border-muted-foreground/30",
         secondary:
-          "glass-panel border-holo-purple-400/30 text-holo-purple-300 hover:shadow-holo-purple hover:border-holo-purple-400/50",
-        accent:
-          "glass-panel border-holo-blue-400/30 text-holo-blue-300 hover:shadow-holo-blue hover:border-holo-blue-400/50",
-        ghost: "bg-transparent text-holo-cyan-400 hover:bg-holo-cyan-500/10 hover:shadow-holo-glow",
-        link: "text-holo-cyan-400 underline-offset-4 hover:underline hover:text-holo-glow",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-secondary hover:text-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+        // Kuro-specific variants
+        hero: "bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:bg-primary/95",
+        "hero-secondary":
+          "bg-transparent border border-border text-foreground hover:bg-secondary hover:border-muted-foreground/40 backdrop-blur-sm",
+        glass:
+          "bg-card/60 backdrop-blur-xl border border-border/50 text-foreground hover:bg-card/80 hover:border-border",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        xl: "h-14 rounded-lg px-12 text-lg",
+        default: "h-10 px-5 py-2",
+        sm: "h-9 rounded-md px-4 text-xs",
+        lg: "h-12 rounded-lg px-8 text-base",
+        xl: "h-14 rounded-xl px-10 text-base font-semibold",
         icon: "h-10 w-10",
       },
     },
@@ -34,26 +38,26 @@ const buttonVariants = cva(
       size: "default",
     },
   }
-)
+);
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  asChild?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = asChild ? Slot : "button";
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
       />
-    )
+    );
   }
-)
-Button.displayName = "Button"
+);
+Button.displayName = "Button";
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

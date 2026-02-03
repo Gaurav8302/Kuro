@@ -59,74 +59,76 @@ const LightweightChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col gap-2">
-      {/* Avatar and name */}
-      <div className={cn("flex items-center gap-2", isUser ? "justify-end" : "justify-start")}>
-        <Avatar className="w-8 h-8 border border-holo-cyan-400/30">
-          {isUser ? (
-            <>
-              <AvatarImage src={userAvatar} alt="User" />
-              <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-xs">
-                <User className="w-3 h-3" />
-              </AvatarFallback>
-            </>
-          ) : (
-            <>
-              <AvatarImage src="/kuroai.png" alt="Kuro AI" />
-              <AvatarFallback className="bg-gradient-to-br from-holo-purple-500 to-holo-magenta-500 text-white text-xs">
-                <HoloSparklesIcon size={12} />
-              </AvatarFallback>
-            </>
-          )}
-        </Avatar>
-        <span className="text-xs font-medium text-holo-cyan-400 font-rajdhani">
-          {isUser ? 'You' : 'Kuro'}
-        </span>
-      </div>
+    <div className={cn(
+      "max-w-4xl mx-auto px-4 py-4 flex items-start gap-3",
+      isUser ? "flex-row-reverse" : "flex-row"
+    )}>
+      {/* Avatar */}
+      <Avatar className="w-8 h-8 border border-holo-cyan-400/30 flex-shrink-0">
+        {isUser ? (
+          <>
+            <AvatarImage src={userAvatar} alt="User" />
+            <AvatarFallback className="bg-gradient-to-br from-holo-blue-500 to-holo-cyan-500 text-white text-xs">
+              <User className="w-3 h-3" />
+            </AvatarFallback>
+          </>
+        ) : (
+          <>
+            <AvatarImage src="/kuroai.png" alt="Kuro AI" />
+            <AvatarFallback className="bg-gradient-to-br from-holo-purple-500 to-holo-magenta-500 text-white text-xs">
+              <HoloSparklesIcon size={12} />
+            </AvatarFallback>
+          </>
+        )}
+      </Avatar>
 
       {/* Message bubble */}
-      <div className={cn("w-full", isUser ? "flex justify-end" : "flex justify-start")}>
-        <div className={cn("max-w-[85%] w-full")}>
-          <div
+      <div className={cn(
+        "flex flex-col gap-1 max-w-[85%]",
+        isUser ? "items-end" : "items-start"
+      )}>
+        <div
+          className={cn(
+            "px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.01]",
+            isUser 
+              ? "bg-gradient-to-br from-holo-blue-500/20 to-holo-cyan-500/20 text-holo-cyan-100 border border-holo-cyan-400/30 glass-panel" 
+              : "bg-gradient-to-br from-holo-purple-500/10 to-holo-magenta-500/10 text-foreground border border-holo-purple-400/20 glass-panel"
+          )}
+        >
+          {isUser ? (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap text-holo-cyan-100 font-space">
+              {message.message}
+            </p>
+          ) : (
+            <MarkdownMessage content={message.message} />
+          )}
+        </div>
+        
+        {/* Copy button and timestamp */}
+        <div className={cn(
+          "flex items-center gap-2",
+          isUser ? "flex-row-reverse" : "flex-row"
+        )}>
+          <span className="text-xs text-holo-cyan-400/60 px-1 font-orbitron">
+            {new Date(message.timestamp).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
+          </span>
+          
+          <button
+            type="button"
+            onClick={handleCopyFull}
             className={cn(
-              "px-4 py-3 rounded-xl transition-all duration-300 hover:scale-[1.01]",
-              isUser 
-                ? "bg-gradient-to-br from-holo-blue-500/20 to-holo-cyan-500/20 text-holo-cyan-100 border border-holo-cyan-400/30 glass-panel" 
-                : "bg-gradient-to-br from-holo-purple-500/10 to-holo-magenta-500/10 text-foreground border border-holo-purple-400/20 glass-panel"
+              "inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 transition-all duration-300 shadow-sm backdrop-blur-sm font-orbitron hover:scale-105 active:scale-95",
+              isUser
+                ? "border-holo-cyan-400/30 bg-holo-cyan-500/10 hover:bg-holo-cyan-500/20 text-holo-cyan-300"
+                : "border-holo-purple-400/30 bg-holo-purple-500/10 hover:bg-holo-purple-500/20 text-holo-purple-300"
             )}
           >
-            {isUser ? (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-holo-cyan-100 font-space">
-                {message.message}
-              </p>
-            ) : (
-              <MarkdownMessage content={message.message} />
-            )}
-          </div>
-          
-          {/* Copy button and timestamp */}
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-xs text-holo-cyan-400/60 px-1 font-orbitron">
-              {new Date(message.timestamp).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </span>
-            
-            <button
-              type="button"
-              onClick={handleCopyFull}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md border text-[10px] px-2 py-1 transition-all duration-300 shadow-sm backdrop-blur-sm font-orbitron hover:scale-105 active:scale-95",
-                isUser
-                  ? "border-holo-cyan-400/30 bg-holo-cyan-500/10 hover:bg-holo-cyan-500/20 text-holo-cyan-300"
-                  : "border-holo-purple-400/30 bg-holo-purple-500/10 hover:bg-holo-purple-500/20 text-holo-purple-300"
-              )}
-            >
-              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
+            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
         </div>
       </div>
     </div>
@@ -180,7 +182,10 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: animationDuration, ease: [0.25, 0.1, 0.25, 1] }}
-      className="max-w-4xl mx-auto px-4 py-4 flex items-start gap-3"
+      className={cn(
+        "max-w-4xl mx-auto px-4 py-4 flex items-start gap-3",
+        isUser ? "flex-row-reverse" : "flex-row"
+      )}
     >
       {/* Avatar */}
       <div className="flex-shrink-0">
@@ -205,7 +210,10 @@ const AnimatedChatBubble: React.FC<OptimizedChatBubbleProps> = memo(({
       </div>
 
       {/* Message Bubble */}
-      <div className="flex flex-col gap-1 max-w-[70%]">
+      <div className={cn(
+        "flex flex-col gap-1 max-w-[70%]",
+        isUser ? "items-end" : "items-start"
+      )}>
         <div className="w-full">
           <OptimizedHolographicCard
             variant={isUser ? 'glow' : 'default'}

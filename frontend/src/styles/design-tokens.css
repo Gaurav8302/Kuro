@@ -1,0 +1,117 @@
+/* 
+ * Kuro AI Design System Tokens
+ * Inspired by GitHub, Vercel, Linear - Professional, Calm, Powerful
+ */
+
+:root {
+  /* === COLOR PALETTE === */
+  
+  /* Background Scale - Near black with depth */
+  --kuro-bg-deep: #0a0a0b;
+  --kuro-bg-base: #0d0d0f;
+  --kuro-bg-elevated: #111114;
+  --kuro-bg-surface: #16161a;
+  --kuro-bg-overlay: #1a1a1f;
+  
+  /* Text Scale - Off-white for reduced eye strain */
+  --kuro-text-primary: #f4f4f5;
+  --kuro-text-secondary: #a1a1aa;
+  --kuro-text-tertiary: #71717a;
+  --kuro-text-muted: #52525b;
+  
+  /* Accent - Single primary accent (cool cyan-blue) */
+  --kuro-accent: #3b82f6;
+  --kuro-accent-soft: #3b82f620;
+  --kuro-accent-medium: #3b82f640;
+  --kuro-accent-glow: #3b82f680;
+  
+  /* Secondary accent - Subtle violet for depth */
+  --kuro-accent-secondary: #8b5cf6;
+  --kuro-accent-secondary-soft: #8b5cf620;
+  
+  /* Border Scale */
+  --kuro-border-subtle: #ffffff08;
+  --kuro-border-default: #ffffff10;
+  --kuro-border-strong: #ffffff18;
+  --kuro-border-focus: #3b82f680;
+  
+  /* Shadow Scale */
+  --kuro-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --kuro-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+  --kuro-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+  --kuro-shadow-glow: 0 0 20px -5px var(--kuro-accent-glow);
+  
+  /* === TYPOGRAPHY === */
+  --kuro-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --kuro-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  /* Font Sizes */
+  --kuro-text-xs: 0.75rem;
+  --kuro-text-sm: 0.875rem;
+  --kuro-text-base: 1rem;
+  --kuro-text-lg: 1.125rem;
+  --kuro-text-xl: 1.25rem;
+  --kuro-text-2xl: 1.5rem;
+  --kuro-text-3xl: 1.875rem;
+  --kuro-text-4xl: 2.25rem;
+  --kuro-text-5xl: 3rem;
+  --kuro-text-6xl: 3.75rem;
+  
+  /* Line Heights */
+  --kuro-leading-tight: 1.25;
+  --kuro-leading-normal: 1.5;
+  --kuro-leading-relaxed: 1.625;
+  
+  /* === SPACING === */
+  --kuro-space-1: 0.25rem;
+  --kuro-space-2: 0.5rem;
+  --kuro-space-3: 0.75rem;
+  --kuro-space-4: 1rem;
+  --kuro-space-5: 1.25rem;
+  --kuro-space-6: 1.5rem;
+  --kuro-space-8: 2rem;
+  --kuro-space-10: 2.5rem;
+  --kuro-space-12: 3rem;
+  --kuro-space-16: 4rem;
+  --kuro-space-20: 5rem;
+  --kuro-space-24: 6rem;
+  
+  /* === ANIMATION === */
+  --kuro-duration-instant: 50ms;
+  --kuro-duration-fast: 150ms;
+  --kuro-duration-normal: 250ms;
+  --kuro-duration-slow: 400ms;
+  --kuro-duration-slower: 600ms;
+  
+  --kuro-ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --kuro-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --kuro-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --kuro-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  /* === RADII === */
+  --kuro-radius-sm: 0.375rem;
+  --kuro-radius-md: 0.5rem;
+  --kuro-radius-lg: 0.75rem;
+  --kuro-radius-xl: 1rem;
+  --kuro-radius-2xl: 1.5rem;
+  --kuro-radius-full: 9999px;
+  
+  /* === Z-INDEX === */
+  --kuro-z-base: 0;
+  --kuro-z-overlay: 10;
+  --kuro-z-sticky: 20;
+  --kuro-z-modal: 30;
+  --kuro-z-toast: 40;
+  --kuro-z-tooltip: 50;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --kuro-duration-instant: 0ms;
+    --kuro-duration-fast: 0ms;
+    --kuro-duration-normal: 0ms;
+    --kuro-duration-slow: 0ms;
+    --kuro-duration-slower: 0ms;
+  }
+}

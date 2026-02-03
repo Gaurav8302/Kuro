@@ -40,14 +40,14 @@ interface ChatLayoutProps {
 const DesktopSidebar = memo<{ children: ReactNode; isOpen: boolean }>(({ children, isOpen }) => (
   <div
     className={cn(
-      "hidden md:flex flex-col h-full border-r border-holo-cyan-500/20 bg-background/95 backdrop-blur-xl",
+      "hidden md:flex flex-col h-full border-r border-border/50 bg-background/95 backdrop-blur-xl",
       "transition-all duration-300 ease-out transform-gpu",
       // Width controlled by CSS, not by mount/unmount
-      isOpen ? "w-80 translate-x-0 opacity-100" : "w-0 -translate-x-full opacity-0 overflow-hidden"
+      isOpen ? "w-72 translate-x-0 opacity-100" : "w-0 -translate-x-full opacity-0 overflow-hidden"
     )}
     style={{ flexShrink: 0 }}
   >
-    <div className="w-80 h-full">
+    <div className="w-72 h-full">
       {children}
     </div>
   </div>
@@ -88,7 +88,7 @@ const MobileSidebar: React.FC<{
       
       {/* Sidebar drawer - uses inline transform for guaranteed state sync */}
       <div
-        className="md:hidden fixed left-0 top-0 h-full w-80 z-50 bg-background/95 backdrop-blur-xl shadow-holo-glow border-r border-holo-cyan-500/30"
+        className="md:hidden fixed left-0 top-0 h-full w-72 z-50 glass shadow-xl border-r border-border/50"
         style={{
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 300ms ease-out'
