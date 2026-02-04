@@ -205,35 +205,45 @@ const Bot = ({ mousePosition }: BotProps) => {
   );
 };
 
-// Floating particles around the bot
+// Pre-generated particle data to avoid re-randomizing on each render
+const PARTICLE_DATA = [...Array(12)].map((_, i) => {
+  const angle = (i / 12) * Math.PI * 2;
+  const radius = 2 + Math.random() * 0.5;
+  const y = (Math.random() - 0.5) * 2;
+  const size = 0.03 + Math.random() * 0.03;
+  return { angle, radius, y, size };
+});
+
+// Floating particles around the bot - stable idle animation unaffected by cursor
 const Particles = () => {
   const particlesRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
     if (particlesRef.current) {
+      // Slow, consistent orbital rotation
       particlesRef.current.rotation.y = clock.getElapsedTime() * 0.1;
     }
   });
 
   return (
     <group ref={particlesRef}>
-      {[...Array(12)].map((_, i) => {
-        const angle = (i / 12) * Math.PI * 2;
-        const radius = 2 + Math.random() * 0.5;
-        const y = (Math.random() - 0.5) * 2;
-        return (
-          <Float key={i} speed={3} floatIntensity={0.5}>
-            <mesh position={[Math.cos(angle) * radius, y, Math.sin(angle) * radius]}>
-              <sphereGeometry args={[0.03 + Math.random() * 0.03, 8, 8]} />
-              <meshStandardMaterial
-                color={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
-                emissive={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
-                emissiveIntensity={2}
-              />
-            </mesh>
-          </Float>
-        );
-      })}
+      {PARTICLE_DATA.map((p, i) => (
+        <mesh 
+          key={i} 
+          position={[
+            Math.cos(p.angle) * p.radius, 
+            p.y, 
+            Math.sin(p.angle) * p.radius
+          ]}
+        >
+          <sphereGeometry args={[p.size, 8, 8]} />
+          <meshStandardMaterial
+            color={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
+            emissive={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
+            emissiveIntensity={2}
+          />
+        </mesh>
+      ))}
     </group>
   );
 };
