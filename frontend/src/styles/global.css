@@ -1,0 +1,365 @@
+/* 
+ * Kuro AI - Professional Global Styles
+ * Inspired by GitHub, Vercel, Linear
+ * 
+ * This file imports design tokens and defines the professional
+ * dark theme styling for the entire application.
+ */
+
+/* Import design tokens (same directory) */
+@import './design-tokens.css';
+
+/* Import fonts - Inter for UI, JetBrains Mono for code */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================
+   BASE LAYER - Root Styles
+   ================================================ */
+
+@layer base {
+  :root {
+    /* Map design tokens to CSS custom properties for shadcn/ui compatibility */
+    --background: 220 20% 4%;
+    --foreground: 0 0% 96%;
+    
+    --card: 220 20% 7%;
+    --card-foreground: 0 0% 96%;
+    
+    --popover: 220 20% 6%;
+    --popover-foreground: 0 0% 96%;
+    
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 220 20% 14%;
+    --secondary-foreground: 0 0% 96%;
+    
+    --muted: 220 20% 14%;
+    --muted-foreground: 0 0% 64%;
+    
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 220 20% 14%;
+    --input: 220 20% 14%;
+    --ring: 217 91% 60%;
+    
+    --radius: 0.5rem;
+    
+    /* Sidebar colors */
+    --sidebar-background: 220 20% 5%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 10%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 220 20% 12%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    font-family: var(--kuro-font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--kuro-bg-base);
+    color: var(--kuro-text-primary);
+    line-height: var(--kuro-leading-normal);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Focus visible for accessibility */
+  :focus-visible {
+    outline: 2px solid var(--kuro-accent);
+    outline-offset: 2px;
+  }
+
+  /* Selection styling */
+  ::selection {
+    background-color: var(--kuro-accent-medium);
+    color: var(--kuro-text-primary);
+  }
+
+  /* Custom scrollbar - subtle and professional */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--kuro-border-strong);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--kuro-text-muted);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--kuro-border-strong) transparent;
+  }
+}
+
+/* ================================================
+   COMPONENTS LAYER - Reusable Components
+   ================================================ */
+
+@layer components {
+  /* Typography Classes */
+  .text-display {
+    font-size: var(--kuro-text-5xl);
+    font-weight: 700;
+    line-height: var(--kuro-leading-tight);
+    letter-spacing: -0.02em;
+  }
+
+  .text-heading-1 {
+    font-size: var(--kuro-text-4xl);
+    font-weight: 700;
+    line-height: var(--kuro-leading-tight);
+    letter-spacing: -0.01em;
+  }
+
+  .text-heading-2 {
+    font-size: var(--kuro-text-3xl);
+    font-weight: 600;
+    line-height: var(--kuro-leading-tight);
+  }
+
+  .text-heading-3 {
+    font-size: var(--kuro-text-2xl);
+    font-weight: 600;
+    line-height: var(--kuro-leading-tight);
+  }
+
+  .text-body {
+    font-size: var(--kuro-text-base);
+    line-height: var(--kuro-leading-relaxed);
+  }
+
+  .text-body-sm {
+    font-size: var(--kuro-text-sm);
+    line-height: var(--kuro-leading-normal);
+  }
+
+  .text-caption {
+    font-size: var(--kuro-text-xs);
+    line-height: var(--kuro-leading-normal);
+    color: var(--kuro-text-tertiary);
+  }
+
+  /* Card variants */
+  .kuro-card {
+    background: var(--kuro-bg-surface);
+    border: 1px solid var(--kuro-border-subtle);
+    border-radius: var(--kuro-radius-xl);
+  }
+
+  .kuro-card-elevated {
+    background: var(--kuro-bg-elevated);
+    border: 1px solid var(--kuro-border-default);
+    border-radius: var(--kuro-radius-xl);
+    box-shadow: var(--kuro-shadow-lg);
+  }
+
+  /* Interactive hover effect */
+  .kuro-hover {
+    transition: all var(--kuro-duration-fast) var(--kuro-ease-default);
+  }
+
+  .kuro-hover:hover {
+    background: var(--kuro-bg-overlay);
+    border-color: var(--kuro-border-strong);
+  }
+
+  /* Glow effect on focus/interaction */
+  .kuro-glow {
+    transition: box-shadow var(--kuro-duration-fast) var(--kuro-ease-default);
+  }
+
+  .kuro-glow:focus,
+  .kuro-glow:hover {
+    box-shadow: var(--kuro-shadow-glow);
+  }
+}
+
+/* ================================================
+   UTILITIES LAYER - Utility Classes
+   ================================================ */
+
+@layer utilities {
+  /* App height for mobile viewport */
+  .app-height {
+    height: var(--app-height, 100vh);
+  }
+
+  .min-app-height {
+    min-height: var(--app-height, 100vh);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--kuro-accent), var(--kuro-accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Fade edges for scroll areas */
+  .fade-y {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 5%,
+      black 95%,
+      transparent 100%
+    );
+  }
+
+  .fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 5%,
+      black 95%,
+      transparent 100%
+    );
+  }
+
+  /* Noise texture overlay */
+  .noise {
+    position: relative;
+  }
+
+  .noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.015;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  }
+
+  /* Mobile safe area */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ================================================
+   PROSE STYLES - For Markdown Content
+   ================================================ */
+
+.prose-kuro {
+  --tw-prose-body: var(--kuro-text-secondary);
+  --tw-prose-headings: var(--kuro-text-primary);
+  --tw-prose-links: var(--kuro-accent);
+  --tw-prose-code: var(--kuro-accent);
+  --tw-prose-pre-bg: var(--kuro-bg-deep);
+}
+
+.prose-kuro :where(code):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+  background: var(--kuro-bg-overlay);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--kuro-radius-sm);
+  font-size: 0.875em;
+  font-family: var(--kuro-font-mono);
+}
+
+.prose-kuro :where(pre):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+  background: var(--kuro-bg-deep);
+  border: 1px solid var(--kuro-border-subtle);
+  border-radius: var(--kuro-radius-lg);
+}
+
+.prose-kuro :where(a):not(:where([class~="not-prose"],[class~="not-prose"] *)) {
+  text-decoration: none;
+  transition: color var(--kuro-duration-fast) var(--kuro-ease-default);
+}
+
+.prose-kuro :where(a):not(:where([class~="not-prose"],[class~="not-prose"] *)):hover {
+  text-decoration: underline;
+}
+
+/* ================================================
+   ANIMATIONS
+   ================================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-fade-in {
+  animation: fade-in var(--kuro-duration-normal) var(--kuro-ease-out);
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--kuro-duration-normal) var(--kuro-ease-out);
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s var(--kuro-ease-default) infinite;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
