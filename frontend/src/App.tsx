@@ -6,17 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
 import { useEffect, Suspense, lazy } from "react";
-// Use new professional Landing page
-import Landing from "./pages/LandingNew";
+import Landing from "./pages/Landing";
 import { addResourceHints, preloadComponent } from "@/utils/lazyLoader";
 
 // Lazy load heavy components
 const Chat = lazy(() => import("./pages/Chat"));
-// Use new professional auth pages
-import SignInPage from "./pages/SignInNew";
-import SignUpPage from "./pages/SignUpNew";
+import SignInPage from "./pages/SignIn";
+import SignUpPage from "./pages/SignUp";
 import SSOCallback from "./pages/SSOCallback";
-import NotFound from "./pages/NotFoundNew";
+import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PublicRoute from "@/components/PublicRoute";
 import PerformanceMonitor from "@/components/PerformanceMonitor";
@@ -24,16 +22,12 @@ import { MobileOptimizations, IOSOptimizations } from "@/components/MobileOptimi
 
 const queryClient = new QueryClient();
 
-// Performance optimizations - Professional loading fallback
+// Performance optimizations
 const LoadingFallback = () => (
-  <div className="h-screen flex items-center justify-center bg-background relative overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-    <div className="text-center relative z-10">
-      <div className="w-16 h-16 mx-auto mb-6 relative">
-        <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-        <div className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-sm" />
-      </div>
-      <p className="text-muted-foreground text-sm">Loading...</p>
+  <div className="h-screen flex items-center justify-center bg-background">
+    <div className="text-center">
+      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-holo-cyan-400" />
+      <p className="text-holo-cyan-400/60 font-orbitron tracking-wide">LOADING INTERFACE...</p>
     </div>
   </div>
 );
@@ -153,14 +147,10 @@ const App = () => {
   // Show loading screen while Clerk initializes
   if (!isLoaded) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-        <div className="text-center relative z-10">
-          <div className="w-16 h-16 mx-auto mb-6 relative">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-            <div className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-sm" />
-          </div>
-          <p className="text-muted-foreground text-sm">Loading Kuro AI...</p>
+      <div className="h-screen flex items-center justify-center bg-gradient-hero">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-white" />
+          <p className="text-white/80">Loading Kuro AI...</p>
         </div>
       </div>
     );

@@ -2,7 +2,6 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { ClerkProvider } from '@clerk/clerk-react';
-// Import main styles (includes Tailwind and design system)
 import './index.css'
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
