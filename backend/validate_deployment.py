@@ -19,9 +19,9 @@ def validate_imports():
         from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager
         print("✅ Ultra-lightweight memory manager imports successful")
         
-        # Test chat manager
-        from memory.chat_manager import chat_with_memory
-        print("✅ Chat manager imports successful")
+        # Test chat manager v2
+        from memory.chat_manager_v2 import chat_with_memory
+        print("✅ Chat manager v2 imports successful")
         
         # Test chatbot
         from chatbot import app
@@ -98,7 +98,7 @@ def check_problematic_files():
                         for import_name in problematic_imports:
                             if f'import {import_name}' in content or f'from {import_name}' in content:
                                 # Check if it's being actively imported by used files
-                                if any(used_file in filepath for used_file in ['chat_manager.py', 'chatbot.py', 'ultra_lightweight_memory.py']):
+                                if any(used_file in filepath for used_file in ['chat_manager_v2.py', 'chatbot.py', 'ultra_lightweight_memory.py']):
                                     print(f"❌ Problematic import '{import_name}' found in active file: {filepath}")
                                     return False
                                 else:

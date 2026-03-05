@@ -41,9 +41,9 @@ import logging
 import os
 
 # Import our custom modules
-from memory.ultra_lightweight_memory import store_memory, get_relevant_memories_detailed, ultra_lightweight_memory_manager as memory_manager
+# v2 memory system — minimal, deterministic, no progressive summarization
+from memory.chat_manager_v2 import chat_manager
 from memory.chat_database import save_chat_to_db
-from memory import chat_manager
 from memory.chat_database import (
     get_sessions_by_user, 
     get_chat_by_session, 
@@ -51,8 +51,12 @@ from memory.chat_database import (
     delete_session_by_id,
     rename_session_title
 )
-# Temporarily disabled for memory optimization
-# from memory.user_profile_api import router as user_profile_router
+# Keep legacy Pinecone manager for /store-memory, /retrieve-memory, /health endpoints
+from memory.ultra_lightweight_memory import (
+    store_memory,
+    get_relevant_memories_detailed,
+    ultra_lightweight_memory_manager as memory_manager,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -515,49 +519,43 @@ async def retrieve_memories(payload: QueryInput):
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatInput):
     """
-    Send a message to the AI chatbot with comprehensive memory and context management
-    
-    ARCHITECTURE NOTE:
-    - Uses ChatManager for memory-aware conversations with proper context
-    - Integrates rolling memory (short-term + long-term summaries)
-    - Full chat history stored in MongoDB with proper session management
-    - Pinecone stores semantic memory/context with intelligent retrieval
-    - Advanced RAG pipeline for context-aware responses
-    - Returns model information for transparency and debugging
+    Send a message to the AI chatbot.
+
+    Architecture (v2 — minimal deterministic memory):
+      Layer 1: Last N raw messages from MongoDB (no compression during active session).
+      Layer 2: Post-session summary in Pinecone (only when session ≥ 50 msgs or closes).
+      Model lock: same model reused throughout a session to prevent behavioural drift.
     """
+    import time as _time
+    request_start = _time.time()
     try:
-        # Use the sophisticated ChatManager for memory-aware conversations
-        # This handles: rolling memory, session context, user profiles, RAG, corrections, etc.
         response_text = chat_manager.chat_with_memory(
             user_id=chat_message.user_id,
             message=chat_message.message,
             session_id=chat_message.session_id or "default",
-            top_k=5  # Get more relevant memories
         )
-        
-        # Get model info for transparency - use a simple model selection for now
-        # The chat_manager already handles the sophisticated AI response generation
-        model_used = "groq-llama-3-70b"  # Default model used by chat_manager
-        route_rule = "memory_aware_chat"
-        
-        logger.info(f"Memory-aware chat response generated for user {chat_message.user_id}")
-        
+
+        latency_ms = int((_time.time() - request_start) * 1000)
+        logger.info(
+            "Chat response for user %s in %dms",
+            chat_message.user_id, latency_ms,
+        )
+
         return ChatResponse(
             reply=response_text,
-            model=model_used,
-            route_rule=route_rule,
-            latency_ms=None,  # Chat manager doesn't track latency yet
-            intents=None  # Chat manager doesn't track intents yet
+            model=None,         # model info logged server-side via memory debug
+            route_rule="v2_session_memory",
+            latency_ms=latency_ms,
+            intents=None,
         )
-    
+
     except Exception as e:
-        logger.error(f"Error in chat endpoint: {str(e)}")
-        # Return error response with fallback
+        logger.error("Error in chat endpoint: %s", e, exc_info=True)
         from memory.hardcoded_responses import get_fallback_response
         return ChatResponse(
             reply=get_fallback_response("generic_error"),
             model="fallback",
-            route_rule="error_fallback"
+            route_rule="error_fallback",
         )
 
 # Session management endpoints
@@ -661,22 +659,33 @@ async def delete_session(session_id: str):
 @app.post("/session/summarize/{session_id}", tags=["Sessions"])
 async def summarize_session(session_id: str, user_id: str):
     """
-    Summarize and cleanup a chat session
-    
-    Creates a summary of the session and removes detailed chat history
-    to optimize memory usage while preserving important information.
+    Generate a post-session summary and store in Pinecone (Layer 2).
+
+    Call this when a session is considered "closed" or when the user
+    explicitly wants to archive their conversation context.
     """
     try:
-        # Temporarily disabled - session_cleanup module not available
-        # from memory.session_cleanup import summarize_and_cleanup_session
-        # result = await summarize_and_cleanup_session(session_id, user_id)
-        
-        logger.info(f"Session summarization requested for {session_id} (temporarily disabled)")
-        return {"status": "success", "message": "Session summarization is temporarily disabled"}
-    
+        from memory.session_memory import session_memory
+        from memory.long_term_memory import long_term_memory
+
+        messages = session_memory.get_recent_messages(session_id, limit=200)
+        if len(messages) < 4:
+            return {"status": "skipped", "reason": "Session too short to summarize"}
+
+        summary = long_term_memory.summarize_session(
+            user_id=user_id,
+            session_id=session_id,
+            messages=messages,
+        )
+        if summary:
+            logger.info("Session %s summarized (%d chars)", session_id, len(summary))
+            return {"status": "success", "summary_length": len(summary)}
+        else:
+            return {"status": "error", "message": "Summarization returned empty result"}
+
     except Exception as e:
-        logger.error(f"Error summarizing session: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to summarize session: {str(e)}")
+        logger.error("Error summarizing session %s: %s", session_id, e)
+        raise HTTPException(status_code=500, detail=f"Failed to summarize session: {e}")
 
 # Enhanced Memory Management endpoints
 @app.get("/user/{user_id}/context", tags=["Memory"])

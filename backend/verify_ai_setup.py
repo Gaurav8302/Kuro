@@ -117,17 +117,17 @@ def test_chat_manager():
     print("=" * 50)
     
     try:
-        from memory.chat_manager import ChatManager
-        print("✅ Chat manager import successful")
+        from memory.chat_manager_v2 import ChatManager
+        print("✅ Chat manager v2 import successful")
         
         # Initialize
         chat_manager = ChatManager()
-        print("✅ Chat manager initialized with Groq")
+        print("✅ Chat manager v2 initialized with Groq")
         
         # Test basic response generation
-        response = chat_manager.generate_ai_response(
-            user_message="Hello, respond with exactly: 'AI Test Successful'",
-            context="This is a system test"
+        response = chat_manager.groq_client.generate_content(
+            prompt="Hello, respond with exactly: 'AI Test Successful'",
+            system_instruction="This is a system test"
         )
         
         if response and len(response.strip()) > 0:

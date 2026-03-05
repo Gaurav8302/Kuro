@@ -31,22 +31,21 @@ def check_orchestrator_integration():
         else:
             print("⚠️ OPENROUTER_API_KEY not set (required for production)")
         
-        # Test 3: Check ChatManager integration (simplified)
+        # Test 3: Check ChatManager v2 integration (simplified)
         try:
-            # Just check if the file has been modified
-            chat_manager_path = os.path.join(os.path.dirname(__file__), "memory", "chat_manager.py")
+            chat_manager_path = os.path.join(os.path.dirname(__file__), "memory", "chat_manager_v2.py")
             with open(chat_manager_path, 'r') as f:
                 content = f.read()
-                if "from orchestrator import orchestrate" in content:
-                    print("✅ ChatManager integration detected")
+                if "llm_orchestrate" in content or "ORCHESTRATOR_AVAILABLE" in content:
+                    print("✅ ChatManager v2 orchestrator integration detected")
                     if "ORCHESTRATOR_AVAILABLE" in content:
                         print("✅ Orchestrator availability flag implemented")
-                    if "enhanced_message" in content:
-                        print("✅ Query enhancement logic implemented")
+                    if "resolve_model" in content:
+                        print("✅ Model locking logic implemented")
                 else:
-                    print("❌ ChatManager integration not found")
+                    print("❌ ChatManager v2 integration not found")
         except Exception as e:
-            print(f"⚠️ Could not verify ChatManager integration: {e}")
+            print(f"⚠️ Could not verify ChatManager v2 integration: {e}")
         
         # Test 4: Check if dependencies are available
         try:

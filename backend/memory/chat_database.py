@@ -21,7 +21,6 @@ from pymongo.errors import PyMongoError
 from database.db import (
     chat_collection, 
     session_titles_collection,
-    conversation_summaries_collection,
     database
 )
 

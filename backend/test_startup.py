@@ -34,8 +34,8 @@ def test_imports():
         from memory.ultra_lightweight_memory import ultra_lightweight_memory_manager
         print("✅ Ultra-lightweight memory manager")
         
-        from memory.chat_manager import chat_with_memory
-        print("✅ Chat manager")
+        from memory.chat_manager_v2 import chat_with_memory
+        print("✅ Chat manager v2")
         
         from memory.chat_database import get_sessions_by_user
         print("✅ Chat database")

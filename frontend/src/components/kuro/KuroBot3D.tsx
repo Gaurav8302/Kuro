@@ -1,43 +1,110 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, forwardRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Float, MeshDistortMaterial } from "@react-three/drei";
 import * as THREE from "three";
 
-interface BotProps {
-  mousePosition: { x: number; y: number };
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+type ProximityZone = 'idle' | 'near' | 'close';
+
+interface BotBehavior {
+  zone: ProximityZone;
+  glowIntensity: number;
 }
 
-const Bot = ({ mousePosition }: BotProps) => {
+interface BotProps {
+  mousePosition: { x: number; y: number };
+  behavior?: BotBehavior;
+}
+
+const Bot = ({ mousePosition, behavior }: BotProps) => {
   const headRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const targetRotation = useRef({ x: 0, y: 0 });
+  
+  // Refs for animated glow values (no re-renders)
+  const glowRef = useRef({ 
+    chest: 3, 
+    ring: 2, 
+    eyes: 4,
+    targetChest: 3,
+    targetRing: 2,
+    targetEyes: 4,
+  });
 
   useFrame(() => {
+    // ─────────────────────────────────────────────────────────────────────
+    // HEAD TRACKING (follows cursor/firefly)
+    // ─────────────────────────────────────────────────────────────────────
+    
     if (headRef.current) {
-      // Smooth interpolation for head rotation following cursor
-      targetRotation.current.x = mousePosition.y * 0.4;
-      targetRotation.current.y = mousePosition.x * 0.5;
+      // Subtle tracking intensity variation based on proximity
+      const trackingMultiplier = behavior?.zone === 'close' ? 1.1 :
+                                  behavior?.zone === 'near' ? 1.0 : 0.9;
+      
+      targetRotation.current.x = mousePosition.y * 0.4 * trackingMultiplier;
+      targetRotation.current.y = mousePosition.x * 0.5 * trackingMultiplier;
+
+      // Consistent smooth lerp
+      const lerpSpeed = 0.08;
 
       headRef.current.rotation.x = THREE.MathUtils.lerp(
         headRef.current.rotation.x,
         targetRotation.current.x,
-        0.08
+        lerpSpeed
       );
       headRef.current.rotation.y = THREE.MathUtils.lerp(
         headRef.current.rotation.y,
         targetRotation.current.y,
-        0.08
+        lerpSpeed
       );
     }
 
-    // Subtle body sway
+    // ─────────────────────────────────────────────────────────────────────
+    // BODY LEAN (subtle anticipatory motion)
+    // ─────────────────────────────────────────────────────────────────────
+    
     if (bodyRef.current) {
+      const baseLean = mousePosition.x * 0.1;
+      
       bodyRef.current.rotation.y = THREE.MathUtils.lerp(
         bodyRef.current.rotation.y,
-        mousePosition.x * 0.15,
+        baseLean,
         0.03
       );
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // GLOW INTENSITY (zone-based)
+    // ─────────────────────────────────────────────────────────────────────
+    
+    const glow = glowRef.current;
+    const zone = behavior?.zone ?? 'idle';
+    
+    // Set targets based on proximity zone
+    if (zone === 'close') {
+      // Slightly brighter when cursor is very close
+      glow.targetChest = 4;
+      glow.targetRing = 2.5;
+      glow.targetEyes = 5;
+    } else if (zone === 'near') {
+      // Subtle awareness glow
+      glow.targetChest = 3.5;
+      glow.targetRing = 2.2;
+      glow.targetEyes = 4.5;
+    } else {
+      // Default idle glow
+      glow.targetChest = 3;
+      glow.targetRing = 2;
+      glow.targetEyes = 4;
+    }
+    
+    // Smooth interpolation
+    glow.chest = THREE.MathUtils.lerp(glow.chest, glow.targetChest, 0.05);
+    glow.ring = THREE.MathUtils.lerp(glow.ring, glow.targetRing, 0.05);
+    glow.eyes = THREE.MathUtils.lerp(glow.eyes, glow.targetEyes, 0.05);
   });
 
   return (
@@ -250,11 +317,21 @@ const Particles = () => {
 
 interface KuroBot3DProps {
   className?: string;
+  behavior?: BotBehavior;
+  enableFirefly?: boolean;
 }
 
-const KuroBot3D = ({ className = "" }: KuroBot3DProps) => {
+const KuroBot3D = forwardRef<HTMLDivElement, KuroBot3DProps>(
+  ({ className = "", behavior, enableFirefly = false }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  // Forward ref
+  useEffect(() => {
+    if (ref && typeof ref === 'object' && containerRef.current) {
+      ref.current = containerRef.current;
+    }
+  }, [ref]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -293,13 +370,16 @@ const KuroBot3D = ({ className = "" }: KuroBot3DProps) => {
           color="#ffffff"
         />
         
-        <Bot mousePosition={mousePosition} />
+        <Bot mousePosition={mousePosition} behavior={behavior} />
         <Particles />
         
         <Environment preset="night" />
       </Canvas>
     </div>
   );
-};
+});
+
+KuroBot3D.displayName = 'KuroBot3D';
 
 export default KuroBot3D;
+export type { BotBehavior, ProximityZone };

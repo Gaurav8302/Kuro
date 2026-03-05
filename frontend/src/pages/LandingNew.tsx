@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { useUser, useAuth, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { useEffect, useRef, useState } from "react";
+import { useUser, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import KuroBot3D from "@/components/kuro/KuroBot3D";
+import ProximityController from "@/components/kuro/ProximityController";
 import { Button } from "@/components/ui/button";
 
 const Header = () => {
@@ -66,6 +67,22 @@ const Header = () => {
 const Landing = () => {
   const navigate = useNavigate();
   const { isSignedIn, isLoaded } = useUser();
+  
+  // Ref for tentacle system to find bot position
+  const botContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Detect if device supports hover (desktop)
+  const [isDesktop, setIsDesktop] = useState(false);
+  
+  useEffect(() => {
+    // Only enable firefly on devices with fine pointer (mouse)
+    const mediaQuery = window.matchMedia('(pointer: fine)');
+    setIsDesktop(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   // Redirect signed-in users to chat
   useEffect(() => {
@@ -77,6 +94,14 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-background kuro-gradient noise-overlay">
       <Header />
+      
+      {/* Firefly Cursor + Tentacle System (desktop only) */}
+      {isDesktop && (
+        <ProximityController
+          enabled={isDesktop}
+          botContainerRef={botContainerRef}
+        />
+      )}
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-16 overflow-hidden">
@@ -99,7 +124,10 @@ const Landing = () => {
           transition={{ duration: 1, ease: "easeOut" }}
           className="relative z-10 mb-8"
         >
-          <KuroBot3D className="w-80 h-80 md:w-96 md:h-96" />
+          <KuroBot3D 
+            ref={botContainerRef}
+            className="w-80 h-80 md:w-96 md:h-96" 
+          />
         </motion.div>
 
         {/* Hero Content */}

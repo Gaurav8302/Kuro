@@ -57,19 +57,19 @@ async def test_orchestrator_standalone():
         print(f"❌ Orchestrator test failed: {str(e)}")
 
 def test_chat_manager_integration():
-    """Test the ChatManager integration with orchestrator"""
-    print("\n🔍 Testing ChatManager Integration...")
+    """Test the ChatManager v2 integration with orchestrator"""
+    print("\n🔍 Testing ChatManager v2 Integration...")
     
     try:
-        from memory.chat_manager import ChatManager
+        from memory.chat_manager_v2 import ChatManager
         
         # Check if orchestrator is available
-        from memory.chat_manager import ORCHESTRATOR_AVAILABLE
+        from memory.chat_manager_v2 import ORCHESTRATOR_AVAILABLE
         print(f"📡 Orchestrator available: {ORCHESTRATOR_AVAILABLE}")
         
         # Create chat manager instance
         chat_manager = ChatManager()
-        print("✅ ChatManager initialized successfully")
+        print("✅ ChatManager v2 initialized successfully")
         
         # Test a simple chat (without actually calling external APIs)
         test_user_id = "test_user_123"
@@ -94,7 +94,7 @@ def test_chat_manager_integration():
                 print(f"❌ Unexpected error: {str(e)}")
                 
     except Exception as e:
-        print(f"❌ ChatManager integration test failed: {str(e)}")
+        print(f"❌ ChatManager v2 integration test failed: {str(e)}")
 
 def main():
     """Main test function"""
