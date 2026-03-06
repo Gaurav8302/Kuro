@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { Message } from '@/types';
 import { MessageList } from '@/components/MessageList';
@@ -6,6 +6,16 @@ import { useOptimizedAnimations } from '@/hooks/use-performance';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sparkles } from 'lucide-react';
+
+// Lazy load the 3D bot for better performance
+const KuroBot3D = lazy(() => import('@/components/kuro/KuroBot3D'));
+
+// Fallback while 3D bot loads
+const BotFallback = () => (
+  <div className="w-64 h-64 flex items-center justify-center">
+    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent animate-pulse" />
+  </div>
+);
 
 interface KuroChatContentProps {
   messages: Message[];
@@ -49,33 +59,16 @@ const EmptyState = memo<{ isLoading: boolean }>(({ isLoading }) => {
   return (
     <div className="text-center py-8 px-4">
       <div className="max-w-md mx-auto">
-        {/* Kuro Bot image with speech bubble */}
+        {/* 3D Kuro Bot with head following cursor */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6 }}
-          className="relative flex justify-center mb-4"
+          className="flex justify-center mb-4"
         >
-          {/* Speech bubble */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 0.4, type: 'spring', stiffness: 200 }}
-            className="absolute -top-2 right-1/2 translate-x-[90px] md:translate-x-[100px] z-10"
-          >
-            <div className="relative bg-gradient-to-br from-primary/90 to-accent/90 text-white text-sm font-medium px-4 py-2 rounded-2xl rounded-bl-sm shadow-lg shadow-primary/20 whitespace-nowrap">
-              Welcome my friend!
-              {/* Bubble tail */}
-              <div className="absolute -bottom-1.5 left-2 w-3 h-3 bg-gradient-to-br from-primary/90 to-accent/90 rotate-45 rounded-sm" />
-            </div>
-          </motion.div>
-
-          <img
-            src="/kuroai.png"
-            alt="Kuro AI Bot"
-            className="w-48 h-48 md:w-56 md:h-56 object-contain drop-shadow-[0_0_25px_rgba(0,212,255,0.3)]"
-            draggable={false}
-          />
+          <Suspense fallback={<BotFallback />}>
+            <KuroBot3D className="w-48 h-48 md:w-56 md:h-56" />
+          </Suspense>
         </motion.div>
         
         <motion.div
