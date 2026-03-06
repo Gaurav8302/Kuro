@@ -5,6 +5,9 @@ import { useSignIn } from '@clerk/clerk-react';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KuroBackground } from '@/components/kuro';
+import { lazy, Suspense } from 'react';
+
+const KuroBot3D = lazy(() => import('@/components/kuro/KuroBot3D'));
 
 /**
  * SignIn Page - Professional authentication
@@ -114,9 +117,15 @@ const SignIn = () => {
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-4 shadow-lg shadow-primary/20">
-              <img src="/kuroai.png" alt="Kuro" className="w-full h-full object-cover" />
-            </div>
+            <Suspense fallback={
+              <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-4 shadow-lg shadow-primary/20">
+                <img src="/kuroai.png" alt="Kuro" className="w-full h-full object-cover" />
+              </div>
+            }>
+              <div className="mx-auto mb-2">
+                <KuroBot3D interactive={false} size="small" />
+              </div>
+            </Suspense>
             <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
             <p className="text-muted-foreground mt-2">Sign in to continue to Kuro</p>
           </div>
