@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSignUp } from '@clerk/clerk-react';
+import { Suspense, lazy } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KuroBackground } from '@/components/kuro';
+
+const KuroBot3D = lazy(() => import('@/components/kuro/KuroBot3D'));
 
 /**
  * SignUp Page - Professional registration
@@ -119,10 +122,35 @@ const SignUp = () => {
           transition={{ delay: 0.2 }}
           className="glass rounded-2xl p-8"
         >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-4 shadow-lg shadow-primary/20">
-              <img src="/kuroai.png" alt="Kuro" className="w-full h-full object-cover" />
+          {/* Header with 3D Bot + Speech Bubble */}
+          <div className="text-center mb-6">
+            <div className="relative flex justify-center mb-2">
+              {/* Speech bubble */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 1.2, duration: 0.4, type: 'spring', stiffness: 200 }}
+                className="absolute top-2 right-1/2 translate-x-[110px] md:translate-x-[120px] z-10"
+              >
+                <div className="relative bg-gradient-to-br from-primary/90 to-accent/90 text-white text-xs font-medium px-3 py-1.5 rounded-2xl rounded-bl-sm shadow-lg shadow-primary/20 whitespace-nowrap">
+                  Welcome my friend!
+                  <div className="absolute -bottom-1 left-2 w-2.5 h-2.5 bg-gradient-to-br from-primary/90 to-accent/90 rotate-45 rounded-sm" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+              >
+                <Suspense fallback={
+                  <div className="w-48 h-48 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-accent animate-pulse" />
+                  </div>
+                }>
+                  <KuroBot3D className="w-48 h-48 md:w-56 md:h-56" />
+                </Suspense>
+              </motion.div>
             </div>
             <h1 className="text-2xl font-bold text-foreground">Create an account</h1>
             <p className="text-muted-foreground mt-2">Get started with Kuro today</p>

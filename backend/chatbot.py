@@ -798,6 +798,65 @@ async def health_check():
             "error": str(e)
         }
 
+# --- Inline Ask (ephemeral side-question, no memory/storage) ---
+
+class InlineQueryInput(BaseModel):
+    """Request model for inline (ephemeral) side-questions"""
+    selected_text: str = Field(..., description="Text the user selected in a chat message")
+    context: str = Field("", description="Surrounding context from the message (~100 tokens)")
+    question: str = Field(..., description="User's question about the selected text")
+
+class InlineQueryResponse(BaseModel):
+    """Response model for inline queries"""
+    answer: str = Field(..., description="AI explanation")
+
+@app.post("/inline-query", tags=["Chat"], response_model=InlineQueryResponse)
+async def inline_query_endpoint(payload: InlineQueryInput):
+    """
+    Lightweight ephemeral endpoint for inline side-questions.
+
+    This does NOT:
+    - load session history
+    - call memory / retrieval systems
+    - store any result in the database
+    It simply constructs a prompt and calls the LLM directly.
+    """
+    import time as _time
+    request_start = _time.time()
+    try:
+        from utils.groq_client import GroqClient
+
+        prompt = (
+            "The user is reading a chatbot response and selected a piece of text "
+            "they want to understand better.\n\n"
+            f"Selected text:\n{payload.selected_text}\n\n"
+        )
+        if payload.context:
+            prompt += f"Context from the message:\n{payload.context}\n\n"
+        prompt += (
+            f"User question:\n{payload.question}\n\n"
+            "Provide a short, clear explanation that helps the user understand the concept. "
+            "Keep it concise — ideally a few sentences."
+        )
+
+        client = GroqClient()
+        answer = client.generate_content(
+            prompt=prompt,
+            system_instruction=(
+                "You are Kuro, a helpful AI assistant. The user selected text inside a "
+                "conversation and is asking a quick side-question. Answer concisely and clearly."
+            ),
+        )
+
+        latency_ms = int((_time.time() - request_start) * 1000)
+        logger.info("Inline query answered in %dms", latency_ms)
+        return InlineQueryResponse(answer=answer)
+
+    except Exception as e:
+        logger.error("Inline query failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate inline answer")
+
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):

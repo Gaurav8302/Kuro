@@ -62,3 +62,16 @@ export async function getIntroShown(userId: string): Promise<{ user_id: string; 
 export async function setIntroShown(userId: string): Promise<{ status: string; user_id: string; intro_shown: boolean }> {
   return apiRequest(`/user/${userId}/intro-shown`, 'post', { shown: true });
 }
+
+// Inline Ask - ephemeral side-question (no memory, no storage)
+export async function inlineQuery(
+  selectedText: string,
+  context: string,
+  question: string
+): Promise<{ answer: string }> {
+  return apiRequest('/inline-query', 'post', {
+    selected_text: selectedText,
+    context,
+    question,
+  });
+}
