@@ -271,11 +271,60 @@ async def create_session(
 ):
     if not user_id:
         raise HTTPException(status_code=400, detail="Missing user_id")
+
+    # Before creating a new session, summarize the user's most recent non-empty
+    # session so its content is available for cross-session memory retrieval.
+    try:
+        _auto_summarize_previous_session(user_id)
+    except Exception as e:
+        logger.warning("Auto-summarize of previous session failed (non-blocking): %s", e)
+
     session_id = create_new_session(user_id, force_new=force_new)
     if session_id:
         return {"status": "success", "session_id": session_id, "reused": not force_new}
     else:
         raise HTTPException(status_code=500, detail="Failed to create session")
+
+
+def _auto_summarize_previous_session(user_id: str):
+    """Find the user's most recent session with messages and summarize it
+    into Pinecone (long-term memory) if not already summarized.
+    Runs in a background thread to avoid blocking the session creation response."""
+    import threading
+
+    def _do_summarize():
+        try:
+            from memory.chat_database import get_sessions_by_user
+            from memory.session_memory import session_memory
+            from memory.long_term_memory import long_term_memory
+
+            sessions = get_sessions_by_user(user_id)
+            if not sessions:
+                return
+
+            # Find the most recent session that has messages
+            for session_info in sessions:
+                sid = session_info.get("session_id", "")
+                msg_count = session_memory.get_message_count(sid)
+                if msg_count >= 4:  # Need at least 4 exchanges to be worth summarizing
+                    messages = session_memory.get_recent_messages(sid, limit=200)
+                    if messages:
+                        summary = long_term_memory.summarize_session(
+                            user_id=user_id,
+                            session_id=sid,
+                            messages=messages,
+                        )
+                        if summary:
+                            logger.info(
+                                "Auto-summarized previous session %s for user %s (%d chars)",
+                                sid, user_id, len(summary),
+                            )
+                        return  # Only summarize the most recent non-empty session
+        except Exception as e:
+            logger.error("Background auto-summarization failed: %s", e)
+
+    thread = threading.Thread(target=_do_summarize, daemon=True)
+    thread.start()
 
 # Pydantic models for request/response validation
 class MemoryInput(BaseModel):

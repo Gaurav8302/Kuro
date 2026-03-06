@@ -6,9 +6,6 @@ Implements the specification:
   3. Prepend system prompt.
   4. Append user message.
 
-No FACTS block. No SUMMARIES block. No structured memory sections.
-No token trimming unless total exceeds model context limit.
-
 Returns a structured dict ready for LLM consumption:
   {
     "system": str,
@@ -19,6 +16,7 @@ Returns a structured dict ready for LLM consumption:
         "long_term_triggered": bool,
         "long_term_reason": str,
         "long_term_count": int,
+        "long_term_texts": list,
     }
   }
 """
@@ -50,7 +48,9 @@ def _load_system_prompt() -> str:
     except Exception:
         return (
             "You are Kuro, an AI assistant created by Gaurav. "
-            "Be helpful, concise, and friendly."
+            "You have access to a contextual memory system. "
+            "If relevant past context is provided, reference it naturally. "
+            "Never claim you cannot remember previous conversations if context is present."
         )
 
 
@@ -64,7 +64,7 @@ def build_context(
 ) -> Dict[str, Any]:
     """Build the complete context payload for an LLM call.
 
-    Steps (per spec):
+    Steps:
       1. Fetch last N messages for session from MongoDB.
       2. Filter by session_id; sort ascending by timestamp.
       3. Limit to EXCHANGE_LIMIT exchanges.
@@ -93,21 +93,37 @@ def build_context(
     lt_results: List[Dict[str, Any]] = []
     lt_context_text = ""
 
+    # Debug: log trigger decision
+    logger.info(
+        "Memory retrieval triggered: %s (reason: %s) for message: %.100s",
+        lt_triggered, lt_reason, new_message,
+    )
+
     if lt_triggered:
         try:
             lt_results = long_term_memory.retrieve(new_message, user_id)
             if lt_results:
-                lines = ["Relevant Past Context:"]
+                lines = ["\nRelevant Past Context (from previous conversations):"]
                 for i, r in enumerate(lt_results, 1):
                     lines.append(f"  {i}. {r['text']}")
                 lt_context_text = "\n".join(lines)
+                logger.info("Memories injected: %d", len(lt_results))
+                for i, r in enumerate(lt_results, 1):
+                    logger.info(
+                        "  Memory %d (score=%.4f): %.120s",
+                        i, r.get("score", 0), r["text"][:120],
+                    )
+            else:
+                logger.info("Memories injected: 0 (retrieval returned empty)")
         except Exception as e:
             logger.warning("Context builder: long-term retrieval failed: %s", e)
+    else:
+        logger.info("Memories injected: 0 (retrieval not triggered)")
 
     # --- 4. Assemble messages list ---
     messages: List[Dict[str, str]] = []
 
-    # System message
+    # System message — memories go into the system prompt for maximum visibility
     full_system = system_prompt
     if lt_context_text:
         full_system += "\n\n" + lt_context_text
@@ -152,7 +168,6 @@ def build_context(
         total_tokens = sum(estimate_tokens(m["content"]) for m in messages)
 
     # --- 6. Debug metadata ---
-    # Count exchanges: each exchange is one user+assistant pair
     exchange_count = sum(1 for m in messages if m["role"] == "user")
     debug_info = {
         "messages_injected": len(messages) - 2,  # exclude system + new user msg
@@ -161,6 +176,7 @@ def build_context(
         "long_term_triggered": lt_triggered,
         "long_term_reason": lt_reason,
         "long_term_count": len(lt_results),
+        "long_term_texts": [r.get("text", "")[:200] for r in lt_results],
     }
 
     logger.info(
@@ -171,6 +187,7 @@ def build_context(
         lt_reason,
         len(lt_results),
     )
+    logger.info("Recent messages count: %d", len(history_messages))
 
     return {
         "system": full_system,

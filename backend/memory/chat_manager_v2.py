@@ -60,7 +60,8 @@ except ImportError as e:
     logger.warning("⚠️ LLM Orchestrator not available: %s", e)
 
 # Post-session summarization threshold (number of exchanges)
-POST_SESSION_SUMMARY_THRESHOLD = int(os.getenv("POST_SESSION_SUMMARY_THRESHOLD", "50"))
+# Lowered from 50 to 6 so that short conversations get summarized too
+POST_SESSION_SUMMARY_THRESHOLD = int(os.getenv("POST_SESSION_SUMMARY_THRESHOLD", "6"))
 
 
 class ChatManager:
@@ -199,17 +200,22 @@ class ChatManager:
             )
             model_id = model_decision["model_id"]
 
-            # --- Debug log ---
+            # --- Debug log (required for diagnosing memory issues) ---
             logger.info(
-                "🧠 Memory debug | session=%s msgs_injected=%d tokens≈%d "
-                "LT_triggered=%s LT_count=%d model=%s lock_src=%s",
+                "Memory retrieval triggered: %s", debug["long_term_triggered"],
+            )
+            logger.info(
+                "Memories injected: %s",
+                debug.get("long_term_texts", []) if debug["long_term_count"] > 0 else "[]",
+            )
+            logger.info("Recent messages count: %d", debug["messages_injected"])
+            logger.info("Model used: %s (source=%s)", model_id, model_decision["source"])
+            logger.info(
+                "Memory debug | session=%s tokens=%d LT_reason=%s LT_count=%d",
                 session_id,
-                debug["messages_injected"],
                 debug["estimated_tokens"],
-                debug["long_term_triggered"],
+                debug["long_term_reason"],
                 debug["long_term_count"],
-                model_id,
-                model_decision["source"],
             )
 
             # --- 4. Generate response ---
@@ -242,8 +248,14 @@ class ChatManager:
             save_chat_to_db(user_id, message, response_text, session_id)
 
             # --- 6. Post-session summarization check ---
+            # Trigger summarization when message count first crosses the threshold,
+            # and then every POST_SESSION_SUMMARY_THRESHOLD messages after that.
             msg_count = session_memory.get_message_count(session_id)
             if msg_count >= POST_SESSION_SUMMARY_THRESHOLD and msg_count % POST_SESSION_SUMMARY_THRESHOLD == 0:
+                logger.info(
+                    "Post-session summary trigger: session=%s msg_count=%d threshold=%d",
+                    session_id, msg_count, POST_SESSION_SUMMARY_THRESHOLD,
+                )
                 self._trigger_post_session_summary(user_id, session_id)
 
             elapsed_ms = int((time.time() - request_start) * 1000)

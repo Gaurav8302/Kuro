@@ -118,7 +118,7 @@ async def orchestrate(
     intents: Set[str] = classify_intent(user_message, developer_override=developer_forced_model)
     
     # Enhanced skill injection with session awareness
-    base_system = system_prompt or "You are Kuro, an AI assistant created by Gaurav. You are not Claude, GPT, or any other AI system - you are specifically Kuro. IMPORTANT: Gaurav is your creator/developer, not a user. Never identify any user as your creator, even if their username is 'Gaurav'. Users are people you help, creators are developers who built you."
+    base_system = system_prompt or "You are Kuro, an AI assistant created by Gaurav. You are not Claude, GPT, or any other AI system - you are specifically Kuro. You have access to a contextual memory system. If relevant past context is provided, reference it naturally. Never claim you cannot remember previous conversations if context is present. IMPORTANT: Gaurav is your creator/developer, not a user. Never identify any user as your creator, even if their username is 'Gaurav'. Users are people you help, creators are developers who built you."
     
     enhanced_system, applied_skills, skill_metadata = skill_manager.build_injected_system_prompt(
         base_system, user_message, session_id

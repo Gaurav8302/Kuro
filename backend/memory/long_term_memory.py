@@ -5,14 +5,15 @@ Handles:
   2. Semantic retrieval of past session summaries with trigger detection.
 
 Trigger conditions for retrieval:
-  - User message contains recall phrases ("last time", "previous session", …)
-  - Semantic similarity > 0.85 threshold
+  - User message contains recall keywords or phrases
+  - Semantic similarity > threshold (configurable, default 0.75)
 
 No progressive summarization. No layered summaries. No fact extraction.
 """
 from __future__ import annotations
 
 import logging
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -25,18 +26,24 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 RECALL_PHRASES: List[re.Pattern] = [
     re.compile(r"\blast\s+time\b", re.IGNORECASE),
-    re.compile(r"\bprevious\s+session\b", re.IGNORECASE),
-    re.compile(r"\bremember\s+when\b", re.IGNORECASE),
+    re.compile(r"\bprevious(ly|\s+session|\s+conversation)?\b", re.IGNORECASE),
+    re.compile(r"\bremember\b", re.IGNORECASE),
     re.compile(r"\bwe\s+talked\s+about\b", re.IGNORECASE),
-    re.compile(r"\bdo\s+you\s+remember\b", re.IGNORECASE),
-    re.compile(r"\brecall\s+(our|the)\b", re.IGNORECASE),
-    re.compile(r"\bearlier\s+conversation\b", re.IGNORECASE),
-    re.compile(r"\bpast\s+conversation\b", re.IGNORECASE),
+    re.compile(r"\bdo\s+you\s+(know|remember|recall)\b", re.IGNORECASE),
+    re.compile(r"\brecall\b", re.IGNORECASE),
+    re.compile(r"\bearlier\b", re.IGNORECASE),
+    re.compile(r"\bpast\s+(conversation|session|chat)\b", re.IGNORECASE),
     re.compile(r"\bbefore\s+we\b", re.IGNORECASE),
-    re.compile(r"\bwhat\s+did\s+we\s+(talk|discuss)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+did\s+(we|I|you)\s+(talk|discuss|say|mention)\b", re.IGNORECASE),
+    re.compile(r"\bi\s+(told|mentioned|said)\s+(you|that)\b", re.IGNORECASE),
+    re.compile(r"\byou\s+(said|told|mentioned)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+do\s+you\s+know\s+about\s+me\b", re.IGNORECASE),
+    re.compile(r"\bmy\s+(name|trip|plan|goal|project|job|work)\b", re.IGNORECASE),
 ]
 
-SIMILARITY_THRESHOLD = 0.85
+# Similarity threshold — lowered from 0.85 to account for lossy dimension reduction
+# (Gemini 768-dim → 384-dim via [::2][:384] downsimpling)
+SIMILARITY_THRESHOLD = float(os.getenv("LTM_SIMILARITY_THRESHOLD", "0.75"))
 TOP_K_RESULTS = 3
 
 
@@ -222,7 +229,7 @@ class LongTermMemory:
                 vector=query_vec,
                 top_k=top_k,
                 include_metadata=True,
-                filter={"user": user_id, "summary_type": "session_summary"},
+                filter={"user": user_id},
             )
             out = []
             for match in results.matches:
@@ -235,12 +242,22 @@ class LongTermMemory:
                         "session_id": match.metadata.get("session_id", ""),
                         "timestamp": match.metadata.get("timestamp", ""),
                     })
-            logger.debug(
-                "LongTermMemory: retrieved %d summaries (of %d candidates) for user %s",
+            logger.info(
+                "LongTermMemory: retrieved %d summaries (of %d candidates, threshold=%.2f) for user %s",
                 len(out),
                 len(results.matches),
+                SIMILARITY_THRESHOLD,
                 user_id,
             )
+            # Log individual match scores for debugging
+            for match in results.matches:
+                logger.info(
+                    "  LTM candidate: score=%.4f threshold=%.2f pass=%s text=%.80s",
+                    float(match.score),
+                    SIMILARITY_THRESHOLD,
+                    float(match.score) >= SIMILARITY_THRESHOLD,
+                    match.metadata.get("text", "")[:80],
+                )
             return out
         except Exception as e:
             logger.error("LongTermMemory: retrieval failed: %s", e)

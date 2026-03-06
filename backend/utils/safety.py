@@ -78,7 +78,6 @@ class KuroSafetyValidator:
             r'\bin (19|20)\d{2},.*?(happened|occurred|was discovered)\b',
             r'\b(scientists|researchers) (just|recently) (found|discovered)\b',
             r'\b(definitely|certainly|absolutely) (true|false|correct|wrong)\b',
-            r'\bI (remember|recall|know for certain) that\b',
             r'\b(everyone knows|it\'s obvious|clearly)\b'
         ]
         
