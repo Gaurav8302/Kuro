@@ -28,6 +28,9 @@ import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { KuroButton, KuroCard } from '@/components/kuro';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
+import { useTextSelection } from '@/hooks/use-text-selection';
+import { SelectionPopup } from '@/components/SelectionPopup';
+import { InlineChatPanel } from '@/components/InlineChatPanel';
 
 const Chat = () => {
   const { sessionId } = useParams();
@@ -61,6 +64,14 @@ const Chat = () => {
   const [showFirstTimeIntro, setShowFirstTimeIntro] = useState(false);
   const [introChecking, setIntroChecking] = useState(true);
   const [displayedName, setDisplayedName] = useState(user?.fullName || user?.username || '');
+
+  // --- Inline Ask state ---
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const { selection, clearSelection } = useTextSelection(messagesContainerRef);
+  const [inlineAsk, setInlineAsk] = useState<{
+    selectedText: string;
+    context: string;
+  } | null>(null);
 
   useEffect(() => {
     setDisplayedName(user?.fullName || user?.username || '');
@@ -1008,14 +1019,46 @@ const Chat = () => {
       scrollContainerRef={scrollContainerRef}
     >
       {/* KuroChatContent - Professional chat content with 3D bot empty state */}
-      <KuroChatContent
-        messages={messages}
-        userAvatar={user?.imageUrl || ''}
-        isTyping={isTyping}
-        isLoading={isLoading}
-        onRetry={handleRetryMessage}
-        messagesEndRef={messagesEndRef}
-      />
+      <div ref={messagesContainerRef} className="h-full">
+        <KuroChatContent
+          messages={messages}
+          userAvatar={user?.imageUrl || ''}
+          isTyping={isTyping}
+          isLoading={isLoading}
+          onRetry={handleRetryMessage}
+          messagesEndRef={messagesEndRef}
+        />
+      </div>
+
+      {/* Inline Ask: selection popup */}
+      <AnimatePresence>
+        {selection && !inlineAsk && (
+          <SelectionPopup
+            text={selection.text}
+            x={selection.x}
+            y={selection.y}
+            onCopy={clearSelection}
+            onAskKuro={() => {
+              setInlineAsk({
+                selectedText: selection.text,
+                context: selection.context,
+              });
+              clearSelection();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Inline Ask: mini-chat panel */}
+      <AnimatePresence>
+        {inlineAsk && (
+          <InlineChatPanel
+            selectedText={inlineAsk.selectedText}
+            context={inlineAsk.context}
+            onClose={() => setInlineAsk(null)}
+          />
+        )}
+      </AnimatePresence>
     </ChatLayout>
   );
 }

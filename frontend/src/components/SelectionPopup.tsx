@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Copy, Check, MessageCircleQuestion } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -13,8 +14,8 @@ interface SelectionPopupProps {
 }
 
 /**
- * A small floating popup shown near the cursor when the user selects text
- * inside an assistant message. Offers "Copy" and "Ask Kuro" actions.
+ * A small holographic floating popup shown near the cursor when the user
+ * selects text inside an assistant message. Offers "Copy" and "Ask Kuro" actions.
  */
 export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   text,
@@ -35,7 +36,7 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
     const pad = 8;
 
     let left = x - rect.width / 2;
-    let top = y - rect.height - 8; // place above the selection
+    let top = y - rect.height - 10; // place above the selection
 
     // Clamp horizontal
     if (left < pad) left = pad;
@@ -68,12 +69,16 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   };
 
   return (
-    <div
+    <motion.div
       ref={ref}
+      initial={{ opacity: 0, y: 6, scale: 0.9, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       className={cn(
         'fixed z-[9999] flex items-center gap-1 px-1.5 py-1 rounded-lg',
-        'glass border border-white/15 shadow-lg backdrop-blur-xl',
-        'animate-fade-in-up'
+        'bg-background/80 backdrop-blur-2xl',
+        'border border-holo-cyan-400/20 shadow-lg shadow-holo-cyan-500/10',
       )}
       style={{
         left: pos.left,
@@ -82,34 +87,41 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
       // Prevent the popup from interfering with the selection
       onMouseDown={(e) => e.preventDefault()}
     >
-      <button
+      {/* Subtle holographic glow behind */}
+      <div className="pointer-events-none absolute inset-0 rounded-lg opacity-30 bg-[radial-gradient(circle_at_30%_50%,rgba(0,230,214,0.3),transparent_70%)]" />
+
+      <motion.button
         type="button"
         onClick={handleCopy}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
         className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
-          'transition-all duration-150 hover:scale-105 active:scale-95',
+          'relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
+          'transition-colors duration-150',
           'bg-holo-cyan-500/15 hover:bg-holo-cyan-500/25 text-holo-cyan-300',
           'border border-holo-cyan-400/20 hover:border-holo-cyan-400/40'
         )}
       >
         {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
         {copied ? 'Copied' : 'Copy'}
-      </button>
+      </motion.button>
 
-      <button
+      <motion.button
         type="button"
         onClick={onAskKuro}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
         className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
-          'transition-all duration-150 hover:scale-105 active:scale-95',
+          'relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
+          'transition-colors duration-150',
           'bg-holo-purple-500/15 hover:bg-holo-purple-500/25 text-holo-purple-300',
           'border border-holo-purple-400/20 hover:border-holo-purple-400/40'
         )}
       >
         <MessageCircleQuestion className="w-3.5 h-3.5" />
         Ask Kuro
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 };
 

@@ -20,7 +20,7 @@ import { sidebarVariants } from '@/utils/animations';
 
 interface ChatSession {
   session_id: string;
-  title: string;
+  title?: string;
 }
 
 interface User {
