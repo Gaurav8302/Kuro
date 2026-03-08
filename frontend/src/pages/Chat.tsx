@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -52,6 +52,7 @@ const ChatInner = () => {
   // --- Global state (not per-panel) ---
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [hasCheckedName, setHasCheckedName] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -203,71 +204,47 @@ const ChatInner = () => {
         'get'
       );
       setSessions(data.sessions);
+
+      if (data.sessions.length === 0 && !sessionId && !hasAutoCreatedSession) {
+        setHasAutoCreatedSession(true);
+        await handleNewChat();
+        return;
+      }
+
+      // Sync primary panel with URL sessionId
+      if (sessionId && data.sessions.length > 0) {
+        const session = data.sessions.find((s) => s.session_id === sessionId);
+        if (session) {
+          splitView.setPrimarySessionId(sessionId);
+        } else {
+          navigate('/chat');
+        }
+      }
     } catch (err: any) {
       console.error('Error fetching sessions:', err);
       showErrorToast('Connection Issue', 'Having trouble loading sessions.');
     } finally {
       setIsInitializing(false);
     }
-  }, [user, clerkApiRequest, showErrorToast]);
-
-  const handleNewChat = useCallback(async () => {
-    try {
-      if (!user) return;
-      const data = await clerkApiRequest<{ session_id: string }>(
-        '/session/create',
-        'post',
-        null,
-        { user_id: user.id }
-      );
-      // Navigate first (triggers URL change), then refresh sessions in background
-      navigate(`/chat/${data.session_id}`);
-      if (isMobile) setIsSidebarOpen(false);
-      // Refresh sessions list so the new session appears in sidebar
-      fetchSessions();
-    } catch (err: any) {
-      showErrorToast('Error', err.message);
-    }
-  }, [user, clerkApiRequest, navigate, isMobile, fetchSessions, showErrorToast]);
+  }, [user, sessionId, hasAutoCreatedSession, clerkApiRequest, showErrorToast]);
 
   // Fetch sessions on mount
-  const hasAutoCreatedRef = useRef(false);
   useEffect(() => {
-    if (!user) {
+    if (user) {
+      fetchSessions();
+    } else {
       setIsInitializing(false);
-      return;
     }
-
-    fetchSessions();
-
     const timeout = setTimeout(() => setIsInitializing(false), 10000);
     return () => clearTimeout(timeout);
-  }, [user, fetchSessions]);
+  }, [user]);
 
-  // Auto-create a session if user has zero sessions and no sessionId in URL
-  useEffect(() => {
-    if (
-      user &&
-      sessions.length === 0 &&
-      !sessionId &&
-      !hasAutoCreatedRef.current &&
-      !isInitializing
-    ) {
-      hasAutoCreatedRef.current = true;
-      handleNewChat();
-    }
-  }, [user, sessions.length, sessionId, isInitializing, handleNewChat]);
-
-  // Sync URL sessionId → primary panel (single source of truth for this sync)
+  // Sync URL sessionId → primary panel
   useEffect(() => {
     if (!user || !sessionId || sessions.length === 0) return;
     const session = sessions.find((s) => s.session_id === sessionId);
     if (session) {
-      // Only update if different from current primary
-      const currentPrimary = splitView.layout.panels[0]?.sessionId;
-      if (currentPrimary !== sessionId) {
-        splitView.setPrimarySessionId(sessionId);
-      }
+      splitView.setPrimarySessionId(sessionId);
     } else {
       toast({
         title: 'Session Not Found',
@@ -278,15 +255,24 @@ const ChatInner = () => {
     }
   }, [sessionId, sessions, user]);
 
-  // Sync URL when split view collapses to single (e.g. expand/close panel)
-  useEffect(() => {
-    const primaryId = splitView.layout.panels[0]?.sessionId;
-    if (splitView.layout.mode === 'single' && primaryId && primaryId !== sessionId) {
-      navigate(`/chat/${primaryId}`, { replace: true });
+  const handleNewChat = async () => {
+    try {
+      if (!user) return;
+      const data = await clerkApiRequest<{ session_id: string }>(
+        '/session/create',
+        'post',
+        null,
+        { user_id: user.id }
+      );
+      await fetchSessions();
+      navigate(`/chat/${data.session_id}`);
+      if (isMobile) setIsSidebarOpen(false);
+    } catch (err: any) {
+      showErrorToast('Error', err.message);
     }
-  }, [splitView.layout.mode, splitView.layout.panels, sessionId, navigate]);
+  };
 
-  const handleDeleteSession = useCallback(async (sid: string) => {
+  const handleDeleteSession = async (sid: string) => {
     try {
       await clerkApiRequest(`/session/${sid}`, 'delete');
       toast({
@@ -310,9 +296,9 @@ const ChatInner = () => {
     } catch (err: any) {
       showErrorToast('Error', 'Failed to delete session: ' + err.message);
     }
-  }, [clerkApiRequest, toast, splitView, fetchSessions, navigate, showErrorToast]);
+  };
 
-  const handleRenameSession = useCallback(async (sid: string, newTitle: string) => {
+  const handleRenameSession = async (sid: string, newTitle: string) => {
     try {
       await clerkApiRequest(`/session/${sid}`, 'put', { new_title: newTitle });
       await fetchSessions();
@@ -323,7 +309,7 @@ const ChatInner = () => {
     } catch (err: any) {
       showErrorToast('Error', 'Failed to rename session: ' + err.message);
     }
-  }, [clerkApiRequest, fetchSessions, toast, showErrorToast]);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -331,13 +317,13 @@ const ChatInner = () => {
     toast({ title: 'Signed out', description: 'Come back soon!' });
   };
 
-  const handleSelectSession = useCallback(async (id: string) => {
+  const handleSelectSession = async (id: string) => {
     if (!user || !id) return;
     navigate(`/chat/${id}`);
     if (isMobile) setIsSidebarOpen(false);
-  }, [user, navigate, isMobile]);
+  };
 
-  const toggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   // --- DnD handlers ---
   const handleDragStart = (event: DragStartEvent) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { SplitViewState, PanelPosition, PanelState, DropZone } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
@@ -65,8 +65,6 @@ function desktopPanelPosition(dropZone: DropZone): PanelPosition {
 
 export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isMobile = useIsMobile();
-  const isMobileRef = useRef(isMobile);
-  isMobileRef.current = isMobile;
   const { toast } = useToast();
   const [layout, setLayout] = useState<SplitViewState>(() => {
     // On mobile, always start with clean default (no restored split)
@@ -127,14 +125,13 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       setLayout((prev) => {
-        const mobile = isMobileRef.current;
-        const positionFn = mobile ? mobilePanelPosition : desktopPanelPosition;
+        const positionFn = isMobile ? mobilePanelPosition : desktopPanelPosition;
 
         if (dropZone === 'center') {
           // Replace current panel (primary)
           const panels: PanelState[] =
             prev.panels.length === 0
-              ? [{ sessionId, position: mobile ? 'top' : 'left' }]
+              ? [{ sessionId, position: isMobile ? 'top' : 'left' }]
               : prev.panels.map((p, i) =>
                   i === 0 ? { ...p, sessionId } : p
                 );
@@ -153,8 +150,8 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
 
           // Create split
-          const primaryPos: PanelPosition = mobile ? 'top' : 'left';
-          const secondaryPos: PanelPosition = mobile ? 'bottom' : 'right';
+          const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
+          const secondaryPos: PanelPosition = isMobile ? 'bottom' : 'right';
 
           const isDropOnPrimary = dropZone === 'left' || dropZone === 'top';
 
@@ -190,7 +187,7 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { ...prev, panels };
       });
     },
-    [isSessionInAnyPanel, toast]
+    [isMobile, isSessionInAnyPanel, toast]
   );
 
   const closePanel = useCallback((position: PanelPosition) => {
@@ -200,48 +197,44 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { mode: 'single', panels: [], panelSizes: [100] };
       }
       // Move remaining panel to primary position
-      const primaryPos: PanelPosition = isMobileRef.current ? 'top' : 'left';
+      const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
       return {
         mode: 'single',
         panels: [{ ...remaining[0], position: primaryPos }],
         panelSizes: [100],
       };
     });
-  }, []);
+  }, [isMobile]);
 
   const expandPanel = useCallback(
     (position: PanelPosition) => {
+      // Close the other panel
       setLayout((prev) => {
-        const kept = prev.panels.find((p) => p.position === position);
-        if (!kept) return prev;
-        const primaryPos: PanelPosition = isMobileRef.current ? 'top' : 'left';
-        return {
-          mode: 'single',
-          panels: [{ ...kept, position: primaryPos }],
-          panelSizes: [100],
-        };
+        const otherPanel = prev.panels.find((p) => p.position !== position);
+        if (otherPanel) {
+          closePanel(otherPanel.position);
+        }
+        return prev;
       });
     },
-    []
+    [closePanel]
   );
 
   const setPrimarySessionId = useCallback((sessionId: string) => {
     setLayout((prev) => {
       if (prev.panels.length === 0) {
-        const primaryPos: PanelPosition = isMobileRef.current ? 'top' : 'left';
+        const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
         return {
           ...prev,
           panels: [{ sessionId, position: primaryPos }],
         };
       }
-      // Only update if actually different
-      if (prev.panels[0]?.sessionId === sessionId) return prev;
       const panels = prev.panels.map((p, i) =>
         i === 0 ? { ...p, sessionId } : p
       );
       return { ...prev, panels };
     });
-  }, []);
+  }, [isMobile]);
 
   const updatePanelSizes = useCallback((sizes: number[]) => {
     setLayout((prev) => ({ ...prev, panelSizes: sizes }));
