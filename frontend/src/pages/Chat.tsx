@@ -255,6 +255,14 @@ const ChatInner = () => {
     }
   }, [sessionId, sessions, user]);
 
+  // Sync URL when split view collapses to single (e.g. expand/close panel)
+  useEffect(() => {
+    const primaryId = splitView.layout.panels[0]?.sessionId;
+    if (splitView.layout.mode === 'single' && primaryId && primaryId !== sessionId) {
+      navigate(`/chat/${primaryId}`, { replace: true });
+    }
+  }, [splitView.layout.mode, splitView.layout.panels, sessionId, navigate]);
+
   const handleNewChat = async () => {
     try {
       if (!user) return;

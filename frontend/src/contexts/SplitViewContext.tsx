@@ -208,16 +208,18 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const expandPanel = useCallback(
     (position: PanelPosition) => {
-      // Close the other panel
       setLayout((prev) => {
-        const otherPanel = prev.panels.find((p) => p.position !== position);
-        if (otherPanel) {
-          closePanel(otherPanel.position);
-        }
-        return prev;
+        const kept = prev.panels.find((p) => p.position === position);
+        if (!kept) return prev;
+        const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
+        return {
+          mode: 'single',
+          panels: [{ ...kept, position: primaryPos }],
+          panelSizes: [100],
+        };
       });
     },
-    [closePanel]
+    [isMobile]
   );
 
   const setPrimarySessionId = useCallback((sessionId: string) => {
