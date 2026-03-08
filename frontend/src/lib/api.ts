@@ -63,15 +63,25 @@ export async function setIntroShown(userId: string): Promise<{ status: string; u
   return apiRequest(`/user/${userId}/intro-shown`, 'post', { shown: true });
 }
 
-// Inline Ask - ephemeral side-question (no memory, no storage)
+// Inline Ask - ephemeral side-question with read-only session context
 export async function inlineQuery(
   selectedText: string,
   context: string,
-  question: string
+  question: string,
+  options?: {
+    parentMessage?: string;
+    sessionId?: string;
+    userId?: string;
+    messageIndex?: number;
+  }
 ): Promise<{ answer: string }> {
   return apiRequest('/inline-query', 'post', {
     selected_text: selectedText,
     context,
     question,
+    parent_message: options?.parentMessage || '',
+    session_id: options?.sessionId || null,
+    user_id: options?.userId || null,
+    message_index: options?.messageIndex ?? null,
   });
 }

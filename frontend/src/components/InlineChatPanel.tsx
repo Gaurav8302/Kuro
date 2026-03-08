@@ -17,6 +17,16 @@ interface InlineChatPanelProps {
   selectedText: string;
   /** Surrounding context from the message */
   context: string;
+  /** Full parent AI response containing the selected text */
+  parentMessage: string;
+  /** Current session ID for read-only context */
+  sessionId?: string;
+  /** User ID for session summary lookup */
+  userId?: string;
+  /** Index of the selected message in history (for old-message edge case) */
+  messageIndex?: number;
+  /** Optional initial question to auto-send (for Explain/Example quick actions) */
+  initialQuestion?: string;
   /** Called when the panel is closed — parent should clear state */
   onClose: () => void;
 }
@@ -83,13 +93,18 @@ MiniParticles.displayName = 'MiniParticles';
 
 /**
  * InlineChatPanel — holographic mini-chat window for ephemeral
- * side-questions about selected text. Matches the KuroIntro landing
- * page aesthetic. All state is frontend-only; nothing is stored in
- * the database or memory systems.
+ * side-questions about selected text. Reads session memory (read-only)
+ * for better contextual answers. All panel state is frontend-only;
+ * nothing is stored in the database or memory systems.
  */
 export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   selectedText,
   context,
+  parentMessage,
+  sessionId,
+  userId,
+  messageIndex,
+  initialQuestion,
   onClose,
 }) => {
   const [messages, setMessages] = useState<InlineMessage[]>([]);
@@ -99,6 +114,7 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const hasAutoSentRef = useRef(false);
 
   // Auto-focus the input on mount
   useEffect(() => {
@@ -121,17 +137,20 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  const handleSend = useCallback(async () => {
-    const question = input.trim();
-    if (!question || isLoading) return;
+  const sendQuestion = useCallback(async (question: string) => {
+    if (!question.trim() || isLoading) return;
 
-    setInput('');
     const userMsgId = ++msgIdRef.current;
     setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: question }]);
     setIsLoading(true);
 
     try {
-      const { answer } = await inlineQuery(selectedText, context, question);
+      const { answer } = await inlineQuery(selectedText, context, question, {
+        parentMessage,
+        sessionId,
+        userId,
+        messageIndex,
+      });
       const aiMsgId = ++msgIdRef.current;
       setMessages((prev) => [...prev, { id: aiMsgId, role: 'assistant', content: answer }]);
     } catch {
@@ -143,7 +162,22 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, selectedText, context]);
+  }, [isLoading, selectedText, context, parentMessage, sessionId, userId, messageIndex]);
+
+  // Auto-send initial question (for Explain/Example quick actions)
+  useEffect(() => {
+    if (initialQuestion && !hasAutoSentRef.current) {
+      hasAutoSentRef.current = true;
+      sendQuestion(initialQuestion);
+    }
+  }, [initialQuestion, sendQuestion]);
+
+  const handleSend = useCallback(async () => {
+    const question = input.trim();
+    if (!question || isLoading) return;
+    setInput('');
+    await sendQuestion(question);
+  }, [input, isLoading, sendQuestion]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

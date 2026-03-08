@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, MessageCircleQuestion } from 'lucide-react';
+import { Copy, Check, MessageCircleQuestion, Lightbulb, Code2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SelectionPopupProps {
@@ -11,11 +11,16 @@ interface SelectionPopupProps {
   y: number;
   onCopy: () => void;
   onAskKuro: () => void;
+  /** Quick action: explain the selected text without typing */
+  onExplain: () => void;
+  /** Quick action: provide an example for the selected text */
+  onExample: () => void;
 }
 
 /**
  * A small holographic floating popup shown near the cursor when the user
- * selects text inside an assistant message. Offers "Copy" and "Ask Kuro" actions.
+ * selects text inside an assistant message. Offers "Explain", "Example",
+ * "Ask Kuro", and "Copy" actions.
  */
 export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   text,
@@ -23,6 +28,8 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   y,
   onCopy,
   onAskKuro,
+  onExplain,
+  onExample,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
@@ -92,18 +99,34 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
 
       <motion.button
         type="button"
-        onClick={handleCopy}
+        onClick={onExplain}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
         className={cn(
-          'relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
+          'relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
           'transition-colors duration-150',
           'bg-holo-cyan-500/15 hover:bg-holo-cyan-500/25 text-holo-cyan-300',
           'border border-holo-cyan-400/20 hover:border-holo-cyan-400/40'
         )}
       >
-        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-        {copied ? 'Copied' : 'Copy'}
+        <Lightbulb className="w-3.5 h-3.5" />
+        Explain
+      </motion.button>
+
+      <motion.button
+        type="button"
+        onClick={onExample}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
+        className={cn(
+          'relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
+          'transition-colors duration-150',
+          'bg-holo-blue-500/15 hover:bg-holo-blue-500/25 text-holo-blue-300',
+          'border border-holo-blue-400/20 hover:border-holo-blue-400/40'
+        )}
+      >
+        <Code2 className="w-3.5 h-3.5" />
+        Example
       </motion.button>
 
       <motion.button
@@ -112,7 +135,7 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
         className={cn(
-          'relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium',
+          'relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
           'transition-colors duration-150',
           'bg-holo-purple-500/15 hover:bg-holo-purple-500/25 text-holo-purple-300',
           'border border-holo-purple-400/20 hover:border-holo-purple-400/40'
@@ -120,6 +143,22 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
       >
         <MessageCircleQuestion className="w-3.5 h-3.5" />
         Ask Kuro
+      </motion.button>
+
+      <motion.button
+        type="button"
+        onClick={handleCopy}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
+        className={cn(
+          'relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
+          'transition-colors duration-150',
+          'bg-white/5 hover:bg-white/10 text-muted-foreground',
+          'border border-white/10 hover:border-white/20'
+        )}
+      >
+        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+        {copied ? 'Copied' : 'Copy'}
       </motion.button>
     </motion.div>
   );

@@ -798,13 +798,20 @@ async def health_check():
             "error": str(e)
         }
 
-# --- Inline Ask (ephemeral side-question, no memory/storage) ---
+# --- Inline Ask (ephemeral side-question, READ-ONLY memory) ---
 
 class InlineQueryInput(BaseModel):
-    """Request model for inline (ephemeral) side-questions"""
+    """Request model for inline (ephemeral) side-questions.
+
+    Reads session context but never writes to memory or database.
+    """
     selected_text: str = Field(..., description="Text the user selected in a chat message")
     context: str = Field("", description="Surrounding context from the message (~100 tokens)")
     question: str = Field(..., description="User's question about the selected text")
+    parent_message: str = Field("", description="Full parent AI response containing the selected text")
+    session_id: Optional[str] = Field(None, description="Current session ID for read-only context")
+    user_id: Optional[str] = Field(None, description="User ID for session summary lookup")
+    message_index: Optional[int] = Field(None, description="Index of the selected message in history (for old-message context)")
 
 class InlineQueryResponse(BaseModel):
     """Response model for inline queries"""
@@ -813,43 +820,131 @@ class InlineQueryResponse(BaseModel):
 @app.post("/inline-query", tags=["Chat"], response_model=InlineQueryResponse)
 async def inline_query_endpoint(payload: InlineQueryInput):
     """
-    Lightweight ephemeral endpoint for inline side-questions.
+    Ephemeral endpoint for inline side-questions with READ-ONLY session context.
+
+    This READS:
+    - Recent session messages (last 8 exchanges)
+    - Session summaries (from long-term memory, if available)
 
     This does NOT:
-    - load session history
-    - call memory / retrieval systems
-    - store any result in the database
-    It simply constructs a prompt and calls the LLM directly.
+    - Store any result in the database
+    - Update memory or summaries
+    - Affect the main chat flow in any way
     """
     import time as _time
     request_start = _time.time()
     try:
         from utils.groq_client import GroqClient
 
-        prompt = (
-            "The user is reading a chatbot response and selected a piece of text "
-            "they want to understand better.\n\n"
-            f"Selected text:\n{payload.selected_text}\n\n"
+        # --- Read-only context assembly ---
+        recent_messages_text = ""
+        session_summary_text = ""
+
+        # 1. Load recent session messages (read-only, last 8 exchanges)
+        if payload.session_id:
+            try:
+                from memory.session_memory import session_memory
+                raw_messages = session_memory.get_recent_messages(
+                    payload.session_id, limit=8
+                )
+
+                # If message_index is provided and points to an older message,
+                # use surrounding messages instead of the most recent ones
+                if payload.message_index is not None and len(raw_messages) > 0:
+                    # Each exchange produces 2 entries (user + assistant)
+                    # Get all messages for the session to find context around the selected one
+                    from memory.chat_database import chat_db
+                    all_docs = list(
+                        chat_db.chat_collection.find(
+                            {"session_id": payload.session_id}
+                        ).sort("metadata.sequence_number", 1)
+                    )
+                    total_exchanges = len(all_docs)
+                    selected_exchange_idx = payload.message_index // 2  # approximate exchange index
+                    latest_exchange_idx = total_exchanges - 1
+
+                    # If the selected message is far from the latest (>5 exchanges away),
+                    # use surrounding context instead of recent messages
+                    if latest_exchange_idx - selected_exchange_idx > 5:
+                        start = max(0, selected_exchange_idx - 2)
+                        end = min(total_exchanges, selected_exchange_idx + 3)
+                        surrounding_docs = all_docs[start:end]
+                        surrounding_messages = []
+                        for doc in surrounding_docs:
+                            user_msg = doc.get("message", "")
+                            assistant_msg = doc.get("reply", "")
+                            if user_msg:
+                                surrounding_messages.append({"role": "user", "content": user_msg})
+                            if assistant_msg:
+                                surrounding_messages.append({"role": "assistant", "content": assistant_msg})
+                        raw_messages = surrounding_messages
+
+                if raw_messages:
+                    lines = []
+                    for m in raw_messages:
+                        role = m.get("role", "user").capitalize()
+                        content = m.get("content", "")
+                        # Truncate individual messages to ~150 tokens (~600 chars)
+                        if len(content) > 600:
+                            content = content[:597] + "..."
+                        lines.append(f"{role}: {content}")
+                    recent_messages_text = "\n".join(lines)
+            except Exception as e:
+                logger.warning("Inline query: failed to load session messages: %s", e)
+
+        # 2. Load session summary (read-only, from long-term memory)
+        if payload.user_id and payload.session_id:
+            try:
+                from memory.long_term_memory import long_term_memory
+                summaries = long_term_memory.retrieve(
+                    payload.selected_text, payload.user_id, top_k=1
+                )
+                if summaries:
+                    session_summary_text = summaries[0].get("text", "")
+                    # Cap summary to ~200 tokens (~800 chars)
+                    if len(session_summary_text) > 800:
+                        session_summary_text = session_summary_text[:797] + "..."
+            except Exception as e:
+                logger.warning("Inline query: failed to load session summary: %s", e)
+
+        # --- Build prompt with full context ---
+        system_instruction = (
+            "You are Kuro, a helpful AI assistant. The user is reading an AI response "
+            "inside a conversation and selected a piece of text they want clarification about. "
+            "Explain clearly and concisely so the user understands the concept in the context "
+            "of the ongoing discussion."
         )
-        if payload.context:
-            prompt += f"Context from the message:\n{payload.context}\n\n"
-        prompt += (
-            f"User question:\n{payload.question}\n\n"
-            "Provide a short, clear explanation that helps the user understand the concept. "
-            "Keep it concise — ideally a few sentences."
-        )
+
+        prompt_parts = []
+        prompt_parts.append(f"Selected text:\n{payload.selected_text}")
+
+        if payload.parent_message:
+            # Cap parent message to ~300 tokens (~1200 chars)
+            parent = payload.parent_message
+            if len(parent) > 1200:
+                parent = parent[:1197] + "..."
+            prompt_parts.append(f"Full response containing the text:\n{parent}")
+        elif payload.context:
+            prompt_parts.append(f"Context from the message:\n{payload.context}")
+
+        if recent_messages_text:
+            prompt_parts.append(f"Conversation context:\n{recent_messages_text}")
+
+        if session_summary_text:
+            prompt_parts.append(f"Session summary:\n{session_summary_text}")
+
+        prompt_parts.append(f"User question:\n{payload.question}")
+
+        prompt = "\n\n".join(prompt_parts)
 
         client = GroqClient()
         answer = client.generate_content(
             prompt=prompt,
-            system_instruction=(
-                "You are Kuro, a helpful AI assistant. The user selected text inside a "
-                "conversation and is asking a quick side-question. Answer concisely and clearly."
-            ),
+            system_instruction=system_instruction,
         )
 
         latency_ms = int((_time.time() - request_start) * 1000)
-        logger.info("Inline query answered in %dms", latency_ms)
+        logger.info("Inline query answered in %dms (session_ctx=%s)", latency_ms, bool(payload.session_id))
         return InlineQueryResponse(answer=answer)
 
     except Exception as e:

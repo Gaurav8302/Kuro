@@ -4,6 +4,10 @@ export interface TextSelection {
   text: string;
   /** Surrounding context (~100 tokens worth) from the parent message */
   context: string;
+  /** Full text content of the parent assistant message */
+  parentMessage: string;
+  /** Index of the message element in the messages container (for old-message edge case) */
+  messageIndex: number;
   /** Position for anchoring the popup */
   x: number;
   y: number;
@@ -11,7 +15,8 @@ export interface TextSelection {
 
 /**
  * Detects text selections inside a container and returns the selected text,
- * surrounding context, and cursor position for popup placement.
+ * surrounding context, parent message content, message index, and cursor
+ * position for popup placement.
  *
  * The hook listens for `mouseup` and `touchend` events. When the selection
  * falls inside `containerRef`, a `TextSelection` is emitted. Clicking
@@ -49,6 +54,52 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     const start = Math.max(0, idx - 200);
     const end = Math.min(fullText.length, idx + selectedText.length + 200);
     return fullText.slice(start, end);
+  }, []);
+
+  /**
+   * Get the full text content of the parent assistant message by walking
+   * up from the selection to the nearest markdown-body element.
+   */
+  const getParentMessage = useCallback((sel: Selection): string => {
+    const anchor = sel.anchorNode;
+    if (!anchor) return '';
+
+    let node: HTMLElement | null = anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement
+      : anchor as HTMLElement;
+
+    for (let i = 0; i < 15 && node; i++) {
+      if (node.classList?.contains('markdown-body')) {
+        return node.textContent ?? '';
+      }
+      node = node.parentElement;
+    }
+    return '';
+  }, []);
+
+  /**
+   * Determine the index of the message element within the messages container.
+   * Walks up from the selection anchor to find the nearest message-level element
+   * (identified by data-message-index attribute or by position among siblings).
+   */
+  const getMessageIndex = useCallback((sel: Selection, container: HTMLElement): number => {
+    const anchor = sel.anchorNode;
+    if (!anchor) return -1;
+
+    let node: HTMLElement | null = anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement
+      : anchor as HTMLElement;
+
+    // Walk up to find an element with data-message-index attribute
+    for (let i = 0; i < 20 && node && node !== container; i++) {
+      const idx = node.getAttribute?.('data-message-index');
+      if (idx !== null && idx !== undefined) {
+        return parseInt(idx, 10);
+      }
+      node = node.parentElement;
+    }
+
+    return -1;
   }, []);
 
   const handleSelectionChange = useCallback(() => {
@@ -97,10 +148,12 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     setSelection({
       text,
       context: getContext(sel),
+      parentMessage: getParentMessage(sel),
+      messageIndex: getMessageIndex(sel, container),
       x: rect.left + rect.width / 2,
       y: rect.top,
     });
-  }, [containerRef, getContext]);
+  }, [containerRef, getContext, getParentMessage, getMessageIndex]);
 
   useEffect(() => {
     const onMouseDown = () => {

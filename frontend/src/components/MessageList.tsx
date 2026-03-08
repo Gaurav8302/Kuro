@@ -23,16 +23,17 @@ interface MessageItemProps {
   onRetry: () => void;
 }
 
-const MessageItem = memo<MessageItemProps>(({ 
-  message, 
-  index, 
-  userAvatar, 
-  shouldReduceAnimations, 
-  onRetry 
+const MessageItem = memo<MessageItemProps>(({
+  message,
+  index,
+  userAvatar,
+  shouldReduceAnimations,
+  onRetry
 }) => (
   <div
     className="transform-gpu animate-fade-in-up"
-    style={{ 
+    data-message-index={index}
+    style={{
       animationDelay: shouldReduceAnimations ? '0ms' : `${Math.min(index * 30, 150)}ms`,
       animationFillMode: 'both'
     }}

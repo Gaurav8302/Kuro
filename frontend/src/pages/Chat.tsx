@@ -71,6 +71,9 @@ const Chat = () => {
   const [inlineAsk, setInlineAsk] = useState<{
     selectedText: string;
     context: string;
+    parentMessage: string;
+    messageIndex: number;
+    initialQuestion?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -1042,6 +1045,28 @@ const Chat = () => {
               setInlineAsk({
                 selectedText: selection.text,
                 context: selection.context,
+                parentMessage: selection.parentMessage,
+                messageIndex: selection.messageIndex,
+              });
+              clearSelection();
+            }}
+            onExplain={() => {
+              setInlineAsk({
+                selectedText: selection.text,
+                context: selection.context,
+                parentMessage: selection.parentMessage,
+                messageIndex: selection.messageIndex,
+                initialQuestion: `Explain what "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}" means in this context.`,
+              });
+              clearSelection();
+            }}
+            onExample={() => {
+              setInlineAsk({
+                selectedText: selection.text,
+                context: selection.context,
+                parentMessage: selection.parentMessage,
+                messageIndex: selection.messageIndex,
+                initialQuestion: `Give me a clear example of "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}".`,
               });
               clearSelection();
             }}
@@ -1055,6 +1080,11 @@ const Chat = () => {
           <InlineChatPanel
             selectedText={inlineAsk.selectedText}
             context={inlineAsk.context}
+            parentMessage={inlineAsk.parentMessage}
+            sessionId={currentSession?.session_id}
+            userId={user?.id}
+            messageIndex={inlineAsk.messageIndex}
+            initialQuestion={inlineAsk.initialQuestion}
             onClose={() => setInlineAsk(null)}
           />
         )}
