@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragStartEvent,
@@ -333,6 +334,10 @@ const ChatInner = () => {
         title: data.title || 'Chat Session',
       });
       splitView.setIsDragging(true);
+      // Close the mobile sidebar so drop zones are visible
+      if (isMobile) {
+        setIsSidebarOpen(false);
+      }
     }
   };
 
@@ -366,10 +371,15 @@ const ChatInner = () => {
     }
   };
 
-  // Configure DnD sensors - distance threshold prevents clicks from triggering drag
+  // Configure DnD sensors
+  // PointerSensor for desktop (mouse), TouchSensor for mobile (touch)
+  // TouchSensor uses delay so a quick tap still selects the session
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 8 },
     })
   );
 
@@ -566,7 +576,7 @@ const ChatInner = () => {
 
   // --- Drag overlay (floating card during drag) ---
   const dragOverlayContent = (
-    <DragOverlay>
+    <DragOverlay zIndex={70}>
       {draggedSession && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl glass border border-primary/30 bg-background/95 shadow-xl min-w-[200px]">
           <div className="p-1.5 rounded-lg bg-secondary">

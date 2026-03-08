@@ -176,7 +176,7 @@ const DraggableSessionItem: React.FC<{
             <div
               {...listeners}
               {...attributes}
-              className="p-1 rounded cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-opacity opacity-60 md:opacity-0 md:group-hover:opacity-100"
+              className="p-1 rounded cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-opacity opacity-60 md:opacity-0 md:group-hover:opacity-100 touch-none"
               onClick={(e) => e.stopPropagation()}
             >
               <GripVertical className="h-3.5 w-3.5" />

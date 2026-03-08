@@ -13,19 +13,24 @@ export interface TextSelection {
   y: number;
 }
 
+const isTouchDevice = () =>
+  typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
 /**
  * Detects text selections inside a container and returns the selected text,
  * surrounding context, parent message content, message index, and cursor
  * position for popup placement.
  *
- * The hook listens for `mouseup` and `touchend` events. When the selection
- * falls inside `containerRef`, a `TextSelection` is emitted. Clicking
- * elsewhere or collapsing the selection clears it.
+ * The hook listens for `mouseup`, `touchend`, and `selectionchange` events.
+ * On mobile, it suppresses the native context menu / copy-paste toolbar
+ * inside the container so the custom SelectionPopup appears instead.
  */
 export function useTextSelection(containerRef: React.RefObject<HTMLElement | null>) {
   const [selection, setSelection] = useState<TextSelection | null>(null);
   // Track whether we're inside a mousedown so we can ignore stale events
   const isMouseDownRef = useRef(false);
+  // Debounce selectionchange on mobile
+  const selectionChangeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Extract ~100 tokens (roughly 400 characters) of surrounding context
@@ -102,6 +107,25 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     return -1;
   }, []);
 
+  /**
+   * Check if the given selection is inside an assistant message (markdown-body)
+   * within our container.
+   */
+  const isInsideAssistantMessage = useCallback((sel: Selection, container: HTMLElement): boolean => {
+    const anchorNode = sel.anchorNode;
+    if (!anchorNode || !container.contains(anchorNode)) return false;
+
+    let el: HTMLElement | null = anchorNode.nodeType === Node.TEXT_NODE
+      ? anchorNode.parentElement
+      : anchorNode as HTMLElement;
+
+    while (el && el !== container) {
+      if (el.classList?.contains('markdown-body')) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }, []);
+
   const handleSelectionChange = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -116,28 +140,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     const container = containerRef.current;
     if (!container) return;
 
-    const anchorNode = sel.anchorNode;
-    if (!anchorNode || !container.contains(anchorNode)) {
-      return;
-    }
-
-    // Only trigger on assistant messages — check that the selection is inside
-    // an element that renders AI replies (role !== 'user')
-    let el: HTMLElement | null = anchorNode.nodeType === Node.TEXT_NODE
-      ? anchorNode.parentElement
-      : anchorNode as HTMLElement;
-    let insideAssistant = false;
-    while (el && el !== container) {
-      // The message items rendered by MessageList don't have explicit role
-      // markers, but assistant messages render through MarkdownMessage which
-      // has the `markdown-body` class.
-      if (el.classList?.contains('markdown-body')) {
-        insideAssistant = true;
-        break;
-      }
-      el = el.parentElement;
-    }
-    if (!insideAssistant) return;
+    if (!isInsideAssistantMessage(sel, container)) return;
 
     const text = sel.toString().trim();
     if (!text) return;
@@ -153,7 +156,7 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
       x: rect.left + rect.width / 2,
       y: rect.top,
     });
-  }, [containerRef, getContext, getParentMessage, getMessageIndex]);
+  }, [containerRef, getContext, getParentMessage, getMessageIndex, isInsideAssistantMessage]);
 
   useEffect(() => {
     const onMouseDown = () => {
@@ -166,19 +169,59 @@ export function useTextSelection(containerRef: React.RefObject<HTMLElement | nul
     };
     const onTouchEnd = () => {
       isMouseDownRef.current = false;
-      setTimeout(handleSelectionChange, 10);
+      // Longer delay on touch — mobile browsers need more time to finalize
+      setTimeout(handleSelectionChange, 150);
+    };
+
+    /**
+     * On mobile, listen to `selectionchange` as the primary signal.
+     * Mobile browsers fire this continuously as the user adjusts the
+     * selection handles. We debounce it so we only react once the
+     * user has settled on a selection.
+     */
+    const onSelectionChange = () => {
+      if (!isTouchDevice()) return;
+      if (selectionChangeTimer.current) {
+        clearTimeout(selectionChangeTimer.current);
+      }
+      selectionChangeTimer.current = setTimeout(handleSelectionChange, 300);
+    };
+
+    /**
+     * Suppress the native context menu (copy / paste / share) on mobile
+     * when the selection is inside an assistant message. This lets our
+     * custom SelectionPopup take over instead.
+     */
+    const onContextMenu = (e: MouseEvent) => {
+      if (!isTouchDevice()) return;
+      const container = containerRef.current;
+      if (!container) return;
+
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+      if (!isInsideAssistantMessage(sel, container)) return;
+
+      // We have a valid selection inside an assistant message — block the native menu
+      e.preventDefault();
     };
 
     document.addEventListener('mousedown', onMouseDown, true);
     document.addEventListener('mouseup', onMouseUp, true);
     document.addEventListener('touchend', onTouchEnd, true);
+    document.addEventListener('selectionchange', onSelectionChange);
+    document.addEventListener('contextmenu', onContextMenu, true);
 
     return () => {
       document.removeEventListener('mousedown', onMouseDown, true);
       document.removeEventListener('mouseup', onMouseUp, true);
       document.removeEventListener('touchend', onTouchEnd, true);
+      document.removeEventListener('selectionchange', onSelectionChange);
+      document.removeEventListener('contextmenu', onContextMenu, true);
+      if (selectionChangeTimer.current) {
+        clearTimeout(selectionChangeTimer.current);
+      }
     };
-  }, [handleSelectionChange]);
+  }, [handleSelectionChange, containerRef, isInsideAssistantMessage]);
 
   const clearSelection = useCallback(() => {
     setSelection(null);

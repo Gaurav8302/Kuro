@@ -293,6 +293,11 @@
 .markdown-body {
   color: hsl(var(--foreground));
   line-height: 1.7;
+  /* Suppress native iOS/Android text selection callout so our custom
+     SelectionPopup is used instead on mobile */
+  -webkit-touch-callout: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .markdown-body h1,

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send } from 'lucide-react';
+import { X, Send, GripHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { HoloSparklesIcon } from '@/components/HolographicIcons';
@@ -92,11 +92,78 @@ const MiniParticles = React.memo(() => {
 });
 MiniParticles.displayName = 'MiniParticles';
 
+/* ─── Hook: useDraggable — lightweight pointer-based dragging ─── */
+function useDraggable(panelRef: React.RefObject<HTMLDivElement | null>) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const dragStart = useRef({ pointerX: 0, pointerY: 0, offsetX: 0, offsetY: 0 });
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Only primary button
+    if (e.button !== 0) return;
+    isDragging.current = true;
+    dragStart.current = {
+      pointerX: e.clientX,
+      pointerY: e.clientY,
+      offsetX: offset.x,
+      offsetY: offset.y,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [offset]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+
+    const dx = e.clientX - dragStart.current.pointerX;
+    const dy = e.clientY - dragStart.current.pointerY;
+
+    let newX = dragStart.current.offsetX + dx;
+    let newY = dragStart.current.offsetY + dy;
+
+    // Clamp so the panel stays within the viewport
+    const el = panelRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Current CSS position without drag = rect minus current offset
+      const baseLeft = rect.left - offset.x;
+      const baseTop = rect.top - offset.y;
+
+      // After applying new offset, the panel edges would be:
+      const newLeft = baseLeft + newX;
+      const newTop = baseTop + newY;
+      const newRight = newLeft + rect.width;
+      const newBottom = newTop + rect.height;
+
+      // Keep at least 60px visible on each axis
+      const minVisible = 60;
+      if (newRight < minVisible) newX = newX + (minVisible - newRight);
+      if (newLeft > vw - minVisible) newX = newX - (newLeft - (vw - minVisible));
+      if (newBottom < minVisible) newY = newY + (minVisible - newBottom);
+      if (newTop > vh - minVisible) newY = newY - (newTop - (vh - minVisible));
+    }
+
+    setOffset({ x: newX, y: newY });
+  }, [panelRef, offset]);
+
+  const onPointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  const reset = useCallback(() => setOffset({ x: 0, y: 0 }), []);
+
+  return { offset, onPointerDown, onPointerMove, onPointerUp, reset, isDraggingRef: isDragging };
+}
+
 /**
  * InlineChatPanel — holographic mini-chat window for ephemeral
  * side-questions about selected text. Reads session memory (read-only)
  * for better contextual answers. All panel state is frontend-only;
  * nothing is stored in the database or memory systems.
+ *
+ * The panel is draggable via its header bar (desktop & mobile).
  */
 export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   selectedText,
@@ -116,6 +183,9 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const hasAutoSentRef = useRef(false);
+
+  const isMobile = useIsMobile();
+  const drag = useDraggable(panelRef);
 
   // Auto-focus the input on mount
   useEffect(() => {
@@ -137,6 +207,11 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  // Reset drag offset when switching between mobile/desktop
+  useEffect(() => {
+    drag.reset();
+  }, [isMobile, drag.reset]);
 
   const sendQuestion = useCallback(async (question: string) => {
     if (!question.trim() || isLoading) return;
@@ -191,8 +266,6 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   const displayText =
     selectedText.length > 120 ? selectedText.slice(0, 117) + '…' : selectedText;
 
-  const isMobile = useIsMobile();
-
   return (
     <motion.div
       ref={panelRef}
@@ -221,6 +294,9 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
           ? 'bottom-0 left-0 right-0 w-full h-[75vh] max-h-[75vh] rounded-b-none'
           : 'w-[380px] max-w-[92vw] h-[440px] max-h-[70vh] bottom-24 right-4 md:right-8',
       )}
+      style={{
+        transform: `translate(${drag.offset.x}px, ${drag.offset.y}px)`,
+      }}
     >
       {/* Holographic background layers (like KuroIntro but subtle) */}
       <div className="pointer-events-none absolute inset-0 opacity-40">
@@ -247,6 +323,20 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
         animate={{ y: [0, 440] }}
         transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
       />
+
+      {/* ─── Drag handle bar ─── */}
+      <div
+        onPointerDown={drag.onPointerDown}
+        onPointerMove={drag.onPointerMove}
+        onPointerUp={drag.onPointerUp}
+        className={cn(
+          'relative flex items-center justify-center py-1.5 cursor-grab active:cursor-grabbing select-none touch-none',
+          'border-b border-holo-cyan-400/10',
+          'hover:bg-holo-cyan-500/5 transition-colors'
+        )}
+      >
+        <GripHorizontal className="w-5 h-5 text-muted-foreground/40" />
+      </div>
 
       {/* ─── Header ─── */}
       <div className="relative flex items-center justify-between px-4 py-3 border-b border-holo-cyan-400/15">

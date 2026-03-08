@@ -72,8 +72,11 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
       {isVisible && (
         <motion.div
           className={cn(
-            'absolute inset-0 z-40 p-6',
-            isMobile ? 'flex flex-col gap-4' : 'flex gap-4'
+            'p-6',
+            // On mobile use fixed positioning with high z-index to render above the sidebar (z-50)
+            isMobile
+              ? 'fixed inset-0 z-[60] flex flex-col gap-4'
+              : 'absolute inset-0 z-40 flex gap-4'
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
