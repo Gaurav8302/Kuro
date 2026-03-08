@@ -62,7 +62,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
     initialQuestion?: string;
   } | null>(null);
 
-  const showSidebarToggle = panelPosition === 'left' || !isSplitMode;
+  const showSidebarToggle = panelPosition === 'left' || panelPosition === 'top' || !isSplitMode;
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full">

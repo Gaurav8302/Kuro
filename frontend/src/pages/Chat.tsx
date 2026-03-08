@@ -350,6 +350,8 @@ const ChatInner = () => {
     if (dropZoneId === 'drop-left') dropZone = 'left';
     else if (dropZoneId === 'drop-right') dropZone = 'right';
     else if (dropZoneId === 'drop-center') dropZone = 'center';
+    else if (dropZoneId === 'drop-top') dropZone = 'top';
+    else if (dropZoneId === 'drop-bottom') dropZone = 'bottom';
     else return;
 
     splitView.openSessionInPanel(droppedSessionId, dropZone);
@@ -358,8 +360,8 @@ const ChatInner = () => {
     if (dropZone === 'center') {
       navigate(`/chat/${droppedSessionId}`);
     }
-    // If split mode and this was dropped on left, update URL
-    else if (dropZone === 'left') {
+    // If split mode and this was dropped on left/top (primary), update URL
+    else if (dropZone === 'left' || dropZone === 'top') {
       navigate(`/chat/${droppedSessionId}`);
     }
   };
@@ -423,31 +425,31 @@ const ChatInner = () => {
   const mainContent =
     layout.mode === 'split' && secondarySessionId ? (
       <ResizablePanelGroup
-        direction="horizontal"
+        direction={isMobile ? 'vertical' : 'horizontal'}
         onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
       >
-        <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={25}>
+        <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={20}>
           <ChatPanel
             sessionId={primarySessionId}
             sessions={sessions}
             userId={user?.id}
             userAvatar={user?.imageUrl || ''}
             clerkApiRequest={clerkApiRequest}
-            panelPosition="left"
+            panelPosition={isMobile ? 'top' : 'left'}
             isSplitMode={true}
             onSessionsChanged={fetchSessions}
             onToggleSidebar={toggleSidebar}
           />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={25}>
+        <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={20}>
           <ChatPanel
             sessionId={secondarySessionId}
             sessions={sessions}
             userId={user?.id}
             userAvatar={user?.imageUrl || ''}
             clerkApiRequest={clerkApiRequest}
-            panelPosition="right"
+            panelPosition={isMobile ? 'bottom' : 'right'}
             isSplitMode={true}
             onSessionsChanged={fetchSessions}
           />
@@ -460,7 +462,7 @@ const ChatInner = () => {
         userId={user?.id}
         userAvatar={user?.imageUrl || ''}
         clerkApiRequest={clerkApiRequest}
-        panelPosition="left"
+        panelPosition={isMobile ? 'top' : 'left'}
         isSplitMode={false}
         onSessionsChanged={fetchSessions}
         onToggleSidebar={toggleSidebar}

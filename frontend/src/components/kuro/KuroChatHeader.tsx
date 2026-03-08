@@ -57,7 +57,10 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
   };
 
   return (
-    <header className="h-16 px-4 flex items-center gap-4 border-b border-border/50 glass">
+    <header className={cn(
+      'px-4 flex items-center gap-4 border-b border-border/50 glass',
+      isSplitMode ? 'h-12' : 'h-16'
+    )}>
       {/* Menu Button - only shown on primary panel or single mode */}
       {showSidebarToggle && (
         <Button
@@ -70,12 +73,12 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
         </Button>
       )}
 
-      <div className="flex-1 flex items-center gap-3">
+      <div className="flex-1 flex items-center gap-3 min-w-0">
         {/* Status indicator */}
-        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+        <div className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
 
         {isEditing ? (
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <input
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
@@ -84,7 +87,7 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
                 if (e.key === 'Escape') handleCancel();
               }}
               className={cn(
-                "flex-1 min-w-[200px] px-3 py-1.5 rounded-lg",
+                "flex-1 min-w-0 px-3 py-1.5 rounded-lg",
                 "bg-secondary border border-border",
                 "text-foreground text-sm",
                 "focus:outline-none focus:border-primary/50"
@@ -105,16 +108,18 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <div>
-              <h1 className="text-sm font-medium text-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="min-w-0">
+              <h1 className="text-sm font-medium text-foreground truncate">
                 {title || 'New conversation'}
               </h1>
-              <p className="text-xs text-muted-foreground">Kuro is ready to assist</p>
+              {!isSplitMode && (
+                <p className="text-xs text-muted-foreground">Kuro is ready to assist</p>
+              )}
             </div>
             <button
               onClick={handleStartEdit}
-              className="p-1 rounded hover:bg-secondary transition-colors"
+              className="p-1 rounded hover:bg-secondary transition-colors flex-shrink-0"
             >
               <Edit3 className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
             </button>
@@ -129,7 +134,7 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
           size="sm"
           disabled={isGeneratingTitle || !hasSession}
           onClick={onGenerateTitle}
-          className="gap-2"
+          className="gap-2 flex-shrink-0"
         >
           {isGeneratingTitle ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -144,7 +149,7 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
 
       {/* Split-mode controls */}
       {isSplitMode && !isEditing && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {onExpand && (
             <Button
               variant="ghost"

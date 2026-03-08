@@ -47,9 +47,9 @@ export interface MemoryContext {
 }
 
 // Split-view layout types
-export type PanelPosition = 'left' | 'right';
+export type PanelPosition = 'left' | 'right' | 'top' | 'bottom';
 export type LayoutMode = 'single' | 'split';
-export type DropZone = 'left' | 'right' | 'center';
+export type DropZone = 'left' | 'right' | 'center' | 'top' | 'bottom';
 
 export interface PanelState {
   sessionId: string;

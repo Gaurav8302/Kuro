@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { HoloSparklesIcon } from '@/components/HolographicIcons';
 import { inlineQuery } from '@/lib/api';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface InlineMessage {
   id: number;
@@ -190,20 +191,35 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   const displayText =
     selectedText.length > 120 ? selectedText.slice(0, 117) + '…' : selectedText;
 
+  const isMobile = useIsMobile();
+
   return (
     <motion.div
       ref={panelRef}
-      initial={{ opacity: 0, y: 30, scale: 0.92, filter: 'blur(8px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, y: 20, scale: 0.95, filter: 'blur(4px)' }}
-      transition={{ duration: 0.4, ease: [0.25, 0.8, 0.25, 1] }}
+      initial={isMobile
+        ? { opacity: 0, y: '100%' }
+        : { opacity: 0, y: 30, scale: 0.92, filter: 'blur(8px)' }
+      }
+      animate={isMobile
+        ? { opacity: 1, y: 0 }
+        : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
+      }
+      exit={isMobile
+        ? { opacity: 0, y: '100%' }
+        : { opacity: 0, y: 20, scale: 0.95, filter: 'blur(4px)' }
+      }
+      transition={isMobile
+        ? { duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }
+        : { duration: 0.4, ease: [0.25, 0.8, 0.25, 1] }
+      }
       className={cn(
         'fixed z-[9998] flex flex-col',
-        'w-[380px] max-w-[92vw] h-[440px] max-h-[70vh]',
         'rounded-xl overflow-hidden',
         'border border-holo-cyan-400/20 shadow-2xl',
         'bg-background/80 backdrop-blur-2xl',
-        'bottom-24 right-4 md:right-8',
+        isMobile
+          ? 'bottom-0 left-0 right-0 w-full h-[75vh] max-h-[75vh] rounded-b-none'
+          : 'w-[380px] max-w-[92vw] h-[440px] max-h-[70vh] bottom-24 right-4 md:right-8',
       )}
     >
       {/* Holographic background layers (like KuroIntro but subtle) */}

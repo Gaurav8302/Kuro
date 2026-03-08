@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, MessageCircleQuestion, Lightbulb, Code2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SelectionPopupProps {
   /** Selected text */
@@ -34,10 +35,11 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [pos, setPos] = useState({ left: x, top: y });
+  const isMobile = useIsMobile();
 
-  // Keep popup within viewport
+  // Keep popup within viewport (desktop only — mobile uses fixed bottom bar)
   useEffect(() => {
-    if (!ref.current) return;
+    if (isMobile || !ref.current) return;
     const el = ref.current;
     const rect = el.getBoundingClientRect();
     const pad = 8;
@@ -57,7 +59,7 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
     }
 
     setPos({ left, top });
-  }, [x, y]);
+  }, [x, y, isMobile]);
 
   const handleCopy = async () => {
     try {
@@ -78,16 +80,28 @@ export const SelectionPopup: React.FC<SelectionPopupProps> = ({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 6, scale: 0.9, filter: 'blur(4px)' }}
-      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+      initial={isMobile
+        ? { opacity: 0, y: 20 }
+        : { opacity: 0, y: 6, scale: 0.9, filter: 'blur(4px)' }
+      }
+      animate={isMobile
+        ? { opacity: 1, y: 0 }
+        : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
+      }
+      exit={isMobile
+        ? { opacity: 0, y: 20 }
+        : { opacity: 0, y: 4, scale: 0.95 }
+      }
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className={cn(
-        'fixed z-[9999] flex items-center gap-1 px-1.5 py-1 rounded-lg',
+        'fixed z-[9999] rounded-lg',
         'bg-background/80 backdrop-blur-2xl',
         'border border-holo-cyan-400/20 shadow-lg shadow-holo-cyan-500/10',
+        isMobile
+          ? 'bottom-0 left-0 right-0 flex items-center justify-center gap-1 px-2 py-2 rounded-b-none border-b-0 safe-area-bottom'
+          : 'flex items-center gap-1 px-1.5 py-1',
       )}
-      style={{
+      style={isMobile ? undefined : {
         left: pos.left,
         top: pos.top,
       }}

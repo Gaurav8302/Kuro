@@ -8,6 +8,7 @@ const STORAGE_KEY = 'kuro_layout_state';
 interface SplitViewContextValue {
   layout: SplitViewState;
   isDragging: boolean;
+  isMobileSplit: boolean;
   setIsDragging: (dragging: boolean) => void;
   openSessionInPanel: (sessionId: string, dropZone: DropZone) => void;
   closePanel: (position: PanelPosition) => void;
@@ -46,10 +47,27 @@ const defaultState: SplitViewState = {
   panelSizes: [50, 50],
 };
 
+/**
+ * Map desktop drop zones (left/right) to mobile equivalents (top/bottom)
+ * and vice versa when needed.
+ */
+function mobilePanelPosition(dropZone: DropZone): PanelPosition {
+  if (dropZone === 'left' || dropZone === 'top') return 'top';
+  if (dropZone === 'right' || dropZone === 'bottom') return 'bottom';
+  return 'top'; // center -> primary -> top
+}
+
+function desktopPanelPosition(dropZone: DropZone): PanelPosition {
+  if (dropZone === 'top' || dropZone === 'left') return 'left';
+  if (dropZone === 'bottom' || dropZone === 'right') return 'right';
+  return 'left';
+}
+
 export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [layout, setLayout] = useState<SplitViewState>(() => {
+    // On mobile, always start with clean default (no restored split)
     if (isMobile) return defaultState;
     return loadFromStorage() || defaultState;
   });
@@ -60,16 +78,32 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     saveToStorage(layout);
   }, [layout]);
 
-  // Force single mode on mobile
+  // When switching between mobile and desktop, remap panel positions
   useEffect(() => {
-    if (isMobile && layout.mode === 'split') {
-      setLayout((prev) => ({
-        mode: 'single',
-        panels: prev.panels.length > 0 ? [prev.panels[0]] : [],
-        panelSizes: [100],
-      }));
-    }
+    if (layout.mode !== 'split') return;
+
+    setLayout((prev) => {
+      if (prev.mode !== 'split') return prev;
+
+      if (isMobile) {
+        // Desktop → Mobile: remap left/right → top/bottom
+        const remapped = prev.panels.map((p, i) => ({
+          ...p,
+          position: (i === 0 ? 'top' : 'bottom') as PanelPosition,
+        }));
+        return { ...prev, panels: remapped };
+      } else {
+        // Mobile → Desktop: remap top/bottom → left/right
+        const remapped = prev.panels.map((p, i) => ({
+          ...p,
+          position: (i === 0 ? 'left' : 'right') as PanelPosition,
+        }));
+        return { ...prev, panels: remapped };
+      }
+    });
   }, [isMobile]);
+
+  const isMobileSplit = isMobile && layout.mode === 'split';
 
   const isSessionInAnyPanel = useCallback(
     (sessionId: string) => {
@@ -80,8 +114,6 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const openSessionInPanel = useCallback(
     (sessionId: string, dropZone: DropZone) => {
-      if (isMobile) return;
-
       // Check duplicate
       if (isSessionInAnyPanel(sessionId)) {
         toast({
@@ -93,41 +125,45 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       setLayout((prev) => {
+        const positionFn = isMobile ? mobilePanelPosition : desktopPanelPosition;
+
         if (dropZone === 'center') {
           // Replace current panel (primary)
           const panels: PanelState[] =
             prev.panels.length === 0
-              ? [{ sessionId, position: 'left' }]
+              ? [{ sessionId, position: isMobile ? 'top' : 'left' }]
               : prev.panels.map((p, i) =>
                   i === 0 ? { ...p, sessionId } : p
                 );
           return { ...prev, panels };
         }
 
-        // Left or right drop zone → split mode
+        // Split drop zone
         if (prev.mode === 'single') {
           const existingSessionId = prev.panels[0]?.sessionId;
           if (!existingSessionId) {
-            // No existing panel, just put it in the drop zone
             return {
               mode: 'single',
-              panels: [{ sessionId, position: dropZone as PanelPosition }],
+              panels: [{ sessionId, position: positionFn(dropZone) }],
               panelSizes: [100],
             };
           }
 
-          // Create split: existing goes to opposite side, new to drop zone
-          const leftPanel: PanelState =
-            dropZone === 'left'
-              ? { sessionId, position: 'left' }
-              : { sessionId: existingSessionId, position: 'left' };
-          const rightPanel: PanelState =
-            dropZone === 'right'
-              ? { sessionId, position: 'right' }
-              : { sessionId: existingSessionId, position: 'right' };
+          // Create split
+          const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
+          const secondaryPos: PanelPosition = isMobile ? 'bottom' : 'right';
+
+          const isDropOnPrimary = dropZone === 'left' || dropZone === 'top';
+
+          const firstPanel: PanelState = isDropOnPrimary
+            ? { sessionId, position: primaryPos }
+            : { sessionId: existingSessionId, position: primaryPos };
+          const secondPanel: PanelState = isDropOnPrimary
+            ? { sessionId: existingSessionId, position: secondaryPos }
+            : { sessionId, position: secondaryPos };
 
           // Avoid same session in both
-          if (leftPanel.sessionId === rightPanel.sessionId) {
+          if (firstPanel.sessionId === secondPanel.sessionId) {
             toast({
               title: 'Already open',
               description: 'This session is already open.',
@@ -138,14 +174,15 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           return {
             mode: 'split',
-            panels: [leftPanel, rightPanel],
+            panels: [firstPanel, secondPanel],
             panelSizes: [50, 50],
           };
         }
 
         // Already in split mode → replace the panel at the drop position
+        const targetPos = positionFn(dropZone);
         const panels = prev.panels.map((p) =>
-          p.position === dropZone ? { ...p, sessionId } : p
+          p.position === targetPos ? { ...p, sessionId } : p
         );
         return { ...prev, panels };
       });
@@ -159,20 +196,26 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (remaining.length === 0) {
         return { mode: 'single', panels: [], panelSizes: [100] };
       }
-      // Move remaining panel to left position
+      // Move remaining panel to primary position
+      const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
       return {
         mode: 'single',
-        panels: [{ ...remaining[0], position: 'left' }],
+        panels: [{ ...remaining[0], position: primaryPos }],
         panelSizes: [100],
       };
     });
-  }, []);
+  }, [isMobile]);
 
   const expandPanel = useCallback(
     (position: PanelPosition) => {
       // Close the other panel
-      const oppositePosition: PanelPosition = position === 'left' ? 'right' : 'left';
-      closePanel(oppositePosition);
+      setLayout((prev) => {
+        const otherPanel = prev.panels.find((p) => p.position !== position);
+        if (otherPanel) {
+          closePanel(otherPanel.position);
+        }
+        return prev;
+      });
     },
     [closePanel]
   );
@@ -180,9 +223,10 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const setPrimarySessionId = useCallback((sessionId: string) => {
     setLayout((prev) => {
       if (prev.panels.length === 0) {
+        const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
         return {
           ...prev,
-          panels: [{ sessionId, position: 'left' as PanelPosition }],
+          panels: [{ sessionId, position: primaryPos }],
         };
       }
       const panels = prev.panels.map((p, i) =>
@@ -190,7 +234,7 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
       return { ...prev, panels };
     });
-  }, []);
+  }, [isMobile]);
 
   const updatePanelSizes = useCallback((sizes: number[]) => {
     setLayout((prev) => ({ ...prev, panelSizes: sizes }));
@@ -201,6 +245,7 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         layout,
         isDragging,
+        isMobileSplit,
         setIsDragging,
         openSessionInPanel,
         closePanel,
