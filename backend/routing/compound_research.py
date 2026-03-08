@@ -28,6 +28,8 @@ def run_compound_research(query: str) -> Optional[str]:
     Returns:
         Research context string (max 4000 chars), or None on failure.
     """
+    logger.info("Compound research START: model=%s query=%.100s", _COMPOUND_MODEL, query)
+
     if not _GROQ_API_KEY:
         logger.error("GROQ_API_KEY not set — cannot run compound research")
         return None
@@ -44,12 +46,20 @@ def run_compound_research(query: str) -> Optional[str]:
             "Authorization": f"Bearer {_GROQ_API_KEY}",
             "Content-Type": "application/json",
         }
+
+        import time as _time
+        _start = _time.time()
+
         response = requests.post(
             f"{_GROQ_BASE_URL}/chat/completions",
             headers=headers,
             json=payload,
             timeout=15,
         )
+
+        _elapsed = int((_time.time() - _start) * 1000)
+        logger.info("Compound research HTTP %d in %dms", response.status_code, _elapsed)
+
         if response.status_code != 200:
             logger.warning(
                 "Compound research returned status %d: %s",

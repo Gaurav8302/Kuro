@@ -237,9 +237,15 @@ export function useChatPanel({
   );
 
   // Load session when sessionId changes
+  // Use a ref to track sessions availability without re-triggering the effect
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
   useEffect(() => {
-    if (sessionId && userId && sessions.length > 0) {
-      const exists = sessions.find((s) => s.session_id === sessionId);
+    if (sessionId && userId) {
+      // Wait for sessions to be available (initial load)
+      if (sessionsRef.current.length === 0) return;
+      const exists = sessionsRef.current.find((s) => s.session_id === sessionId);
       if (exists) {
         if (currentSession?.session_id !== sessionId) {
           loadSession(sessionId);
@@ -250,7 +256,21 @@ export function useChatPanel({
       setCurrentSession(null);
       setHasUserEditedTitle(false);
     }
-  }, [sessionId, userId, sessions.length]);
+    // Only re-run when sessionId or userId actually changes
+  }, [sessionId, userId]);
+
+  // One-time: load session after sessions first become available
+  const hasLoadedInitialRef = useRef(false);
+  useEffect(() => {
+    if (hasLoadedInitialRef.current) return;
+    if (sessionId && userId && sessions.length > 0 && !currentSession) {
+      const exists = sessions.find((s) => s.session_id === sessionId);
+      if (exists) {
+        hasLoadedInitialRef.current = true;
+        loadSession(sessionId);
+      }
+    }
+  }, [sessions.length]);
 
   // Rename session
   const renameSession = useCallback(

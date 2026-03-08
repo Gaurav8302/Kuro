@@ -76,9 +76,9 @@ try:
     from routing.compound_research import run_compound_research
     ROUTER_V3_AVAILABLE = True
     logger.info("Router v3 + compound research loaded successfully")
-except ImportError as e:
+except Exception as e:
     ROUTER_V3_AVAILABLE = False
-    logger.warning("Router v3 not available, falling back to v2: %s", e)
+    logger.warning("Router v3 not available, falling back to v2: %s (type: %s)", e, type(e).__name__)
 
 # Post-session summarization threshold (number of exchanges)
 # Lowered from 50 to 6 so that short conversations get summarized too
@@ -176,6 +176,11 @@ class ChatManager:
         session_id = session_id or "default"
         model_id = "llama-3.1-8b-instant"
         route_rule = "default"
+
+        logger.info(
+            "chat_with_memory called: user=%s session=%s search_mode=%s router_v3=%s",
+            user_id[:20], session_id[:30], search_mode, ROUTER_V3_AVAILABLE,
+        )
 
         try:
             # --- 1. User name ---

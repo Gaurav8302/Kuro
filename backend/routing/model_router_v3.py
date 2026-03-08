@@ -260,11 +260,62 @@ def run_router_classifier(query: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Keyword-based research detection (deterministic safety net)
+# ---------------------------------------------------------------------------
+_RESEARCH_KEYWORDS: List[str] = [
+    "today",
+    "yesterday",
+    "this week",
+    "this month",
+    "this year",
+    "right now",
+    "currently",
+    "latest",
+    "recent",
+    "current",
+    "news",
+    "who won",
+    "who is winning",
+    "score",
+    "match result",
+    "live",
+    "stock price",
+    "weather",
+    "release date",
+    "when does",
+    "when will",
+    "how much is",
+    "price of",
+    "what happened",
+    "breaking",
+    "update on",
+    "election",
+    "trending",
+    "new release",
+    "just announced",
+    "launched today",
+    "came out",
+]
+
+
+def _keyword_research_check(query: str) -> bool:
+    """Deterministic keyword check for research-requiring queries.
+
+    This acts as a safety net when the LLM classifier misses obvious
+    research triggers like 'who won today' or 'latest news'.
+    """
+    q = query.lower()
+    return any(kw in q for kw in _RESEARCH_KEYWORDS)
+
+
+# ---------------------------------------------------------------------------
 # needs_research
 # ---------------------------------------------------------------------------
 def needs_research(query: str, router_output: Dict[str, Any]) -> bool:
-    """Determine whether research is needed based on router output."""
-    return bool(router_output.get("research_required", False))
+    """Determine whether research is needed based on router output AND keyword check."""
+    if router_output.get("research_required", False):
+        return True
+    return _keyword_research_check(query)
 
 
 # ---------------------------------------------------------------------------
@@ -423,7 +474,19 @@ def get_best_model(
     # --- 3. LLM classifier ---
     router_output = run_router_classifier(query)
 
-    # --- 4. Search mode override ---
+    # --- 4. Keyword-based research override ---
+    # The LLM classifier may miss obvious research queries like "who won today".
+    # Apply deterministic keyword check as a safety net.
+    if not router_output["research_required"] and _keyword_research_check(query):
+        logger.info(
+            "Keyword research override triggered for query: %.80s", query
+        )
+        router_output["research_required"] = True
+        router_output["research_system"] = RESEARCH_SYSTEM
+        router_output["final_model"] = REASONING_MODEL
+        router_output["task_type"] = "research"
+
+    # --- 5. Search mode override ---
     if search_mode:
         router_output["research_required"] = True
         router_output["research_system"] = RESEARCH_SYSTEM
