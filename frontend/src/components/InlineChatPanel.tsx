@@ -269,34 +269,45 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
   return (
     <motion.div
       ref={panelRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        'fixed z-[9998]',
+        isMobile
+          ? 'bottom-0 left-0 right-0 w-full h-[75vh] max-h-[75vh]'
+          : 'w-[380px] max-w-[92vw] h-[440px] max-h-[70vh] bottom-24 right-4 md:right-8',
+      )}
+      style={{
+        x: drag.offset.x,
+        y: drag.offset.y,
+      }}
+    >
+    <motion.div
       initial={isMobile
-        ? { opacity: 0, y: '100%' }
-        : { opacity: 0, y: 30, scale: 0.92, filter: 'blur(8px)' }
+        ? { y: '100%' }
+        : { scale: 0.92, filter: 'blur(8px)' }
       }
       animate={isMobile
-        ? { opacity: 1, y: 0 }
-        : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }
+        ? { y: 0 }
+        : { scale: 1, filter: 'blur(0px)' }
       }
       exit={isMobile
-        ? { opacity: 0, y: '100%' }
-        : { opacity: 0, y: 20, scale: 0.95, filter: 'blur(4px)' }
+        ? { y: '100%' }
+        : { scale: 0.95, filter: 'blur(4px)' }
       }
       transition={isMobile
         ? { duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }
         : { duration: 0.4, ease: [0.25, 0.8, 0.25, 1] }
       }
       className={cn(
-        'fixed z-[9998] flex flex-col',
+        'flex flex-col h-full w-full',
         'rounded-xl overflow-hidden',
         'border border-holo-cyan-400/20 shadow-2xl',
         'bg-background/80 backdrop-blur-2xl',
-        isMobile
-          ? 'bottom-0 left-0 right-0 w-full h-[75vh] max-h-[75vh] rounded-b-none'
-          : 'w-[380px] max-w-[92vw] h-[440px] max-h-[70vh] bottom-24 right-4 md:right-8',
+        isMobile && 'rounded-b-none',
       )}
-      style={{
-        transform: `translate(${drag.offset.x}px, ${drag.offset.y}px)`,
-      }}
     >
       {/* Holographic background layers (like KuroIntro but subtle) */}
       <div className="pointer-events-none absolute inset-0 opacity-40">
@@ -491,6 +502,7 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
           </motion.button>
         </div>
       </div>
+    </motion.div>
     </motion.div>
   );
 };

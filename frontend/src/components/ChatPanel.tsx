@@ -76,8 +76,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
               panel.renameSession(panel.currentSession.session_id, newTitle);
             }
           }}
-          onGenerateTitle={panel.generateTitle}
-          isGeneratingTitle={panel.isGeneratingTitle}
           hasSession={!!panel.currentSession}
           isSplitMode={isSplitMode}
           showSidebarToggle={showSidebarToggle}

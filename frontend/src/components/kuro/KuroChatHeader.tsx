@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Edit3, Check, X, Sparkles, Menu, Loader2, Maximize2 } from 'lucide-react';
+import { Edit3, Check, X, Menu, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -7,8 +7,6 @@ interface KuroChatHeaderProps {
   title: string;
   onToggleSidebar: () => void;
   onRename: (newTitle: string) => void;
-  onGenerateTitle: () => void;
-  isGeneratingTitle: boolean;
   hasSession: boolean;
   /** Split-view mode: show close/expand controls */
   isSplitMode?: boolean;
@@ -28,8 +26,6 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
   title,
   onToggleSidebar,
   onRename,
-  onGenerateTitle,
-  isGeneratingTitle,
   hasSession,
   isSplitMode = false,
   showSidebarToggle = true,
@@ -126,26 +122,6 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
           </div>
         )}
       </div>
-
-      {/* Generate Title Button */}
-      {!isEditing && (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={isGeneratingTitle || !hasSession}
-          onClick={onGenerateTitle}
-          className="gap-2 flex-shrink-0"
-        >
-          {isGeneratingTitle ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4 text-primary" />
-          )}
-          <span className="hidden sm:inline">
-            {isGeneratingTitle ? 'Generating...' : 'Generate title'}
-          </span>
-        </Button>
-      )}
 
       {/* Split-mode controls */}
       {isSplitMode && !isEditing && (
