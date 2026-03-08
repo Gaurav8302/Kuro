@@ -2,21 +2,23 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
-import { 
-  Plus, 
-  MessageSquare, 
-  LogOut, 
-  Trash2, 
-  Edit2, 
-  Check, 
+import {
+  Plus,
+  MessageSquare,
+  LogOut,
+  Trash2,
+  Edit2,
+  Check,
   X,
   ChevronLeft,
-  Settings
+  GripVertical
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { sidebarVariants } from '@/utils/animations';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ChatSession {
   session_id: string;
@@ -45,6 +47,183 @@ interface KuroSidebarProps {
 }
 
 /**
+ * DraggableSessionItem - A session list item that can be dragged
+ * into the chat area for split-view.
+ */
+const DraggableSessionItem: React.FC<{
+  session: ChatSession;
+  isActive: boolean;
+  isEditing: boolean;
+  isDeleting: boolean;
+  editTitle: string;
+  onSelect: () => void;
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onSetEditTitle: (title: string) => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+  onDeleteClick: () => void;
+}> = ({
+  session,
+  isActive,
+  isEditing,
+  isDeleting,
+  editTitle,
+  onSelect,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onSetEditTitle,
+  onConfirmDelete,
+  onCancelDelete,
+  onDeleteClick,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `session-${session.session_id}`,
+    data: {
+      sessionId: session.session_id,
+      title: session.title,
+    },
+  });
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+        zIndex: isDragging ? 50 : undefined,
+      }
+    : undefined;
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group relative rounded-xl transition-all',
+        isActive
+          ? 'bg-primary/5 border border-primary/20'
+          : 'hover:bg-primary/5 border border-transparent hover:border-primary/20',
+        isDragging && 'opacity-50'
+      )}
+      whileHover={isDragging ? undefined : { x: 4 }}
+      transition={{ duration: 0.15 }}
+    >
+      {isEditing ? (
+        // Edit mode
+        <div className="flex items-center gap-2 p-3">
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => onSetEditTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onSaveEdit();
+              if (e.key === 'Escape') onCancelEdit();
+            }}
+            className={cn(
+              'flex-1 px-2 py-1 text-sm rounded-lg',
+              'bg-secondary border border-border',
+              'text-foreground placeholder:text-muted-foreground',
+              'focus:outline-none focus:border-primary/50'
+            )}
+            autoFocus
+          />
+          <button
+            onClick={onSaveEdit}
+            className="p-1 text-green-400 hover:text-green-300"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onCancelEdit}
+            className="p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ) : isDeleting ? (
+        // Delete confirmation
+        <div className="flex items-center justify-between p-3">
+          <span className="text-sm text-destructive">Delete?</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onConfirmDelete}
+              className="px-2 py-1 text-xs bg-destructive/20 text-destructive rounded hover:bg-destructive/30"
+            >
+              Yes
+            </button>
+            <button
+              onClick={onCancelDelete}
+              className="px-2 py-1 text-xs bg-secondary text-muted-foreground rounded hover:bg-secondary/80"
+            >
+              No
+            </button>
+          </div>
+        </div>
+      ) : (
+        // Normal mode
+        <button
+          onClick={onSelect}
+          className="w-full text-left p-3"
+        >
+          <div className="flex items-start gap-3">
+            {/* Drag handle */}
+            <div
+              {...listeners}
+              {...attributes}
+              className="p-1 rounded cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hidden md:block"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </div>
+            <div className="p-1.5 rounded-lg bg-secondary">
+              <MessageSquare className={cn(
+                'h-3.5 w-3.5',
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              )} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className={cn(
+                'text-sm font-medium truncate',
+                isActive ? 'text-foreground' : 'text-foreground'
+              )}>
+                {session.title}
+              </div>
+            </div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartEdit();
+                }}
+                className="p-1 text-muted-foreground hover:text-foreground"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteClick();
+                }}
+                className="p-1 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
+/**
  * KuroSidebar - Professional chat sidebar
  * Clean, modern design with glass effect
  */
@@ -67,7 +246,7 @@ export const KuroSidebar = memo(function KuroSidebar({
 
   const handleStartEdit = (session: ChatSession) => {
     setEditingId(session.session_id);
-    setEditTitle(session.title);
+    setEditTitle(session.title || '');
   };
 
   const handleSaveEdit = (id: string) => {
@@ -123,8 +302,8 @@ export const KuroSidebar = memo(function KuroSidebar({
 
       {/* New Chat Button */}
       <div className="p-3">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full justify-start gap-2 border-primary/30 hover:border-primary/50 hover:bg-primary/10"
           onClick={onNewChat}
         >
@@ -147,114 +326,22 @@ export const KuroSidebar = memo(function KuroSidebar({
             const isDeleting = deletingId === session.session_id;
 
             return (
-              <motion.div
+              <DraggableSessionItem
                 key={session.session_id}
-                className={cn(
-                  'group relative rounded-xl transition-all',
-                  isActive 
-                    ? 'bg-primary/5 border border-primary/20' 
-                    : 'hover:bg-primary/5 border border-transparent hover:border-primary/20'
-                )}
-                whileHover={{ x: 4 }}
-                transition={{ duration: 0.15 }}
-              >
-                {isEditing ? (
-                  // Edit mode
-                  <div className="flex items-center gap-2 p-3">
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveEdit(session.session_id);
-                        if (e.key === 'Escape') handleCancelEdit();
-                      }}
-                      className={cn(
-                        'flex-1 px-2 py-1 text-sm rounded-lg',
-                        'bg-secondary border border-border',
-                        'text-foreground placeholder:text-muted-foreground',
-                        'focus:outline-none focus:border-primary/50'
-                      )}
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => handleSaveEdit(session.session_id)}
-                      className="p-1 text-green-400 hover:text-green-300"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="p-1 text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : isDeleting ? (
-                  // Delete confirmation
-                  <div className="flex items-center justify-between p-3">
-                    <span className="text-sm text-destructive">Delete?</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleConfirmDelete(session.session_id)}
-                        className="px-2 py-1 text-xs bg-destructive/20 text-destructive rounded hover:bg-destructive/30"
-                      >
-                        Yes
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(null)}
-                        className="px-2 py-1 text-xs bg-secondary text-muted-foreground rounded hover:bg-secondary/80"
-                      >
-                        No
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // Normal mode
-                  <button
-                    onClick={() => onSelectSession(session.session_id)}
-                    className="w-full text-left p-3"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="p-1.5 rounded-lg bg-secondary">
-                        <MessageSquare className={cn(
-                          'h-3.5 w-3.5',
-                          isActive ? 'text-primary' : 'text-muted-foreground'
-                        )} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className={cn(
-                          'text-sm font-medium truncate',
-                          isActive ? 'text-foreground' : 'text-foreground'
-                        )}>
-                          {session.title}
-                        </div>
-                      </div>
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartEdit(session);
-                          }}
-                          className="p-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeletingId(session.session_id);
-                          }}
-                          className="p-1 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </button>
-                )}
-              </motion.div>
+                session={session}
+                isActive={isActive}
+                isEditing={isEditing}
+                isDeleting={isDeleting}
+                editTitle={editTitle}
+                onSelect={() => onSelectSession(session.session_id)}
+                onStartEdit={() => handleStartEdit(session)}
+                onSaveEdit={() => handleSaveEdit(session.session_id)}
+                onCancelEdit={handleCancelEdit}
+                onSetEditTitle={setEditTitle}
+                onConfirmDelete={() => handleConfirmDelete(session.session_id)}
+                onCancelDelete={() => setDeletingId(null)}
+                onDeleteClick={() => setDeletingId(session.session_id)}
+              />
             );
           })}
         </div>

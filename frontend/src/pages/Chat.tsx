@@ -1,206 +1,100 @@
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+} from '@dnd-kit/core';
 import { KuroSidebar } from '@/components/kuro/KuroSidebar';
 import { KuroIntro } from '@/components/kuro/KuroIntro';
 import { KuroBackground } from '@/components/kuro/KuroBackground';
-import { KuroChatHeader } from '@/components/kuro/KuroChatHeader';
-import { KuroChatContent } from '@/components/kuro/KuroChatContent';
-import { KuroChatInput } from '@/components/kuro/KuroChatInput';
 import { ChatLayout } from '@/components/ChatLayout';
+import { ChatPanel } from '@/components/ChatPanel';
+import { SplitViewDropZone } from '@/components/SplitViewDropZone';
 import NameSetupModal from '@/components/NameSetupModal';
-import { Input } from '@/components/ui/input';
-import { 
-  Edit3,
-  Check,
-  X,
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import {
   AlertTriangle,
-  Loader2,
-  Menu,
-  Zap,
-  Brain
+  X,
+  MessageSquare,
 } from 'lucide-react';
-import { Message, ChatSession } from '@/types';
+import { ChatSession, DropZone } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useClerkApi, setUserName, getUserName, checkUserHasName, getIntroShown, setIntroShown } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { KuroButton, KuroCard } from '@/components/kuro';
+import { KuroCard } from '@/components/kuro';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
-import { useTextSelection } from '@/hooks/use-text-selection';
-import { SelectionPopup } from '@/components/SelectionPopup';
-import { InlineChatPanel } from '@/components/InlineChatPanel';
+import { SplitViewProvider, useSplitView } from '@/contexts/SplitViewContext';
 
-const Chat = () => {
+/**
+ * ChatInner - The main chat orchestrator component.
+ * Must be wrapped in SplitViewProvider and DndContext.
+ */
+const ChatInner = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const clerkApiRequest = useClerkApi();
   const { user, isLoaded } = useUser();
   const { signOut } = useAuth();
   const isMobile = useIsMobile();
   const { shouldReduceAnimations, animationDuration } = useOptimizedAnimations();
-  
+  const splitView = useSplitView();
+
+  // --- Global state (not per-panel) ---
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Always start closed
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [hasAutoCreatedSession, setHasAutoCreatedSession] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [hasCheckedName, setHasCheckedName] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true); // New state for initial load
-  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null);
-  // Track if user manually edited or generated a title to prevent further auto-naming
-  const [hasUserEditedTitle, setHasUserEditedTitle] = useState(false);
-  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
-  // Show first-time welcome animation after initial sign-in only once per user
+  const [isInitializing, setIsInitializing] = useState(true);
   const [showFirstTimeIntro, setShowFirstTimeIntro] = useState(false);
   const [introChecking, setIntroChecking] = useState(true);
   const [displayedName, setDisplayedName] = useState(user?.fullName || user?.username || '');
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // --- Inline Ask state ---
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const { selection, clearSelection } = useTextSelection(messagesContainerRef);
-  const [inlineAsk, setInlineAsk] = useState<{
-    selectedText: string;
-    context: string;
-    parentMessage: string;
-    messageIndex: number;
-    initialQuestion?: string;
+  // DnD state
+  const [draggedSession, setDraggedSession] = useState<{
+    sessionId: string;
+    title: string;
   } | null>(null);
 
+  const isDev = import.meta.env.DEV;
+  const maintenanceMessage = 'Maintenance in progress. Please try again later.';
+
+  const showErrorToast = useCallback(
+    (fallbackTitle: string, fallbackDescription: string) => {
+      toast({
+        title: isDev ? 'Maintenance' : fallbackTitle,
+        description: isDev ? maintenanceMessage : fallbackDescription,
+        variant: 'destructive',
+      });
+    },
+    [toast, isDev]
+  );
+
+  // --- Sync displayed name with Clerk user ---
   useEffect(() => {
     setDisplayedName(user?.fullName || user?.username || '');
   }, [user]);
-  // Maintenance / friendly error handling in development
-  const maintenanceMessage = 'Maintenance in progress. Please try again later.';
-  const isDev = import.meta.env.DEV;
-  const showErrorToast = (fallbackTitle: string, fallbackDescription: string) => {
-    toast({
-      title: isDev ? 'Maintenance' : fallbackTitle,
-      description: isDev ? maintenanceMessage : fallbackDescription,
-      variant: 'destructive'
-    });
-  };
 
-  // First-time intro logic - show after name is set or if user already has name
+  // --- Sidebar open/close based on viewport ---
   useEffect(() => {
-    const checkIntro = async () => {
-      if (!user || !isLoaded) return;
-      
-      // Wait for name check to complete first
-      if (!hasCheckedName) return;
-      
-      // Don't show intro if name modal is currently open
-      if (showNameModal) return;
-      
-      try {
-        const { intro_shown } = await getIntroShown(user.id);
-        
-        // Show intro if it hasn't been shown yet (regardless of name status)
-        if (!intro_shown) {
-          setShowFirstTimeIntro(true);
-          // Persist immediately so even if user refreshes it's not shown again
-          await setIntroShown(user.id);
-          // Auto dismiss after 7s
-          setTimeout(() => setShowFirstTimeIntro(false), 7000);
-        }
-      } catch (e) {
-        console.error('Error checking intro status:', e);
-        // Fallback to localStorage if backend call fails (offline tolerance)
-        const fallbackKey = `kuro_intro_shown_${user.id}`;
-        if (!localStorage.getItem(fallbackKey)) {
-          localStorage.setItem(fallbackKey, '1');
-          setShowFirstTimeIntro(true);
-          setTimeout(() => setShowFirstTimeIntro(false), 7000);
-        }
-      } finally {
-        setIntroChecking(false);
-      }
-    };
-    checkIntro();
-  }, [user, isLoaded, hasCheckedName, showNameModal]);
-
-  // Ensure loading state is never stuck on - failsafe
-  useEffect(() => {
-    const failsafe = setTimeout(() => {
-      if (isLoading) {
-        console.log('⚠️ Failsafe: Resetting stuck loading state');
-        setIsLoading(false);
-        setIsTyping(false);
-      }
-    }, 30000); // 30 second failsafe
-    
-    return () => clearTimeout(failsafe);
-  }, [isLoading]);
-
-  // Debug: Log sidebar state changes
-  useEffect(() => {
-    console.log('[Chat.tsx] isSidebarOpen changed to:', isSidebarOpen);
-  }, [isSidebarOpen]);
-
-  // Update sidebar state when mobile state changes
-  useEffect(() => {
-    console.log('[Chat.tsx] isMobile changed to:', isMobile);
     if (isMobile) {
-      setIsSidebarOpen(false); // Always close sidebar on mobile
+      setIsSidebarOpen(false);
     } else {
-      setIsSidebarOpen(true); // Open sidebar on desktop
+      setIsSidebarOpen(true);
     }
   }, [isMobile]);
 
-  // Scroll to bottom when new messages arrive
-  // Smarter scroll-to-bottom with edge detection to avoid yanking user upward while reading history
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isUserNearBottomRef = useRef(true);
-
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    // Use requestAnimationFrame to ensure layout is settled (especially after images / code blocks)
-    requestAnimationFrame(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior });
-      }
-    });
-  };
-
-  const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return;
-    const el = scrollContainerRef.current;
-    const threshold = 160; // px from bottom to still auto-stick
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    isUserNearBottomRef.current = distanceFromBottom < threshold;
-  }, []);
-
-  // Attach scroll listener to main messages container
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    // Only auto-scroll if user is already near bottom or it's a brand new session
-    if (isUserNearBottomRef.current || messages.length <= 2) {
-      scrollToBottom(messages.length <= 2 ? 'auto' : 'smooth');
-    }
-  }, [messages]);
-
-  // Also scroll when typing indicator appears if user is near bottom
-  useEffect(() => {
-    if (isTyping && isUserNearBottomRef.current) {
-      scrollToBottom('smooth');
-    }
-  }, [isTyping]);
-
-  // Dynamic viewport height variable for mobile (accounts for URL bar / keyboard)
+  // --- Dynamic viewport height for mobile ---
   useEffect(() => {
     const setAppHeight = () => {
       const vh = window.innerHeight * 0.01;
@@ -215,104 +109,83 @@ const Chat = () => {
     };
   }, []);
 
-  // When virtual keyboard opens (mobile), ensure last message visible after a tick
+  // --- First-time intro logic ---
   useEffect(() => {
-    if (!isMobile) return;
-    const handleFocus = () => setTimeout(() => scrollToBottom('auto'), 50);
-    window.addEventListener('focusin', handleFocus);
-    return () => window.removeEventListener('focusin', handleFocus);
-  }, [isMobile]);
+    const checkIntro = async () => {
+      if (!user || !isLoaded) return;
+      if (!hasCheckedName) return;
+      if (showNameModal) return;
 
-  // Check if user needs to set their name (only for authenticated users)
+      try {
+        const { intro_shown } = await getIntroShown(user.id);
+        if (!intro_shown) {
+          setShowFirstTimeIntro(true);
+          await setIntroShown(user.id);
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+        }
+      } catch (e) {
+        console.error('Error checking intro status:', e);
+        const fallbackKey = `kuro_intro_shown_${user.id}`;
+        if (!localStorage.getItem(fallbackKey)) {
+          localStorage.setItem(fallbackKey, '1');
+          setShowFirstTimeIntro(true);
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
+        }
+      } finally {
+        setIntroChecking(false);
+      }
+    };
+    checkIntro();
+  }, [user, isLoaded, hasCheckedName, showNameModal]);
+
+  // --- Check if user needs name setup ---
   useEffect(() => {
     const checkUserName = async () => {
       if (!user || hasCheckedName) return;
-      
-      console.log('🔍 Checking if user has name set...', user.id);
-      
       try {
         const { has_name } = await checkUserHasName(user.id);
-        console.log('📝 User has name:', has_name);
-        
         if (!has_name) {
-          console.log('🔔 Showing name setup modal');
           setShowNameModal(true);
         } else {
-          // If user has a name, load it
           try {
             const { name } = await getUserName(user.id);
-            if (name) {
-              console.log('👤 Loaded user name:', name);
-              setDisplayedName(name);
-            }
-          } catch (error) {
-            console.error('Error loading user name:', error);
-            // Use fallback from Clerk if backend fails
+            if (name) setDisplayedName(name);
+          } catch {
+            // Use fallback from Clerk
           }
         }
-      } catch (error) {
-        console.error('Error checking user name:', error);
-        // If backend is not available, show name modal to be safe
-        console.log('⚠️ Backend error - showing name modal as fallback');
+      } catch {
         setShowNameModal(true);
       } finally {
-        setHasCheckedName(true); // Always mark as checked to avoid infinite loop
+        setHasCheckedName(true);
       }
     };
-
-    if (user) {
-      checkUserName();
-    }
+    if (user) checkUserName();
   }, [user, hasCheckedName]);
 
-  // Handle name setup completion
+  // --- Name setup handlers ---
   const handleNameSetup = async (name: string) => {
     if (!user) return;
-    
     try {
       await setUserName(user.id, name);
       setShowNameModal(false);
       setDisplayedName(name);
-      toast({
-        title: "Welcome!",
-        description: `Nice to meet you, ${name}! 🎉`,
-      });
-      
-      // Show intro animation after name setup is complete
-      const introTimeout1 = setTimeout(() => {
+      toast({ title: 'Welcome!', description: `Nice to meet you, ${name}!` });
+      setTimeout(() => {
         if (!showFirstTimeIntro) {
           setShowFirstTimeIntro(true);
-          const introTimeout2 = setTimeout(() => setShowFirstTimeIntro(false), 7000);
-          // Store timeout reference for potential cleanup
-          return () => {
-            clearTimeout(introTimeout2);
-          };
+          setTimeout(() => setShowFirstTimeIntro(false), 7000);
         }
       }, 500);
-      
-      // Store timeout for cleanup if needed
-      return () => {
-        clearTimeout(introTimeout1);
-      };
-    } catch (error) {
-      console.error('Error setting name:', error);
-      setShowNameModal(false); // Close modal even if error to avoid blocking user
-      toast({
-        title: "Welcome!",
-        description: "Let's start chatting! 🎉",
-      });
+    } catch {
+      setShowNameModal(false);
+      toast({ title: 'Welcome!', description: "Let's start chatting!" });
     }
   };
 
-  // Handle name setup skip
   const handleNameSkip = () => {
     setShowNameModal(false);
-    toast({
-      title: "Welcome!",
-      description: "Let's start chatting! 🎉",
-    });
-    
-    // Show intro animation after skip
+    toast({ title: 'Welcome!', description: "Let's start chatting!" });
     setTimeout(() => {
       if (!showFirstTimeIntro) {
         setShowFirstTimeIntro(true);
@@ -321,520 +194,184 @@ const Chat = () => {
     }, 500);
   };
 
-  // Fetch sessions from backend
-  const fetchSessions = async () => {
+  // --- Session management ---
+  const fetchSessions = useCallback(async () => {
     if (!user) return;
     try {
-      const data = await clerkApiRequest<{ sessions: ChatSession[] }>(`/sessions/${user.id}`, 'get');
+      const data = await clerkApiRequest<{ sessions: ChatSession[] }>(
+        `/sessions/${user.id}`,
+        'get'
+      );
       setSessions(data.sessions);
-      
-      // Auto-create new session if none exist and user hasn't already done this
+
       if (data.sessions.length === 0 && !sessionId && !hasAutoCreatedSession) {
         setHasAutoCreatedSession(true);
         await handleNewChat();
         return;
       }
-      
-      // If sessionId exists, load that session after sessions are set
+
+      // Sync primary panel with URL sessionId
       if (sessionId && data.sessions.length > 0) {
-        const session = data.sessions.find(s => s.session_id === sessionId);
+        const session = data.sessions.find((s) => s.session_id === sessionId);
         if (session) {
-          await loadSession(sessionId);
+          splitView.setPrimarySessionId(sessionId);
         } else {
-          // Session doesn't exist, redirect to create new one
           navigate('/chat');
         }
       }
     } catch (err: any) {
-  console.error('Error fetching sessions:', err);
-  // Don't block the UI if sessions fail to load - user can still chat
-  showErrorToast('Connection Issue', 'Having trouble loading sessions. You can still start a new chat!');
+      console.error('Error fetching sessions:', err);
+      showErrorToast('Connection Issue', 'Having trouble loading sessions.');
     } finally {
-      setIsInitializing(false); // Always mark initialization as complete
+      setIsInitializing(false);
     }
-  };
+  }, [user, sessionId, hasAutoCreatedSession, clerkApiRequest, showErrorToast]);
 
-  // Load session messages from backend and map to Message[]
-  const loadSession = async (id: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      console.log('📡 Loading session:', id);
-      const data = await clerkApiRequest<{ history: any[] }>(`/chat/${id}`, 'get');
-      
-      // Map backend chat history to frontend Message format, preserving order and growing chat
-      const mappedMessages: Message[] = [];
-      data.history.forEach((item: any) => {
-        if (item.user) {
-          mappedMessages.push({
-            message: item.user,
-            reply: '',
-            timestamp: item.timestamp,
-            role: 'user'
-          });
-        }
-        if (item.assistant) {
-          const systemInfo = detectSystemMessage(item.assistant);
-          mappedMessages.push({
-            message: item.assistant,
-            reply: '',
-            timestamp: item.timestamp,
-            role: systemInfo.isSystem ? 'system' : 'assistant',
-            messageType: systemInfo.messageType
-          });
-        }
-      });
-      // Always fully replace messages with the latest backend history
-      setMessages(mappedMessages);
-      
-      // Find and set the current session
-      const session = sessions.find(s => s.session_id === id);
-      if (session) {
-        setCurrentSession(session);
-  // If the session already has a non-default title, suppress auto-naming
-  setHasUserEditedTitle(session.title !== 'New Chat');
-        console.log('✅ Session loaded successfully:', id);
-        toast({ 
-          title: 'Session Loaded', 
-          description: 'Chat session loaded successfully.' 
-        });
-      } else {
-        // Create a temporary session object if not found in list
-        setCurrentSession({ session_id: id, title: 'Chat Session' });
-  setHasUserEditedTitle(true); // Avoid auto-renaming unknown sessions
-        console.log('⚠️ Session not found in list, created temporary:', id);
-      }
-    } catch (err: any) {
-      console.error('❌ Error loading session:', err);
-      setError(isDev ? maintenanceMessage : 'Failed to load session messages');
-      
-      // Still set the session as current to avoid UI issues
-      const session = sessions.find(s => s.session_id === id);
-      if (session) {
-        setCurrentSession(session);
-        setMessages([]);
-      }
-      
-      showErrorToast('Load Error', 'Failed to load session messages. You can still send new messages.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Fetch sessions on mount and when user changes
+  // Fetch sessions on mount
   useEffect(() => {
     if (user) {
       fetchSessions();
     } else {
       setIsInitializing(false);
     }
-    
-    // Failsafe: Always stop initializing after 10 seconds
-    const timeout = setTimeout(() => {
-      setIsInitializing(false);
-    }, 10000);
-    
+    const timeout = setTimeout(() => setIsInitializing(false), 10000);
     return () => clearTimeout(timeout);
   }, [user]);
 
-  // Handle URL parameter changes for session switching
+  // Sync URL sessionId → primary panel
   useEffect(() => {
-    const loadSessionFromUrl = async () => {
-      if (!user || !sessionId || sessions.length === 0) return;
-      
-      console.log('🔄 URL changed to session:', sessionId);
-      
-      // Check if this session exists in our sessions list
-      const session = sessions.find(s => s.session_id === sessionId);
-      if (session) {
-        // Only load if it's not the current session
-        if (currentSession?.session_id !== sessionId) {
-          console.log('📡 Loading session from URL:', sessionId);
-          await loadSession(sessionId);
-        }
-      } else {
-        console.log('❌ Session not found in list:', sessionId);
-        toast({ 
-          title: 'Session Not Found', 
-          description: 'The requested session could not be found.', 
-          variant: 'destructive' 
-        });
-        navigate('/chat');
-      }
-    };
-
-    if (sessions.length > 0) {
-      loadSessionFromUrl();
+    if (!user || !sessionId || sessions.length === 0) return;
+    const session = sessions.find((s) => s.session_id === sessionId);
+    if (session) {
+      splitView.setPrimarySessionId(sessionId);
+    } else {
+      toast({
+        title: 'Session Not Found',
+        description: 'The requested session could not be found.',
+        variant: 'destructive',
+      });
+      navigate('/chat');
     }
   }, [sessionId, sessions, user]);
 
-  // Create new session in backend
   const handleNewChat = async () => {
-    setIsLoading(true);
     try {
       if (!user) return;
-      
-      // Clear current state immediately
-      setMessages([]);
-      setCurrentSession(null);
-  setHasUserEditedTitle(false); // Reset for brand new chat
-      
-      const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
-      
-      // Set the new session immediately
-      const newSession = { session_id: data.session_id, title: 'New Chat' };
-      setCurrentSession(newSession);
-      
-      // Update sessions list
-      await fetchSessions();
-      
-      // Navigate to the new session
-      navigate(`/chat/${data.session_id}`);
-      
-      // Close sidebar on mobile after creating new chat
-      if (isMobile) {
-        setIsSidebarOpen(false);
-      }
-    } catch (err: any) {
-  showErrorToast('Error', err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Send message to backend and reload chat history
-  const handleSendMessage = async (message: string) => {
-    setIsLoading(true);
-    setIsTyping(true);
-    setError(null);
-
-    try {
-      if (!user) return;
-
-      // If no current session, create one first
-      let sessionToUse = currentSession;
-      if (!sessionToUse) {
-        const data = await clerkApiRequest<{ session_id: string }>(`/session/create`, 'post', null, { user_id: user.id });
-        sessionToUse = { session_id: data.session_id, title: 'New Chat' };
-        setCurrentSession(sessionToUse);
-        
-        // Update sessions list and navigate
-        await fetchSessions();
-        navigate(`/chat/${data.session_id}`);
-      }
-
-      // Immediately show user message
-      setMessages(prev => [
-        ...prev,
-        {
-          message,
-          reply: '',
-          timestamp: new Date().toISOString(),
-          role: 'user'
-        }
-      ]);
-      scrollToBottom();
-
-      // Send message to backend
-      const response = await clerkApiRequest<{ 
-        reply: string;
-        model?: string;
-        route_rule?: string;
-        latency_ms?: number;
-        intents?: string[];
-      }>(
-        `/chat`,
+      const data = await clerkApiRequest<{ session_id: string }>(
+        '/session/create',
         'post',
-        { user_id: user.id, message, session_id: sessionToUse.session_id }
+        null,
+        { user_id: user.id }
       );
-
-      // Detect if the response is a rate limit or system message
-      const isRateLimitMessage = response.reply.includes('Rate Limit') || 
-                                response.reply.includes('rate limit') || 
-                                response.reply.includes('⏰') ||
-                                response.reply.includes('Quota') ||
-                                response.reply.includes('quota') ||
-                                response.reply.includes('Service Configuration') ||
-                                response.reply.includes('Server Error') ||
-                                response.reply.includes('Temporarily Down');
-
-      const getMessageType = (message: string): 'normal' | 'rate_limit' | 'error' | 'warning' => {
-        if (message.includes('Rate Limit') || message.includes('⏰')) return 'rate_limit';
-        if (message.includes('Quota') || message.includes('📊')) return 'rate_limit';
-        if (message.includes('Configuration') || message.includes('🔐')) return 'error';
-        if (message.includes('Server Error') || message.includes('🔧')) return 'warning';
-        return 'normal';
-      };
-
-      // Add AI response with model information and appropriate role and type
-      setMessages(prev => [
-        ...prev,
-        {
-          message: response.reply,
-          reply: '',
-          timestamp: new Date().toISOString(),
-          role: isRateLimitMessage ? 'system' : 'assistant',
-          messageType: isRateLimitMessage ? getMessageType(response.reply) : 'normal',
-          model: response.model,
-          route_rule: response.route_rule,
-          latency_ms: response.latency_ms,
-          intents: response.intents
-        }
-      ]);
-      setIsTyping(false); // <-- Fix: stop typing indicator after AI reply
-      scrollToBottom();
-
-      // Refresh chat history to ensure sync
-      const data = await clerkApiRequest<{ history: any[] }>(`/chat/${sessionToUse.session_id}`, 'get');
-      // Map backend chat history to frontend Message format (show both user and assistant as separate bubbles)
-      const mappedMessages: Message[] = [];
-      data.history.forEach((item: any) => {
-        if (item.user) {
-          mappedMessages.push({
-            message: item.user,
-            reply: '',
-            timestamp: item.timestamp,
-            role: 'user'
-          });
-        }
-        if (item.assistant) {
-          const systemInfo = detectSystemMessage(item.assistant);
-          mappedMessages.push({
-            message: item.assistant,
-            reply: '',
-            timestamp: item.timestamp,
-            role: systemInfo.isSystem ? 'system' : 'assistant',
-            messageType: systemInfo.messageType
-          });
-        }
-      });
-      setMessages(mappedMessages);
-
-      // Improved auto-naming: trigger after first successful assistant reply if still default
-      if (sessionToUse.title === 'New Chat') {
-    // Skip auto-naming if user already manually edited / generated a title
-    if (!hasUserEditedTitle) {
-        try {
-          const firstUserMessage = mappedMessages.find(m => m.role === 'user')?.message || message;
-          const firstAssistantMessage = mappedMessages.find(m => m.role === 'assistant')?.message || response.reply;
-
-          if (firstUserMessage && firstAssistantMessage) {
-            // Derive a concise title using heuristics: prefer user intent keywords
-            const base = firstUserMessage
-              .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
-              .trim();
-            let candidate = base || firstAssistantMessage.split('\n')[0];
-            // Remove markdown formatting asterisks and hashes
-            candidate = candidate.replace(/[*#`>_~]/g, '').trim();
-            // Collapse whitespace
-            candidate = candidate.replace(/\s{2,}/g, ' ');
-            // Capitalize first letter
-            candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
-            // Truncate
-            if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '…';
-            // Avoid empty
-            if (candidate.length < 3) candidate = 'Chat Session';
-            await handleRenameSession(sessionToUse.session_id, candidate);
-      // Mark as user-edited equivalent to stop further auto attempts
-      setHasUserEditedTitle(true);
-          }
-        } catch (err) {
-          console.log('Auto-naming failed:', err);
-        }
-    }
-      }
-
-      // Close sidebar on mobile after sending message
-      if (isMobile) {
-        setIsSidebarOpen(false);
-      }
-    } catch (err: any) {
-      setIsTyping(false); // <-- Also stop typing on error
-      setLastFailedMessage(message); // Store the message for retry
-  showErrorToast('Error', err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Helper function to detect and categorize system messages
-  const detectSystemMessage = (messageText: string): { isSystem: boolean; messageType: 'normal' | 'rate_limit' | 'error' | 'warning' } => {
-    const isRateLimitMessage = messageText.includes('Rate Limit') || 
-                              messageText.includes('rate limit') || 
-                              messageText.includes('⏰') ||
-                              messageText.includes('Quota') ||
-                              messageText.includes('quota') ||
-                              messageText.includes('Service Configuration') ||
-                              messageText.includes('Server Error') ||
-                              messageText.includes('Temporarily Down');
-
-    if (!isRateLimitMessage) return { isSystem: false, messageType: 'normal' };
-
-    if (messageText.includes('Rate Limit') || messageText.includes('⏰')) return { isSystem: true, messageType: 'rate_limit' };
-    if (messageText.includes('Quota') || messageText.includes('📊')) return { isSystem: true, messageType: 'rate_limit' };
-    if (messageText.includes('Configuration') || messageText.includes('🔐')) return { isSystem: true, messageType: 'error' };
-    if (messageText.includes('Server Error') || messageText.includes('🔧')) return { isSystem: true, messageType: 'warning' };
-    return { isSystem: true, messageType: 'normal' };
-  };
-
-  // Retry the last failed message
-  const handleRetryMessage = async () => {
-    if (lastFailedMessage) {
-      const messageToRetry = lastFailedMessage;
-      setLastFailedMessage(null);
-      await handleSendMessage(messageToRetry);
-    }
-  };
-
-  const handleRenameSession = async (sessionId: string, newTitle: string) => {
-    try {
-      // Call backend to rename the session
-      await clerkApiRequest(
-        `/session/${sessionId}`,
-        'put',
-        { new_title: newTitle }
-      );
-      
-      // Update sessions list
       await fetchSessions();
-      
-      // Update current session if it's the one being renamed
-      if (currentSession?.session_id === sessionId) {
-        setCurrentSession(prev => prev ? { ...prev, title: newTitle } : null);
-      }
-      
-      toast({
-        title: "Session renamed",
-        description: "Chat session title has been updated successfully.",
-      });
+      navigate(`/chat/${data.session_id}`);
+      if (isMobile) setIsSidebarOpen(false);
     } catch (err: any) {
-  showErrorToast('Error', 'Failed to rename session: ' + err.message);
+      showErrorToast('Error', err.message);
     }
   };
 
-  const handleDeleteSession = async (sessionId: string) => {
+  const handleDeleteSession = async (sid: string) => {
     try {
-      // Call backend to delete the session
-      await clerkApiRequest(`/session/${sessionId}`, 'delete');
-      
-      // Show success message
+      await clerkApiRequest(`/session/${sid}`, 'delete');
       toast({
-        title: "Session deleted",
-        description: "The chat session has been deleted successfully.",
+        title: 'Session deleted',
+        description: 'The chat session has been deleted successfully.',
       });
-      
-      // Refresh sessions list
+
+      // Close panel if this session is open in split view
+      const panel = splitView.layout.panels.find((p) => p.sessionId === sid);
+      if (panel) {
+        splitView.closePanel(panel.position);
+      }
+
       await fetchSessions();
-      
-      // If we deleted the current session, redirect to /chat to start a new one
-      if (currentSession?.session_id === sessionId) {
-  // Clear chat area immediately for better UX
-  setMessages([]);
-  setCurrentSession(null);
-  navigate('/chat');
+
+      // If primary panel session was deleted, navigate to /chat
+      const primarySessionId = splitView.layout.panels[0]?.sessionId;
+      if (primarySessionId === sid || !primarySessionId) {
+        navigate('/chat');
       }
     } catch (err: any) {
-  showErrorToast('Error', 'Failed to delete session: ' + err.message);
+      showErrorToast('Error', 'Failed to delete session: ' + err.message);
     }
   };
 
-  const handleSaveTitle = async () => {
-    if (currentSession && editTitle.trim()) {
-      await handleRenameSession(currentSession.session_id, editTitle.trim());
-      setIsEditingTitle(false);
-      setHasUserEditedTitle(true); // User manually chose a title
-    }
-  };
-
-  // Generate a title suggestion based on recent messages
-  const handleGenerateTitle = async () => {
-    if (!currentSession || isGeneratingTitle) return;
-    setIsGeneratingTitle(true);
+  const handleRenameSession = async (sid: string, newTitle: string) => {
     try {
-      // Gather candidate text: prefer last user message, fallback to first user or first assistant
-      const userMessages = messages.filter(m => m.role === 'user');
-      const assistantMessages = messages.filter(m => m.role === 'assistant');
-      const lastUser = userMessages[userMessages.length - 1]?.message || '';
-      const firstUser = userMessages[0]?.message || '';
-      const firstAssistant = assistantMessages[0]?.message || '';
-      let base = lastUser || firstUser || firstAssistant || 'Chat Session';
-      base = base
-        .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
-        .trim();
-      let candidate = base.split('\n')[0];
-      candidate = candidate.replace(/[*#`>_~]/g, '').trim();
-      candidate = candidate.replace(/\s{2,}/g, ' ');
-      if (candidate) {
-        candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
-      }
-      if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '…';
-      if (candidate.length < 3) candidate = 'Chat Session';
-      await handleRenameSession(currentSession.session_id, candidate);
-      setHasUserEditedTitle(true); // Prevent further auto renames
-    } catch (err: any) {
+      await clerkApiRequest(`/session/${sid}`, 'put', { new_title: newTitle });
+      await fetchSessions();
       toast({
-        title: 'Title generation failed',
-        description: err.message || 'Could not generate a title right now.',
-        variant: 'destructive'
+        title: 'Session renamed',
+        description: 'Chat session title has been updated successfully.',
       });
-    } finally {
-      setIsGeneratingTitle(false);
+    } catch (err: any) {
+      showErrorToast('Error', 'Failed to rename session: ' + err.message);
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
-    toast({
-      title: "Signed out",
-      description: "Come back soon!"
-    });
+    toast({ title: 'Signed out', description: 'Come back soon!' });
   };
 
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  // Handle session selection and close sidebar on mobile
   const handleSelectSession = async (id: string) => {
     if (!user || !id) return;
-    
-    try {
-      // Prevent selecting the same session
-      if (currentSession?.session_id === id) {
-        if (isMobile) {
-          setIsSidebarOpen(false);
-        }
-        return;
-      }
-      
-      console.log('🔄 Switching to session:', id);
-      setIsLoading(true);
-      setError(null);
-      
-      // Load the session data
-      await loadSession(id);
-      
-      // Navigate to the session URL
-      navigate(`/chat/${id}`);
-      
-      // Close sidebar on mobile
-      if (isMobile) {
-        setIsSidebarOpen(false);
-      }
-      
-      console.log('✅ Session switch completed:', id);
-    } catch (err: any) {
-  console.error('❌ Session switch failed:', err);
-  showErrorToast('Error', 'Failed to load session: ' + err.message);
-    } finally {
-      setIsLoading(false);
+    navigate(`/chat/${id}`);
+    if (isMobile) setIsSidebarOpen(false);
+  };
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  // --- DnD handlers ---
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (data?.sessionId) {
+      setDraggedSession({
+        sessionId: data.sessionId,
+        title: data.title || 'Chat Session',
+      });
+      splitView.setIsDragging(true);
     }
   };
 
-  // Show loading screen while user data loads or during initialization (with timeout)
+  const handleDragEnd = (event: DragEndEvent) => {
+    splitView.setIsDragging(false);
+    setDraggedSession(null);
+
+    const { active, over } = event;
+    if (!over || !active.data.current?.sessionId) return;
+
+    const droppedSessionId = active.data.current.sessionId as string;
+    const dropZoneId = over.id as string;
+
+    let dropZone: DropZone;
+    if (dropZoneId === 'drop-left') dropZone = 'left';
+    else if (dropZoneId === 'drop-right') dropZone = 'right';
+    else if (dropZoneId === 'drop-center') dropZone = 'center';
+    else return;
+
+    splitView.openSessionInPanel(droppedSessionId, dropZone);
+
+    // If center drop in single mode, navigate to the new session
+    if (dropZone === 'center') {
+      navigate(`/chat/${droppedSessionId}`);
+    }
+    // If split mode and this was dropped on left, update URL
+    else if (dropZone === 'left') {
+      navigate(`/chat/${droppedSessionId}`);
+    }
+  };
+
+  // Configure DnD sensors - distance threshold prevents clicks from triggering drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  );
+
+  // --- Loading screen ---
   if (!isLoaded || !user || (isInitializing && user)) {
     return (
       <div className="h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -842,10 +379,10 @@ const Chat = () => {
         <div className="text-center relative z-10">
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ 
-              duration: shouldReduceAnimations ? 1 : 2, 
-              repeat: Infinity, 
-              ease: 'linear' 
+            transition={{
+              duration: shouldReduceAnimations ? 1 : 2,
+              repeat: Infinity,
+              ease: 'linear',
             }}
             className="w-16 h-16 mx-auto mb-6"
           >
@@ -856,85 +393,107 @@ const Chat = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: shouldReduceAnimations ? 0.1 : 0.3 }}
           >
-            <h3 className="text-xl font-semibold text-foreground mb-2">
-              Initializing
-            </h3>
+            <h3 className="text-xl font-semibold text-foreground mb-2">Initializing</h3>
             <p className="text-muted-foreground text-sm">
-            {!isLoaded ? "Loading..." : !user ? "Loading chat..." : "Setting up your session..."}
-          </p>
-          {isInitializing && (
-            <p className="text-xs text-muted-foreground/60 mt-4">
-              Having trouble? <button 
-                onClick={() => setIsInitializing(false)} 
-                className="text-primary underline hover:text-primary/80 transition-colors"
-              >
-                Skip and continue
-              </button>
+              {!isLoaded ? 'Loading...' : !user ? 'Loading chat...' : 'Setting up your session...'}
             </p>
-          )}
+            {isInitializing && (
+              <p className="text-xs text-muted-foreground/60 mt-4">
+                Having trouble?{' '}
+                <button
+                  onClick={() => setIsInitializing(false)}
+                  className="text-primary underline hover:text-primary/80 transition-colors"
+                >
+                  Skip and continue
+                </button>
+              </p>
+            )}
           </motion.div>
         </div>
       </div>
     );
   }
 
-  // Memoized sidebar content - always rendered, visibility controlled by ChatLayout
+  // --- Determine panel layout ---
+  const { layout } = splitView;
+  const primarySessionId = layout.panels[0]?.sessionId || sessionId || null;
+  const secondarySessionId = layout.mode === 'split' ? layout.panels[1]?.sessionId || null : null;
+
+  // --- Build main content ---
+  const mainContent =
+    layout.mode === 'split' && secondarySessionId ? (
+      <ResizablePanelGroup
+        direction="horizontal"
+        onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
+      >
+        <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={25}>
+          <ChatPanel
+            sessionId={primarySessionId}
+            sessions={sessions}
+            userId={user?.id}
+            userAvatar={user?.imageUrl || ''}
+            clerkApiRequest={clerkApiRequest}
+            panelPosition="left"
+            isSplitMode={true}
+            onSessionsChanged={fetchSessions}
+            onToggleSidebar={toggleSidebar}
+          />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={25}>
+          <ChatPanel
+            sessionId={secondarySessionId}
+            sessions={sessions}
+            userId={user?.id}
+            userAvatar={user?.imageUrl || ''}
+            clerkApiRequest={clerkApiRequest}
+            panelPosition="right"
+            isSplitMode={true}
+            onSessionsChanged={fetchSessions}
+          />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    ) : (
+      <ChatPanel
+        sessionId={primarySessionId}
+        sessions={sessions}
+        userId={user?.id}
+        userAvatar={user?.imageUrl || ''}
+        clerkApiRequest={clerkApiRequest}
+        panelPosition="left"
+        isSplitMode={false}
+        onSessionsChanged={fetchSessions}
+        onToggleSidebar={toggleSidebar}
+      />
+    );
+
+  // --- Sidebar ---
   const sidebarContent = (
     <KuroSidebar
       sessions={sessions}
-      currentSessionId={currentSession?.session_id}
-      user={user ? {
-        id: user.id,
-        name: displayedName || 'User',
-        email: user.emailAddresses?.[0]?.emailAddress || '',
-        avatar: user.imageUrl
-      } : undefined}
+      currentSessionId={primarySessionId || undefined}
+      user={
+        user
+          ? {
+              id: user.id,
+              name: displayedName || 'User',
+              email: user.emailAddresses?.[0]?.emailAddress || '',
+              avatar: user.imageUrl,
+            }
+          : undefined
+      }
       onNewChat={handleNewChat}
       onSelectSession={handleSelectSession}
       onRenameSession={handleRenameSession}
       onDeleteSession={handleDeleteSession}
       onSignOut={handleSignOut}
-      onClose={() => {
-        console.log('[Chat.tsx] onClose called, setting isSidebarOpen to false');
-        setIsSidebarOpen(false);
-      }}
+      onClose={() => setIsSidebarOpen(false)}
     />
   );
 
-  // Memoized header content
-  const headerContent = (
-    <KuroChatHeader
-      title={currentSession?.title || 'New Chat'}
-      onToggleSidebar={toggleSidebar}
-      onRename={(newTitle) => {
-        if (currentSession) {
-          handleRenameSession(currentSession.session_id, newTitle);
-          setHasUserEditedTitle(true);
-        }
-      }}
-      onGenerateTitle={handleGenerateTitle}
-      isGeneratingTitle={isGeneratingTitle}
-      hasSession={!!currentSession}
-    />
-  );
-
-  // Memoized input content - always at bottom, never moves
-  const inputContent = (
-    <KuroChatInput
-      onSendMessage={handleSendMessage}
-      sending={isTyping || isLoading}
-      placeholder={
-        (isTyping || isLoading)
-          ? "Kuro is responding..." 
-          : "Type a message..."
-      }
-    />
-  );
-
-  // Overlay content (modals, errors, intros) - rendered on top of layout
+  // --- Overlays ---
   const overlayContent = (
     <>
-      {/* First-time intro overlay */}
       <AnimatePresence>
         {showFirstTimeIntro && !showNameModal && (
           <motion.div
@@ -950,7 +509,7 @@ const Chat = () => {
                 displayedName ? `Welcome, ${displayedName}` : 'Welcome',
                 "Let's Imagine",
                 "Let's Build",
-                'Kuro AI'
+                'Kuro AI',
               ]}
               cycleMs={1600}
               fullscreen
@@ -959,9 +518,7 @@ const Chat = () => {
             <motion.button
               onClick={() => setShowFirstTimeIntro(false)}
               className="absolute top-6 right-6 z-[10000] px-6 py-3 rounded-full glass border border-white/10 text-muted-foreground hover:text-foreground hover:border-primary/50 text-sm font-medium tracking-wide transition-all duration-300"
-              whileHover={shouldReduceAnimations ? undefined : { 
-                scale: 1.05
-              }}
+              whileHover={shouldReduceAnimations ? undefined : { scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               Skip
@@ -969,18 +526,16 @@ const Chat = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Name Setup Modal */}
+
       <NameSetupModal
         isOpen={showNameModal}
         onComplete={handleNameSetup}
         onSkip={handleNameSkip}
       />
-      
-      {/* Error toast */}
+
       <AnimatePresence>
-        {error && (
-          <motion.div 
+        {globalError && (
+          <motion.div
             className="fixed top-4 right-4 z-50 max-w-md"
             initial={{ opacity: 0, y: -30, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -990,10 +545,10 @@ const Chat = () => {
             <KuroCard variant="elevated" className="bg-red-500/10 border-red-500/30">
               <div className="px-4 py-3 flex items-center gap-3">
                 <AlertTriangle className="h-5 w-5 text-red-400" />
-                <p className="text-sm text-red-200">{error}</p>
+                <p className="text-sm text-red-200">{globalError}</p>
                 <motion.button
                   className="ml-auto w-6 h-6 rounded bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 flex items-center justify-center transition-all duration-300"
-                  onClick={() => setError(null)}
+                  onClick={() => setGlobalError(null)}
                   whileHover={shouldReduceAnimations ? undefined : { scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                 >
@@ -1007,90 +562,60 @@ const Chat = () => {
     </>
   );
 
-  // Background element
-  const backgroundContent = <KuroBackground variant="subtle" />;
+  // --- Drag overlay (floating card during drag) ---
+  const dragOverlayContent = (
+    <DragOverlay>
+      {draggedSession && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl glass border border-primary/30 bg-background/95 shadow-xl min-w-[200px]">
+          <div className="p-1.5 rounded-lg bg-secondary">
+            <MessageSquare className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-medium text-foreground truncate">
+            {draggedSession.title}
+          </span>
+        </div>
+      )}
+    </DragOverlay>
+  );
+
+  // --- Drop zone overlay ---
+  const dropZoneOverlay = (
+    <SplitViewDropZone
+      isVisible={splitView.isDragging}
+      currentMode={layout.mode}
+    />
+  );
 
   return (
-    <ChatLayout
-      sidebar={sidebarContent}
-      sidebarOpen={isSidebarOpen}
-      header={headerContent}
-      input={inputContent}
-      overlays={overlayContent}
-      background={backgroundContent}
-      onMobileOverlayClick={() => setIsSidebarOpen(false)}
-      scrollContainerRef={scrollContainerRef}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
-      {/* KuroChatContent - Professional chat content with 3D bot empty state */}
-      <div ref={messagesContainerRef} className="h-full">
-        <KuroChatContent
-          messages={messages}
-          userAvatar={user?.imageUrl || ''}
-          isTyping={isTyping}
-          isLoading={isLoading}
-          onRetry={handleRetryMessage}
-          messagesEndRef={messagesEndRef}
-        />
-      </div>
-
-      {/* Inline Ask: selection popup */}
-      <AnimatePresence>
-        {selection && !inlineAsk && (
-          <SelectionPopup
-            text={selection.text}
-            x={selection.x}
-            y={selection.y}
-            onCopy={clearSelection}
-            onAskKuro={() => {
-              setInlineAsk({
-                selectedText: selection.text,
-                context: selection.context,
-                parentMessage: selection.parentMessage,
-                messageIndex: selection.messageIndex,
-              });
-              clearSelection();
-            }}
-            onExplain={() => {
-              setInlineAsk({
-                selectedText: selection.text,
-                context: selection.context,
-                parentMessage: selection.parentMessage,
-                messageIndex: selection.messageIndex,
-                initialQuestion: `Explain what "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}" means in this context.`,
-              });
-              clearSelection();
-            }}
-            onExample={() => {
-              setInlineAsk({
-                selectedText: selection.text,
-                context: selection.context,
-                parentMessage: selection.parentMessage,
-                messageIndex: selection.messageIndex,
-                initialQuestion: `Give me a clear example of "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}".`,
-              });
-              clearSelection();
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Inline Ask: mini-chat panel */}
-      <AnimatePresence>
-        {inlineAsk && (
-          <InlineChatPanel
-            selectedText={inlineAsk.selectedText}
-            context={inlineAsk.context}
-            parentMessage={inlineAsk.parentMessage}
-            sessionId={currentSession?.session_id}
-            userId={user?.id}
-            messageIndex={inlineAsk.messageIndex}
-            initialQuestion={inlineAsk.initialQuestion}
-            onClose={() => setInlineAsk(null)}
-          />
-        )}
-      </AnimatePresence>
-    </ChatLayout>
+      <ChatLayout
+        sidebar={sidebarContent}
+        sidebarOpen={isSidebarOpen}
+        mainContent={mainContent}
+        overlays={overlayContent}
+        background={<KuroBackground variant="subtle" />}
+        onMobileOverlayClick={() => setIsSidebarOpen(false)}
+        dropZoneOverlay={dropZoneOverlay}
+      />
+      {dragOverlayContent}
+    </DndContext>
   );
-}
+};
+
+/**
+ * Chat - Top-level page component.
+ * Wraps everything in SplitViewProvider.
+ */
+const Chat = () => {
+  return (
+    <SplitViewProvider>
+      <ChatInner />
+    </SplitViewProvider>
+  );
+};
 
 export default Chat;

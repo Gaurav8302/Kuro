@@ -45,3 +45,19 @@ export interface MemoryContext {
   relevanceScore: number;
   source: 'conversation' | 'long_term' | 'personal';
 }
+
+// Split-view layout types
+export type PanelPosition = 'left' | 'right';
+export type LayoutMode = 'single' | 'split';
+export type DropZone = 'left' | 'right' | 'center';
+
+export interface PanelState {
+  sessionId: string;
+  position: PanelPosition;
+}
+
+export interface SplitViewState {
+  mode: LayoutMode;
+  panels: PanelState[];
+  panelSizes?: number[];
+}

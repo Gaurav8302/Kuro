@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Edit3, Check, X, Sparkles, Menu, Loader2 } from 'lucide-react';
+import { Edit3, Check, X, Sparkles, Menu, Loader2, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,14 @@ interface KuroChatHeaderProps {
   onGenerateTitle: () => void;
   isGeneratingTitle: boolean;
   hasSession: boolean;
+  /** Split-view mode: show close/expand controls */
+  isSplitMode?: boolean;
+  /** Whether to show the sidebar toggle button (only for primary panel) */
+  showSidebarToggle?: boolean;
+  /** Called when close button is clicked in split mode */
+  onClose?: () => void;
+  /** Called when expand button is clicked in split mode */
+  onExpand?: () => void;
 }
 
 /**
@@ -22,7 +30,11 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
   onRename,
   onGenerateTitle,
   isGeneratingTitle,
-  hasSession
+  hasSession,
+  isSplitMode = false,
+  showSidebarToggle = true,
+  onClose,
+  onExpand,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(title);
@@ -46,20 +58,22 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
 
   return (
     <header className="h-16 px-4 flex items-center gap-4 border-b border-border/50 glass">
-      {/* Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleSidebar}
-        className="h-8 w-8"
-      >
-        <Menu className="h-4 w-4" />
-      </Button>
-      
+      {/* Menu Button - only shown on primary panel or single mode */}
+      {showSidebarToggle && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="h-8 w-8"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      )}
+
       <div className="flex-1 flex items-center gap-3">
         {/* Status indicator */}
         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-        
+
         {isEditing ? (
           <div className="flex items-center gap-2 flex-1">
             <input
@@ -77,13 +91,13 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
               )}
               autoFocus
             />
-            <button 
+            <button
               onClick={handleSave}
               className="p-1.5 rounded-md bg-green-500/20 hover:bg-green-500/30 transition-colors"
             >
               <Check className="w-4 h-4 text-green-400" />
             </button>
-            <button 
+            <button
               onClick={handleCancel}
               className="p-1.5 rounded-md bg-destructive/20 hover:bg-destructive/30 transition-colors"
             >
@@ -126,6 +140,34 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
             {isGeneratingTitle ? 'Generating...' : 'Generate title'}
           </span>
         </Button>
+      )}
+
+      {/* Split-mode controls */}
+      {isSplitMode && !isEditing && (
+        <div className="flex items-center gap-1">
+          {onExpand && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onExpand}
+              className="h-8 w-8"
+              title="Expand panel"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          )}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+              title="Close panel"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       )}
     </header>
   );
