@@ -1,5 +1,6 @@
 // src/lib/api.ts
 import { useAuth } from '@clerk/clerk-react';
+import { useCallback, useRef } from 'react';
 import axios from 'axios';
 
 // Use environment-specific API base URL
@@ -30,13 +31,16 @@ export async function apiRequest<T>(endpoint: string, method: 'get' | 'post' | '
   }
 }
 
-// Custom hook to get Clerk JWT
+// Custom hook to get Clerk JWT - returns a stable function reference
 export function useClerkApi() {
   const { getToken } = useAuth();
-  return async function clerkApiRequest<T>(endpoint: string, method: 'get' | 'post' | 'put' | 'delete', data?: any, params?: any): Promise<T> {
-    const token = await getToken();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
+  return useCallback(async function clerkApiRequest<T>(endpoint: string, method: 'get' | 'post' | 'put' | 'delete', data?: any, params?: any): Promise<T> {
+    const token = await getTokenRef.current();
     return apiRequest<T>(endpoint, method, data, params, token);
-  };
+  }, []);
 }
 
 export default apiRequest;
