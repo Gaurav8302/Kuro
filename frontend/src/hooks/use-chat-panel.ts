@@ -37,7 +37,7 @@ interface UseChatPanelReturn {
   messagesContainerRef: React.RefObject<HTMLDivElement>;
 
   // Handlers
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, searchMode?: boolean) => Promise<void>;
   loadSession: (id: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => Promise<void>;
   generateTitle: () => Promise<void>;
@@ -274,7 +274,7 @@ export function useChatPanel({
 
   // Send message
   const sendMessage = useCallback(
-    async (message: string) => {
+    async (message: string, searchMode?: boolean) => {
       setIsLoading(true);
       setIsTyping(true);
       setError(null);
@@ -319,6 +319,7 @@ export function useChatPanel({
           user_id: userId,
           message,
           session_id: sessionToUse.session_id,
+          search_mode: searchMode || false,
         });
 
         const isRateLimitReply =

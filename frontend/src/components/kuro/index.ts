@@ -24,3 +24,4 @@ export { KuroSidebar } from './KuroSidebar';
 export { KuroChatLayout } from './KuroChatLayout';
 export { KuroChatContent } from './KuroChatContent';
 export { KuroChatHeader } from './KuroChatHeader';
+export { SearchButton } from './SearchButton';

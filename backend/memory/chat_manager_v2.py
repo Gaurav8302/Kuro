@@ -12,6 +12,11 @@ New design:
   Layer 1  Active session: last N raw messages from MongoDB (no compression).
   Layer 2  Post-session:  ONE summary stored in Pinecone when session ≥ 50 msgs or closes.
 
+v3 router integration:
+  - LLM-based router classifier (model_router_v3)
+  - Compound research pipeline (groq/compound-mini)
+  - search_mode support for manual web search trigger
+
 No summarization during active conversation.
 No fact extraction.  No importance scoring.  No hashing.
 """
@@ -21,7 +26,7 @@ import logging
 import os
 import re
 import time
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from dotenv import load_dotenv
 
@@ -54,10 +59,26 @@ from skills.skill_manager import skill_manager
 try:
     from orchestration.llm_orchestrator import orchestrate as llm_orchestrate, client as unified_client
     ORCHESTRATOR_AVAILABLE = True
-    logger.info("✅ LLM Orchestrator loaded successfully")
+    logger.info("LLM Orchestrator loaded successfully")
 except ImportError as e:
     ORCHESTRATOR_AVAILABLE = False
-    logger.warning("⚠️ LLM Orchestrator not available: %s", e)
+    logger.warning("LLM Orchestrator not available: %s", e)
+
+# --------------------------------------------------------------------------
+# Router v3 + compound research
+# --------------------------------------------------------------------------
+try:
+    from routing.model_router_v3 import (
+        get_best_model as get_best_model_v3,
+        needs_research,
+        REASONING_MODEL,
+    )
+    from routing.compound_research import run_compound_research
+    ROUTER_V3_AVAILABLE = True
+    logger.info("Router v3 + compound research loaded successfully")
+except ImportError as e:
+    ROUTER_V3_AVAILABLE = False
+    logger.warning("Router v3 not available, falling back to v2: %s", e)
 
 # Post-session summarization threshold (number of exchanges)
 # Lowered from 50 to 6 so that short conversations get summarized too
@@ -71,9 +92,9 @@ class ChatManager:
         try:
             self.groq_client = GroqClient()
             self._recent_responses: Dict[str, List[str]] = {}
-            logger.info("✅ ChatManager v2 initialised (Groq client ready)")
+            logger.info("ChatManager v2 initialised (Groq client ready)")
         except Exception as e:
-            logger.error("❌ Failed to initialise Groq client: %s", e)
+            logger.error("Failed to initialise Groq client: %s", e)
             raise RuntimeError(f"AI model init failed: {e}")
 
     # ------------------------------------------------------------------
@@ -135,20 +156,26 @@ class ChatManager:
         message: str,
         session_id: Optional[str] = None,
         top_k: int = 5,
-    ) -> str:
+        search_mode: bool = False,
+    ) -> Tuple[str, str, str]:
         """Process a user message within a session.
 
         Flow:
           1. Resolve user name.
           2. Build context (system + history + optional LT memory).
-          3. Resolve model (session lock).
-          4. Generate response via orchestrator or direct Groq call.
-          5. Save exchange to MongoDB.
-          6. Check if post-session summarization is needed.
-          7. Return response.
+          3. Route via v3 router (LLM classifier).
+          4. Run compound research if needed or search_mode is True.
+          5. Generate response via orchestrator or direct Groq call.
+          6. Save exchange to MongoDB.
+          7. Check if post-session summarization is needed.
+
+        Returns:
+            Tuple of (response_text, model_used, route_rule)
         """
         request_start = time.time()
         session_id = session_id or "default"
+        model_id = "llama-3.1-8b-instant"
+        route_rule = "default"
 
         try:
             # --- 1. User name ---
@@ -159,7 +186,7 @@ class ChatManager:
                 user_name = extracted_name
                 response = f"Nice to meet you, {user_name}! How can I help you?"
                 save_chat_to_db(user_id, message, response, session_id)
-                return response
+                return response, "greeting", "name_extraction"
 
             # --- 2. Build context (new deterministic builder) ---
             ctx = build_context(
@@ -172,26 +199,52 @@ class ChatManager:
             context_messages = ctx["messages"]
             system_prompt = ctx["system"]
 
-            # --- 3. Model locking / resolution ---
-            router_pick = "llama-3.3-70b-versatile"  # default conversation model
-            try:
-                from routing.model_router_v2 import get_best_model as get_best_model_v2
-                import asyncio
-                try:
-                    asyncio.get_running_loop()
-                    # Already in async context — just use default
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        v2 = loop.run_until_complete(get_best_model_v2(message, session_id=session_id))
-                        router_pick = v2.get("chosen_model", router_pick)
-                    finally:
-                        loop.close()
-                        asyncio.set_event_loop(None)
-            except Exception as e:
-                logger.debug("Router v2 unavailable, using default model: %s", e)
+            # --- 3. Router v3 (LLM classifier) ---
+            research_required = False
+            research_context: Optional[str] = None
 
+            if ROUTER_V3_AVAILABLE:
+                try:
+                    v3_decision = get_best_model_v3(
+                        query=message,
+                        session_id=session_id,
+                        search_mode=search_mode,
+                    )
+                    router_pick = v3_decision.get("chosen_model", "llama-3.1-8b-instant")
+                    research_required = v3_decision.get("research_required", False)
+                    route_rule = f"v3:{v3_decision.get('task_type', 'conversation')}:{v3_decision.get('complexity', 'simple')}"
+                    logger.info(
+                        "Router v3: model=%s task=%s complexity=%s research=%s conf=%.2f",
+                        router_pick,
+                        v3_decision.get("task_type"),
+                        v3_decision.get("complexity"),
+                        research_required,
+                        v3_decision.get("confidence", 0),
+                    )
+                except Exception as e:
+                    logger.warning("Router v3 failed, falling back to v2: %s", e)
+                    router_pick = self._fallback_to_v2(message, session_id)
+                    route_rule = "v2_fallback"
+            else:
+                router_pick = self._fallback_to_v2(message, session_id)
+                route_rule = "v2_fallback"
+
+            # --- 4. Compound research (if needed or manual search_mode) ---
+            if (research_required or search_mode) and ROUTER_V3_AVAILABLE:
+                try:
+                    logger.info("Running compound research for query: %.100s", message)
+                    research_context = run_compound_research(message)
+                    if research_context:
+                        logger.info("Compound research returned %d chars", len(research_context))
+                        # Force reasoning model when research is used
+                        router_pick = REASONING_MODEL
+                        route_rule += ":research"
+                    else:
+                        logger.warning("Compound research returned empty result")
+                except Exception as e:
+                    logger.error("Compound research failed: %s", e)
+
+            # --- 5. Model locking / resolution ---
             model_decision = resolve_model(
                 session_id=session_id,
                 user_message=message,
@@ -200,10 +253,8 @@ class ChatManager:
             )
             model_id = model_decision["model_id"]
 
-            # --- Debug log (required for diagnosing memory issues) ---
-            logger.info(
-                "Memory retrieval triggered: %s", debug["long_term_triggered"],
-            )
+            # --- Debug log ---
+            logger.info("Memory retrieval triggered: %s", debug["long_term_triggered"])
             logger.info(
                 "Memories injected: %s",
                 debug.get("long_term_texts", []) if debug["long_term_count"] > 0 else "[]",
@@ -218,15 +269,26 @@ class ChatManager:
                 debug["long_term_count"],
             )
 
-            # --- 4. Generate response ---
-            response_text = self._generate_response(
-                message=message,
-                system_prompt=system_prompt,
-                context_messages=context_messages,
-                model_id=model_id,
-                user_name=user_name,
-                session_id=session_id,
-            )
+            # --- 6. Generate response ---
+            if research_context:
+                # When research is available, build a structured prompt
+                response_text = self._generate_research_response(
+                    message=message,
+                    system_prompt=system_prompt,
+                    context_messages=context_messages,
+                    model_id=model_id,
+                    research_context=research_context,
+                    session_id=session_id,
+                )
+            else:
+                response_text = self._generate_response(
+                    message=message,
+                    system_prompt=system_prompt,
+                    context_messages=context_messages,
+                    model_id=model_id,
+                    user_name=user_name,
+                    session_id=session_id,
+                )
 
             # Repetition check
             if self._check_response_repetition(user_id, response_text):
@@ -244,12 +306,10 @@ class ChatManager:
                 )
             self._store_response(user_id, response_text)
 
-            # --- 5. Persist exchange ---
+            # --- 7. Persist exchange ---
             save_chat_to_db(user_id, message, response_text, session_id)
 
-            # --- 6. Post-session summarization check ---
-            # Trigger summarization when message count first crosses the threshold,
-            # and then every POST_SESSION_SUMMARY_THRESHOLD messages after that.
+            # --- 8. Post-session summarization check ---
             msg_count = session_memory.get_message_count(session_id)
             if msg_count >= POST_SESSION_SUMMARY_THRESHOLD and msg_count % POST_SESSION_SUMMARY_THRESHOLD == 0:
                 logger.info(
@@ -260,14 +320,42 @@ class ChatManager:
 
             elapsed_ms = int((time.time() - request_start) * 1000)
             logger.info(
-                "Chat response generated for %s in %dms (model=%s)",
-                user_name, elapsed_ms, model_id,
+                "Chat response generated for %s in %dms (model=%s route=%s)",
+                user_name, elapsed_ms, model_id, route_rule,
             )
-            return response_text
+            return response_text, model_id, route_rule
 
         except Exception as e:
             logger.error("Error in chat processing: %s", e, exc_info=True)
-            return "I apologise, but I encountered an error processing your message. Please try again."
+            return (
+                "I apologise, but I encountered an error processing your message. Please try again.",
+                model_id,
+                "error_fallback",
+            )
+
+    # ------------------------------------------------------------------
+    # Fallback to v2 router
+    # ------------------------------------------------------------------
+    def _fallback_to_v2(self, message: str, session_id: str) -> str:
+        """Use v2 router as fallback when v3 is unavailable."""
+        router_pick = "llama-3.3-70b-versatile"
+        try:
+            from routing.model_router_v2 import get_best_model as get_best_model_v2
+            import asyncio
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    v2 = loop.run_until_complete(get_best_model_v2(message, session_id=session_id))
+                    router_pick = v2.get("chosen_model", router_pick)
+                finally:
+                    loop.close()
+                    asyncio.set_event_loop(None)
+        except Exception as e:
+            logger.debug("Router v2 unavailable, using default model: %s", e)
+        return router_pick
 
     # ------------------------------------------------------------------
     # Response generation (supports orchestrator or direct Groq)
@@ -343,6 +431,93 @@ class ChatManager:
         return get_fallback_response(message)
 
     # ------------------------------------------------------------------
+    # Research-augmented response generation
+    # ------------------------------------------------------------------
+    def _generate_research_response(
+        self,
+        message: str,
+        system_prompt: str,
+        context_messages: List[Dict[str, str]],
+        model_id: str,
+        research_context: str,
+        session_id: str,
+    ) -> str:
+        """Generate a response with research context injected.
+
+        Structures the prompt per spec:
+          User Question → Research Context → Conversation Memory → Instructions
+        """
+        # Build memory context from conversation history
+        memory_parts: List[str] = []
+        for m in context_messages:
+            if m["role"] == "system":
+                continue
+            if m["role"] == "user":
+                memory_parts.append(f"User: {m['content']}")
+            elif m["role"] == "assistant":
+                memory_parts.append(f"Assistant: {m['content']}")
+        memory_context = "\n".join(memory_parts[-10:])  # last 10 turns
+
+        # Structured research prompt
+        research_prompt_parts = [
+            f"User Question:\n{message}",
+            f"Research Context:\n{research_context}",
+        ]
+        if memory_context:
+            research_prompt_parts.append(f"Conversation Memory:\n{memory_context}")
+        research_prompt_parts.append(
+            "Instructions:\n"
+            "Use the research information if relevant. "
+            "Combine it with the conversation context to produce a clear answer."
+        )
+        research_prompt = "\n\n".join(research_prompt_parts)
+
+        # Try orchestrator first, then direct Groq
+        if ORCHESTRATOR_AVAILABLE:
+            try:
+                import asyncio
+                try:
+                    asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        result = loop.run_until_complete(
+                            llm_orchestrate(
+                                user_message=research_prompt,
+                                system_prompt=system_prompt,
+                                memory_context=None,
+                                developer_forced_model=model_id,
+                                session_id=session_id,
+                            )
+                        )
+                        reply = result.get("reply", "")
+                        if reply:
+                            sanitized = sanitize_response(reply)
+                            is_valid, _ = validate_response(sanitized, None)
+                            if is_valid:
+                                return sanitized
+                    finally:
+                        loop.close()
+                        asyncio.set_event_loop(None)
+            except Exception as e:
+                logger.warning("Orchestrator failed for research response: %s", e)
+
+        # Direct Groq fallback
+        try:
+            response = self.groq_client.generate_content(
+                prompt=research_prompt,
+                system_instruction=system_prompt,
+                model_id=model_id,
+            )
+            if response:
+                return sanitize_response(response)
+        except Exception as e:
+            logger.error("Direct Groq research generation failed: %s", e)
+
+        return get_fallback_response(message)
+
+    # ------------------------------------------------------------------
     # Post-session summarization (non-blocking)
     # ------------------------------------------------------------------
     def _trigger_post_session_summary(self, user_id: str, session_id: str):
@@ -378,6 +553,6 @@ def chat_with_memory(
     message: str,
     session_id: Optional[str] = None,
     top_k: int = 5,
-) -> str:
+) -> Tuple[str, str, str]:
     """Backward-compatible function wrapper."""
     return chat_manager.chat_with_memory(user_id, message, session_id, top_k)

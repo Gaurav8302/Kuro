@@ -345,6 +345,7 @@ class ChatInput(BaseModel):
     message: str = Field(..., description="User's chat message")
     session_id: Optional[str] = Field(None, description="Optional session ID")
     model: Optional[str] = Field(None, description="Optional model override")
+    search_mode: bool = Field(False, description="Force web search via compound research")
 
 class ChatResponse(BaseModel):
     """Response model for chat messages"""
@@ -578,22 +579,23 @@ async def chat_endpoint(chat_message: ChatInput):
     import time as _time
     request_start = _time.time()
     try:
-        response_text = chat_manager.chat_with_memory(
+        response_text, model_used, route_rule = chat_manager.chat_with_memory(
             user_id=chat_message.user_id,
             message=chat_message.message,
             session_id=chat_message.session_id or "default",
+            search_mode=chat_message.search_mode,
         )
 
         latency_ms = int((_time.time() - request_start) * 1000)
         logger.info(
-            "Chat response for user %s in %dms",
-            chat_message.user_id, latency_ms,
+            "Chat response for user %s in %dms (model=%s rule=%s)",
+            chat_message.user_id, latency_ms, model_used, route_rule,
         )
 
         return ChatResponse(
             reply=response_text,
-            model=None,         # model info logged server-side via memory debug
-            route_rule="v2_session_memory",
+            model=model_used,
+            route_rule=route_rule,
             latency_ms=latency_ms,
             intents=None,
         )
