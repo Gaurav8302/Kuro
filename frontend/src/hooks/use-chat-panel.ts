@@ -335,6 +335,7 @@ export function useChatPanel({
           route_rule?: string;
           latency_ms?: number;
           intents?: string[];
+          suggest_search?: boolean;
         }>('/chat', 'post', {
           user_id: userId,
           message,
@@ -375,6 +376,7 @@ export function useChatPanel({
             route_rule: response.route_rule,
             latency_ms: response.latency_ms,
             intents: response.intents,
+            suggest_search: response.suggest_search || false,
           },
         ]);
         setIsTyping(false);

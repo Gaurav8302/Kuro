@@ -306,6 +306,16 @@ _RESEARCH_KEYWORDS: List[str] = [
     "just announced",
     "launched today",
     "came out",
+    # Political leadership (always time-sensitive)
+    "president",
+    "prime minister",
+    "chief minister",
+    "governor",
+    "chancellor",
+    "who is the pm",
+    "who is the cm",
+    "head of state",
+    "minister of",
 ]
 
 

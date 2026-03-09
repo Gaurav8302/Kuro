@@ -23,6 +23,7 @@ interface KuroChatContentProps {
   isTyping: boolean;
   isLoading: boolean;
   onRetry: () => void;
+  onSearchRequest?: (userMessage: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -117,6 +118,7 @@ export const KuroChatContent: React.FC<KuroChatContentProps> = memo(({
   isTyping,
   isLoading,
   onRetry,
+  onSearchRequest,
   messagesEndRef
 }) => {
   const { shouldReduceAnimations } = useOptimizedAnimations();
@@ -143,6 +145,7 @@ export const KuroChatContent: React.FC<KuroChatContentProps> = memo(({
             userAvatar={userAvatar}
             isTyping={isTyping}
             onRetry={onRetry}
+            onSearchRequest={onSearchRequest}
           />
           <div ref={messagesEndRef} className="h-4" />
         </div>

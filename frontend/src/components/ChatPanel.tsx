@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PanelPosition, ChatSession } from '@/types';
@@ -62,6 +62,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
     initialQuestion?: string;
   } | null>(null);
 
+  // Handle search request from SearchSuggestion button
+  const handleSearchRequest = useCallback(
+    (userMessage: string) => {
+      if (userMessage) {
+        panel.sendMessage(userMessage, true);
+      }
+    },
+    [panel.sendMessage]
+  );
+
   const showSidebarToggle = panelPosition === 'left' || panelPosition === 'top' || !isSplitMode;
 
   return (
@@ -107,6 +117,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
             isTyping={panel.isTyping}
             isLoading={panel.isLoading}
             onRetry={panel.retryMessage}
+            onSearchRequest={handleSearchRequest}
             messagesEndRef={panel.messagesEndRef}
           />
         </div>

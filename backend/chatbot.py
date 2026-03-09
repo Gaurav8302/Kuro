@@ -354,6 +354,7 @@ class ChatResponse(BaseModel):
     route_rule: Optional[str] = Field(None, description="Routing rule applied")
     latency_ms: Optional[int] = Field(None, description="Response latency in milliseconds")
     intents: Optional[list] = Field(None, description="Classified intents")
+    suggest_search: bool = Field(False, description="True when the response suggests enabling browser search")
 
 class RenameRequest(BaseModel):
     """Request model for renaming sessions"""
@@ -592,12 +593,18 @@ async def chat_endpoint(chat_message: ChatInput):
             chat_message.user_id, latency_ms, model_used, route_rule,
         )
 
+        # Detect if the response is a safety-triggered browser suggestion
+        _is_safety_response = route_rule and (
+            "time_sensitive" in route_rule or "verified_blocked" in route_rule
+        )
+
         return ChatResponse(
             reply=response_text,
             model=model_used,
             route_rule=route_rule,
             latency_ms=latency_ms,
             intents=None,
+            suggest_search=bool(_is_safety_response),
         )
 
     except Exception as e:

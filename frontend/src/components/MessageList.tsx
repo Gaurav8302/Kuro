@@ -2,6 +2,7 @@ import React, { memo, useMemo } from 'react';
 import { Message } from '@/types';
 import { OptimizedChatBubble } from '@/components/OptimizedChatBubble';
 import { TypingIndicator } from '@/components/TypingIndicator';
+import { SearchSuggestion } from '@/components/SearchSuggestion';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
 
 interface MessageListProps {
@@ -9,6 +10,7 @@ interface MessageListProps {
   userAvatar: string;
   isTyping: boolean;
   onRetry: () => void;
+  onSearchRequest?: (userMessage: string) => void;
 }
 
 /**
@@ -66,7 +68,8 @@ export const MessageList: React.FC<MessageListProps> = memo(({
   messages, 
   userAvatar, 
   isTyping, 
-  onRetry 
+  onRetry,
+  onSearchRequest,
 }) => {
   const { shouldReduceAnimations } = useOptimizedAnimations();
 
@@ -76,17 +79,31 @@ export const MessageList: React.FC<MessageListProps> = memo(({
     [messages]
   );
 
+  // Find the user message that preceded a suggest_search response
+  const findPrecedingUserMessage = (idx: number): string => {
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') return messages[i].message;
+    }
+    return '';
+  };
+
   return (
     <div className="space-y-6">
       {messages.map((message, idx) => (
-        <MessageItem
-          key={message.timestamp + idx}
-          message={message}
-          index={idx}
-          userAvatar={userAvatar}
-          shouldReduceAnimations={shouldReduceAnimations}
-          onRetry={onRetry}
-        />
+        <React.Fragment key={message.timestamp + idx}>
+          <MessageItem
+            message={message}
+            index={idx}
+            userAvatar={userAvatar}
+            shouldReduceAnimations={shouldReduceAnimations}
+            onRetry={onRetry}
+          />
+          {message.suggest_search && message.role === 'assistant' && onSearchRequest && (
+            <SearchSuggestion
+              onSearchClick={() => onSearchRequest(findPrecedingUserMessage(idx))}
+            />
+          )}
+        </React.Fragment>
       ))}
       <TypingIndicator isTyping={isTyping} />
     </div>

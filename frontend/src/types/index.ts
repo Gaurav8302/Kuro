@@ -10,6 +10,7 @@ export interface Message {
   route_rule?: string;
   latency_ms?: number;
   intents?: string[];
+  suggest_search?: boolean;
 }
 
 export interface ChatSession {

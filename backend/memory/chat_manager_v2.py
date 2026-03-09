@@ -80,6 +80,18 @@ except Exception as e:
     ROUTER_V3_AVAILABLE = False
     logger.warning("Router v3 not available, falling back to v2: %s (type: %s)", e, type(e).__name__)
 
+# --------------------------------------------------------------------------
+# Time-sensitive classifier + 2-stage verifier
+# --------------------------------------------------------------------------
+try:
+    from routing.time_sensitive_classifier import classify_time_sensitivity, get_safe_response
+    from routing.response_verifier import verify_response, get_verification_safe_response, REQUIRES_BROWSER
+    SAFETY_CLASSIFIER_AVAILABLE = True
+    logger.info("Time-sensitive classifier + response verifier loaded successfully")
+except Exception as e:
+    SAFETY_CLASSIFIER_AVAILABLE = False
+    logger.warning("Safety classifier not available: %s", e)
+
 # Post-session summarization threshold (number of exchanges)
 # Lowered from 50 to 6 so that short conversations get summarized too
 POST_SESSION_SUMMARY_THRESHOLD = int(os.getenv("POST_SESSION_SUMMARY_THRESHOLD", "6"))
@@ -193,7 +205,29 @@ class ChatManager:
                 save_chat_to_db(user_id, message, response, session_id)
                 return response, "greeting", "name_extraction"
 
-            # --- 2. Build context (new deterministic builder) ---
+            # --- 2. Pre-check: Time-sensitive classification ---
+            time_sensitivity = None
+            if SAFETY_CLASSIFIER_AVAILABLE and not search_mode:
+                time_sensitivity = classify_time_sensitivity(message)
+                if time_sensitivity["is_time_sensitive"]:
+                    logger.info(
+                        "Time-sensitive query detected: category=%s reason=%s confidence=%.2f",
+                        time_sensitivity["category"],
+                        time_sensitivity["reason"],
+                        time_sensitivity["confidence"],
+                    )
+                    # High-confidence time-sensitive: return safe response immediately
+                    if time_sensitivity["confidence"] >= 0.85:
+                        safe_response = get_safe_response(time_sensitivity, message)
+                        save_chat_to_db(user_id, message, safe_response, session_id)
+                        elapsed_ms = int((time.time() - request_start) * 1000)
+                        logger.info(
+                            "Returned safe response for time-sensitive query in %dms",
+                            elapsed_ms,
+                        )
+                        return safe_response, "safety_classifier", "time_sensitive_blocked"
+
+            # --- 3. Build context (new deterministic builder) ---
             ctx = build_context(
                 session_id=session_id,
                 user_id=user_id,
@@ -204,7 +238,7 @@ class ChatManager:
             context_messages = ctx["messages"]
             system_prompt = ctx["system"]
 
-            # --- 3. Router v3 (LLM classifier) ---
+            # --- 4. Router v3 (LLM classifier) ---
             research_required = False
             research_context: Optional[str] = None
             task_type = "conversation"  # default
@@ -240,7 +274,7 @@ class ChatManager:
                 router_pick = self._fallback_to_v2(message, session_id)
                 route_rule = "v2_fallback"
 
-            # --- 3b. Rebuild system prompt with task-specific instructions ---
+            # --- 4b. Rebuild system prompt with task-specific instructions ---
             if task_type != "conversation":
                 ctx = build_context(
                     session_id=session_id,
@@ -252,7 +286,7 @@ class ChatManager:
                 context_messages = ctx["messages"]
                 system_prompt = ctx["system"]
 
-            # --- 4. Compound research (if needed or manual search_mode) ---
+            # --- 5. Compound research (if needed or manual search_mode) ---
             if (research_required or search_mode) and ROUTER_V3_AVAILABLE:
                 try:
                     logger.info("Running compound research for query: %.100s", message)
@@ -267,7 +301,7 @@ class ChatManager:
                 except Exception as e:
                     logger.error("Compound research failed: %s", e)
 
-            # --- 5. Model locking / resolution ---
+            # --- 6. Model locking / resolution ---
             model_decision = resolve_model(
                 session_id=session_id,
                 user_message=message,
@@ -292,7 +326,7 @@ class ChatManager:
                 debug["long_term_count"],
             )
 
-            # --- 6. Generate response ---
+            # --- 7. Generate response ---
             if research_context:
                 # When research is available, build a structured prompt
                 response_text = self._generate_research_response(
@@ -313,6 +347,21 @@ class ChatManager:
                     session_id=session_id,
                 )
 
+            # --- Stage 2 verification (BORDERLINE only: 0.40 ≤ conf < 0.85) ---
+            if (
+                SAFETY_CLASSIFIER_AVAILABLE
+                and not search_mode
+                and not research_context
+                and time_sensitivity
+                and time_sensitivity.get("is_time_sensitive")
+                and 0.40 <= time_sensitivity["confidence"] < 0.85
+            ):
+                verification = verify_response(message, response_text, model_id="llama-3.1-8b-instant")
+                if verification == REQUIRES_BROWSER:
+                    logger.info("2-stage verifier blocked response for query: %.80s", message)
+                    response_text = get_verification_safe_response()
+                    route_rule += ":verified_blocked"
+
             # Repetition check
             if self._check_response_repetition(user_id, response_text):
                 logger.info("Repetitive response detected, regenerating with variation hint")
@@ -329,10 +378,10 @@ class ChatManager:
                 )
             self._store_response(user_id, response_text)
 
-            # --- 7. Persist exchange ---
+            # --- 8. Persist exchange ---
             save_chat_to_db(user_id, message, response_text, session_id)
 
-            # --- 8. Post-session summarization check ---
+            # --- 9. Post-session summarization check ---
             msg_count = session_memory.get_message_count(session_id)
             if msg_count >= POST_SESSION_SUMMARY_THRESHOLD and msg_count % POST_SESSION_SUMMARY_THRESHOLD == 0:
                 logger.info(
