@@ -59,7 +59,7 @@ const CodeBlock = memo(({ raw, language, className = '' }: CodeBlockProps) => {
   };
 
   return (
-    <div className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/40 backdrop-blur-md overflow-hidden transform-gpu transition-transform duration-150 hover:scale-[1.005]">
+    <div className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/60 overflow-hidden">
       {/* Code block header */}
       <div className="flex items-center justify-between px-3 py-2 bg-holo-cyan-500/10 border-b border-holo-cyan-400/20">
         <span className="text-xs text-holo-cyan-400 font-orbitron tracking-wider">
