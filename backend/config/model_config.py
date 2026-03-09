@@ -84,6 +84,7 @@ SKILL_TO_MODEL: Dict[str, str] = {
     "reasoning": DEEPSEEK_REASONING,
     "code": GROQ_CODE,
     "summarization": SUMMARIZER_MEMORY,
+    "research": DEEPSEEK_REASONING,
 }
 
 # Simplified fallback chains (max 2 backups per model)

@@ -50,6 +50,17 @@ _GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 _GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # ---------------------------------------------------------------------------
+# Confidence-based escalation thresholds
+# ---------------------------------------------------------------------------
+# When the classifier's confidence is below this value, the router escalates
+# to a stronger model (reasoning_model) regardless of the original task_type.
+# This mimics the Perplexity-style "uncertain → use best model" pattern and
+# dramatically reduces misclassification impact.
+CONFIDENCE_ESCALATION_THRESHOLD = float(
+    os.getenv("ROUTER_CONFIDENCE_THRESHOLD", "0.6")
+)
+
+# ---------------------------------------------------------------------------
 # Model map: task_type + complexity → final model
 # ---------------------------------------------------------------------------
 _MODEL_SELECTION: Dict[str, str] = {
@@ -62,8 +73,8 @@ _MODEL_SELECTION: Dict[str, str] = {
     "summarization:simple": SUMMARIZATION_MODEL,
     "summarization:moderate": SUMMARIZATION_MODEL,
     "summarization:complex": SUMMARIZATION_MODEL,
-    "reasoning:simple": CONVERSATION_MODEL,
-    "reasoning:moderate": CONVERSATION_MODEL,
+    "reasoning:simple": REASONING_MODEL,
+    "reasoning:moderate": REASONING_MODEL,
     "reasoning:complex": REASONING_MODEL,
     "research:simple": REASONING_MODEL,
     "research:moderate": REASONING_MODEL,
@@ -492,6 +503,30 @@ def get_best_model(
         router_output["research_system"] = RESEARCH_SYSTEM
         router_output["final_model"] = REASONING_MODEL
 
+    # --- 6. Confidence-based escalation ---
+    # When the classifier is uncertain (below threshold), escalate to the
+    # reasoning model which handles ambiguous queries more reliably.
+    # This follows the Perplexity-style pattern: uncertain → use best model.
+    confidence_escalated = False
+    original_model = router_output["final_model"]
+    original_task_type = router_output["task_type"]
+
+    if (
+        router_output["confidence"] < CONFIDENCE_ESCALATION_THRESHOLD
+        and router_output["final_model"] != REASONING_MODEL
+        and not router_output["research_required"]
+    ):
+        confidence_escalated = True
+        router_output["final_model"] = REASONING_MODEL
+        logger.info(
+            "Confidence escalation triggered (%.2f < %.2f): %s → %s for task=%s",
+            router_output["confidence"],
+            CONFIDENCE_ESCALATION_THRESHOLD,
+            original_model,
+            REASONING_MODEL,
+            original_task_type,
+        )
+
     decision = {
         "chosen_model": router_output["final_model"],
         "task_type": router_output["task_type"],
@@ -500,6 +535,7 @@ def get_best_model(
         "confidence": router_output["confidence"],
         "reason": router_output["reason"],
         "source": "router_v3",
+        "confidence_escalated": confidence_escalated,
     }
 
     # Cache the decision
@@ -514,15 +550,20 @@ def get_best_model(
         research_required=decision["research_required"],
         confidence=decision["confidence"],
         latency_ms=elapsed,
+        extra={
+            "confidence_escalated": confidence_escalated,
+            "original_model": original_model if confidence_escalated else None,
+        },
     )
 
     logger.info(
-        "Router v3 decision: model=%s type=%s complexity=%s research=%s conf=%.2f (%dms)",
+        "Router v3 decision: model=%s type=%s complexity=%s research=%s conf=%.2f escalated=%s (%dms)",
         decision["chosen_model"],
         decision["task_type"],
         decision["complexity"],
         decision["research_required"],
         decision["confidence"],
+        confidence_escalated,
         elapsed,
     )
 
@@ -539,4 +580,5 @@ __all__ = [
     "REASONING_MODEL",
     "CODE_MODEL",
     "SUMMARIZATION_MODEL",
+    "CONFIDENCE_ESCALATION_THRESHOLD",
 ]

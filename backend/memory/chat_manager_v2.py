@@ -219,14 +219,18 @@ class ChatManager:
                     router_pick = v3_decision.get("chosen_model", "llama-3.1-8b-instant")
                     research_required = v3_decision.get("research_required", False)
                     task_type = v3_decision.get("task_type", "conversation")
+                    confidence_escalated = v3_decision.get("confidence_escalated", False)
                     route_rule = f"v3:{task_type}:{v3_decision.get('complexity', 'simple')}"
+                    if confidence_escalated:
+                        route_rule += ":escalated"
                     logger.info(
-                        "Router v3: model=%s task=%s complexity=%s research=%s conf=%.2f",
+                        "Router v3: model=%s task=%s complexity=%s research=%s conf=%.2f escalated=%s",
                         router_pick,
                         v3_decision.get("task_type"),
                         v3_decision.get("complexity"),
                         research_required,
                         v3_decision.get("confidence", 0),
+                        confidence_escalated,
                     )
                 except Exception as e:
                     logger.warning("Router v3 failed, falling back to v2: %s", e)
