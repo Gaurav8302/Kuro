@@ -207,6 +207,7 @@ class ChatManager:
             # --- 3. Router v3 (LLM classifier) ---
             research_required = False
             research_context: Optional[str] = None
+            task_type = "conversation"  # default
 
             if ROUTER_V3_AVAILABLE:
                 try:
@@ -217,7 +218,8 @@ class ChatManager:
                     )
                     router_pick = v3_decision.get("chosen_model", "llama-3.1-8b-instant")
                     research_required = v3_decision.get("research_required", False)
-                    route_rule = f"v3:{v3_decision.get('task_type', 'conversation')}:{v3_decision.get('complexity', 'simple')}"
+                    task_type = v3_decision.get("task_type", "conversation")
+                    route_rule = f"v3:{task_type}:{v3_decision.get('complexity', 'simple')}"
                     logger.info(
                         "Router v3: model=%s task=%s complexity=%s research=%s conf=%.2f",
                         router_pick,
@@ -233,6 +235,18 @@ class ChatManager:
             else:
                 router_pick = self._fallback_to_v2(message, session_id)
                 route_rule = "v2_fallback"
+
+            # --- 3b. Rebuild system prompt with task-specific instructions ---
+            if task_type != "conversation":
+                ctx = build_context(
+                    session_id=session_id,
+                    user_id=user_id,
+                    new_message=message,
+                    user_name=user_name,
+                    task_type=task_type,
+                )
+                context_messages = ctx["messages"]
+                system_prompt = ctx["system"]
 
             # --- 4. Compound research (if needed or manual search_mode) ---
             if (research_required or search_mode) and ROUTER_V3_AVAILABLE:

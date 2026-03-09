@@ -40,11 +40,11 @@ MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "28000"))
 EXCHANGE_LIMIT = int(os.getenv("SESSION_EXCHANGE_LIMIT", "15"))
 
 
-def _load_system_prompt() -> str:
-    """Load the base Kuro system prompt."""
+def _load_system_prompt(task_type: str = "conversation") -> str:
+    """Load the base Kuro system prompt for the given task type."""
     try:
-        from utils.kuro_prompt import kuro_prompt_builder
-        return kuro_prompt_builder.build_system_instruction()
+        from utils.kuro_prompt import build_system_instruction
+        return build_system_instruction(task_type)
     except Exception:
         return (
             "You are Kuro, an AI assistant created by Gaurav. "
@@ -61,6 +61,7 @@ def build_context(
     user_name: Optional[str] = None,
     system_prompt_override: Optional[str] = None,
     max_tokens: Optional[int] = None,
+    task_type: str = "conversation",
 ) -> Dict[str, Any]:
     """Build the complete context payload for an LLM call.
 
@@ -78,8 +79,8 @@ def build_context(
     """
     max_ctx = max_tokens or MAX_CONTEXT_TOKENS
 
-    # --- 1. System prompt ---
-    system_prompt = system_prompt_override or _load_system_prompt()
+    # --- 1. System prompt (task-aware) ---
+    system_prompt = system_prompt_override or _load_system_prompt(task_type)
     if user_name and user_name != "there":
         system_prompt += f"\n\nThe user's name is {user_name}."
 

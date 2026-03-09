@@ -124,7 +124,7 @@ export const KuroMessageBubble = memo(function KuroMessageBubble({
           'rounded-xl px-4 py-3',
           isUser
             ? 'bg-primary text-primary-foreground'
-            : 'glass border border-white/10 text-foreground'
+            : 'bg-card border border-white/10 text-foreground'
         )}
       >
         {/* Message text */}
@@ -193,7 +193,7 @@ export const KuroMessageBubble = memo(function KuroMessageBubble({
             onClick={handleCopy}
             className={cn(
               'absolute -bottom-2 right-2 p-1.5 rounded-md',
-              'glass border border-white/10',
+              'bg-card border border-white/10',
               'opacity-0 group-hover:opacity-100 transition-opacity',
               'text-muted-foreground hover:text-foreground'
             )}
