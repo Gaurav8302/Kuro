@@ -79,7 +79,7 @@ const Landing = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-16 overflow-hidden">
+      <section className="relative min-h-screen min-h-[100dvh] overflow-hidden px-6 pt-16">
         {/* Background grid pattern */}
         <div
           className="absolute inset-0 opacity-[0.02]"
@@ -92,54 +92,56 @@ const Landing = () => {
           }}
         />
 
-        {/* Kuro 3D Bot */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className="relative z-10 mb-8"
-        >
-          <KuroBot3D className="w-80 h-80 md:w-96 md:h-96" />
-        </motion.div>
-
-        {/* Hero Content */}
-        <motion.div
-          className="relative z-10 text-center max-w-3xl mx-auto"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-        >
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            <span className="text-foreground">Kuro.</span>
-            <br />
-            <span className="text-muted-foreground">Your personal AI interface.</span>
-          </h1>
-
-          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
-            A calm, powerful assistant designed for meaningful conversations. 
-            No noise. Just clarity.
-          </p>
-
-          {/* CTAs */}
+        <div className="relative z-10 flex min-h-[calc(100vh-4rem)] min-h-[calc(100dvh-4rem)] flex-col items-center justify-center">
+          {/* Kuro 3D Bot */}
           <motion.div
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="relative z-10 mb-8 shrink-0"
           >
-            <Button variant="hero" size="xl" asChild>
-              <Link to="/chat">
-                Start Chat
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-            <Button variant="hero-secondary" size="xl" asChild>
-              <Link to="#features">
-                Learn more
-              </Link>
-            </Button>
+            <KuroBot3D className="w-80 h-80 md:w-96 md:h-96" />
           </motion.div>
-        </motion.div>
+
+          {/* Hero Content */}
+          <motion.div
+            className="relative z-10 mx-auto max-w-3xl text-center"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+          >
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+              <span className="text-foreground">Kuro.</span>
+              <br />
+              <span className="text-muted-foreground">Your personal AI interface.</span>
+            </h1>
+
+            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
+              A calm, powerful assistant designed for meaningful conversations. 
+              No noise. Just clarity.
+            </p>
+
+            {/* CTAs */}
+            <motion.div
+              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              <Button variant="hero" size="xl" asChild>
+                <Link to="/chat">
+                  Start Chat
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+              <Button variant="hero-secondary" size="xl" asChild>
+                <Link to="#features">
+                  Learn more
+                </Link>
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
 
         {/* Scroll indicator */}
         <motion.div

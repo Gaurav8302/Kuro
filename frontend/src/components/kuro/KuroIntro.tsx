@@ -1,8 +1,7 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { KuroBot } from './KuroBot';
 import { KuroBackground } from './KuroBackground';
-import { useAnimationConfig } from '@/hooks/use-animation-config';
+import KuroBot3D from './KuroBot3D';
 
 interface KuroIntroProps {
   phrases?: string[];
@@ -26,7 +25,6 @@ export const KuroIntro = memo(function KuroIntro({
   userName,
 }: KuroIntroProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { shouldReduceMotion } = useAnimationConfig();
 
   // Customize first phrase if userName provided
   const displayPhrases = userName 
@@ -65,12 +63,12 @@ export const KuroIntro = memo(function KuroIntro({
       <div className="relative z-10 flex flex-col items-center text-center px-6">
         {/* 3D Kuro Bot with head cursor following */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0, 0, 0.2, 1] }}
-          className="mb-8"
+          className="mb-8 shrink-0"
         >
-          <KuroBot size={fullscreen ? 140 : 100} />
+          <KuroBot3D className={fullscreen ? 'h-56 w-56 md:h-72 md:w-72' : 'h-36 w-36 md:h-44 md:w-44'} />
         </motion.div>
 
         {/* Animated phrase */}
