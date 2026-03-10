@@ -96,6 +96,34 @@ except Exception as e:
 # Lowered from 50 to 6 so that short conversations get summarized too
 POST_SESSION_SUMMARY_THRESHOLD = int(os.getenv("POST_SESSION_SUMMARY_THRESHOLD", "6"))
 
+_LIVE_RESEARCH_SYSTEM_OVERRIDE = """LIVE RESEARCH MODE:
+- Browser search/web research is already enabled for this turn.
+- The provided research context contains the live information you should use if it is relevant.
+- Answer directly from the research context when it supports the answer.
+- Do not tell the user to enable browser search, web search, or search again when research context is already provided.
+- Do not add generic warnings like 'my knowledge may be outdated' if the answer is supported by the research context.
+- Only mention uncertainty when the research context is conflicting, incomplete, or does not answer the question."""
+
+_REDUNDANT_SEARCH_WARNING_PATTERNS = [
+    re.compile(r"(?:^|\n)\s*My knowledge may be outdated on this topic\..*(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*This question involves time-sensitive information.*?(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*Political roles change over time, so my information may be outdated\..*(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*You can enable\s+\*\*?browser search\*\*?.*(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*I'd also recommend enabling\s+\*\*?browser search\*\*?.*(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*I'd recommend enabling\s+\*\*?browser search\*\*?.*(?=\n|$)", re.I),
+    re.compile(r"(?:^|\n)\s*To make sure you get the right answer, I'd recommend enabling\s+\*\*?browser search\*\*?.*(?=\n|$)", re.I),
+]
+
+
+def _strip_redundant_search_warning(response_text: str) -> str:
+    """Remove stale search-enable advisories from responses already backed by live research."""
+    cleaned = response_text
+    for pattern in _REDUNDANT_SEARCH_WARNING_PATTERNS:
+        cleaned = pattern.sub("", cleaned)
+
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or response_text.strip()
+
 
 class ChatManager:
     """Memory-aware chat manager (v2 — minimal & deterministic)."""
@@ -520,6 +548,8 @@ class ChatManager:
           User Question → Research Context → Conversation Memory → Instructions
         """
         # Build memory context from conversation history
+        research_system_prompt = system_prompt + "\n\n" + _LIVE_RESEARCH_SYSTEM_OVERRIDE
+
         memory_parts: List[str] = []
         for m in context_messages:
             if m["role"] == "system":
@@ -540,7 +570,9 @@ class ChatManager:
         research_prompt_parts.append(
             "Instructions:\n"
             "Use the research information if relevant. "
-            "Combine it with the conversation context to produce a clear answer."
+            "Combine it with the conversation context to produce a clear answer. "
+            "The user already enabled browser search for this turn, so do not tell them to enable search again. "
+            "If the research context answers the question, answer directly instead of giving a generic recency warning."
         )
         research_prompt = "\n\n".join(research_prompt_parts)
 
@@ -557,7 +589,7 @@ class ChatManager:
                         result = loop.run_until_complete(
                             llm_orchestrate(
                                 user_message=research_prompt,
-                                system_prompt=system_prompt,
+                                system_prompt=research_system_prompt,
                                 memory_context=None,
                                 developer_forced_model=model_id,
                                 session_id=session_id,
@@ -565,7 +597,7 @@ class ChatManager:
                         )
                         reply = result.get("reply", "")
                         if reply:
-                            sanitized = sanitize_response(reply)
+                            sanitized = _strip_redundant_search_warning(sanitize_response(reply))
                             is_valid, _ = validate_response(sanitized, None)
                             if is_valid:
                                 return sanitized
@@ -579,11 +611,11 @@ class ChatManager:
         try:
             response = self.groq_client.generate_content(
                 prompt=research_prompt,
-                system_instruction=system_prompt,
+                system_instruction=research_system_prompt,
                 model_id=model_id,
             )
             if response:
-                return sanitize_response(response)
+                return _strip_redundant_search_warning(sanitize_response(response))
         except Exception as e:
             logger.error("Direct Groq research generation failed: %s", e)
 
@@ -617,7 +649,15 @@ class ChatManager:
 # --------------------------------------------------------------------------
 # Global instance & backward-compatible exports
 # --------------------------------------------------------------------------
-chat_manager = ChatManager()
+if os.getenv("DISABLE_MEMORY_INIT") == "1":
+    class _DummyChatManager:
+        def chat_with_memory(self, *args, **kwargs):
+            raise RuntimeError("ChatManager is disabled when DISABLE_MEMORY_INIT=1")
+
+    chat_manager = _DummyChatManager()
+    logger.info("Using dummy chat manager (DISABLE_MEMORY_INIT=1)")
+else:
+    chat_manager = ChatManager()
 
 
 def chat_with_memory(

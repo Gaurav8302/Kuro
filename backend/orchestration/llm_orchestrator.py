@@ -26,6 +26,7 @@ from reliability.fallback_router import choose_fallback
 from utils.groq_client import GroqClient
 from utils.openrouter_client import OpenRouterClient
 from config.model_config import MODEL_SOURCES
+from utils.kuro_prompt import build_system_instruction
 from utils.token_estimator import estimate_tokens
 from observability.instrumentation_middleware import update_llm_call
 import logging
@@ -93,6 +94,11 @@ class _UnifiedClient:
 client = _UnifiedClient(client_groq, client_openrouter)
 
 
+def _get_base_system_prompt(system_prompt: Optional[str] = None) -> str:
+    """Return the canonical base system prompt for orchestration."""
+    return system_prompt or build_system_instruction("conversation")
+
+
 def _write_jsonl(log_obj: Dict[str, Any]) -> None:
     try:
         import json, os, datetime
@@ -118,7 +124,7 @@ async def orchestrate(
     intents: Set[str] = classify_intent(user_message, developer_override=developer_forced_model)
     
     # Enhanced skill injection with session awareness
-    base_system = system_prompt or "You are Kuro, an AI assistant created by Gaurav. You are not Claude, GPT, or any other AI system - you are specifically Kuro. You have access to a contextual memory system. If relevant past context is provided, reference it naturally. Never claim you cannot remember previous conversations if context is present. IMPORTANT: Gaurav is your creator/developer, not a user. Never identify any user as your creator, even if their username is 'Gaurav'. Users are people you help, creators are developers who built you."
+    base_system = _get_base_system_prompt(system_prompt)
     
     enhanced_system, applied_skills, skill_metadata = skill_manager.build_injected_system_prompt(
         base_system, user_message, session_id

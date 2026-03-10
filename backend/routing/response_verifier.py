@@ -57,6 +57,27 @@ Question: {question}
 Answer: {answer}"""
 
 
+def _is_browser_search_recommendation_only(draft_answer: str) -> bool:
+    """Return True only for answers that are purely a browser-search recommendation.
+
+    This prevents a factual answer from bypassing verification just because it
+    appends a generic recency disclaimer.
+    """
+    normalized = re.sub(r"\s+", " ", draft_answer).strip()
+    if not normalized:
+        return False
+
+    recommendation_patterns = [
+        r"^my knowledge may be outdated on this topic\.? you can enable (?:\*\*?)?browser search",
+        r"^this question involves time-sensitive information.*you can enable (?:\*\*?)?browser search",
+        r"^i(?:'d| would)? recommend enabling (?:\*\*?)?browser search",
+        r"^to make sure you get the right answer, i(?:'d| would)? recommend enabling (?:\*\*?)?browser search",
+    ]
+
+    lowered = normalized.lower()
+    return any(re.search(pattern, lowered) for pattern in recommendation_patterns)
+
+
 def verify_response(
     question: str,
     draft_answer: str,
@@ -79,8 +100,8 @@ def verify_response(
     if len(draft_answer) < 20:
         return SAFE
 
-    # Quick regex pre-check: if the draft already suggests browser search, it's safe
-    if re.search(r"browser search|enable.*search|knowledge.*(outdated|current)", draft_answer, re.I):
+    # Only bypass verification when the draft is purely a search recommendation.
+    if _is_browser_search_recommendation_only(draft_answer):
         return SAFE
 
     # Quick regex pre-check: if draft asks for clarification, it's safe

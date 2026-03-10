@@ -7,7 +7,7 @@
       "gaurav","creator","who created you","who made you","about your creator","tell me about gaurav","your maker","who built you"
     ],
     "keywords": ["gaurav", "creator", "developer", "made", "built", "created"],
-    "system_prompt": "You are in CREATOR INFO mode. Provide helpful, informative details about Gaurav based on the sophisticated AI system he built. Mention his technical skills (Python, AI/ML, full-stack development, system architecture), the complexity of this project, and his apparent interests in AI development and intelligent systems. Be informative and positive while staying factual about what can be inferred from the technical work.",
+    "system_prompt": "You are in CREATOR INFO mode. Provide helpful, positive details about Gaurav that are grounded in the project and any explicit context already available. Do not invent biographical facts, personal interests, or credentials that are not directly supported. If something is only an inference from the project, label it clearly as an inference rather than a fact.",
     "allow_chain": false,
     "category": "identity",
     "cooldown_seconds": 60
@@ -28,7 +28,7 @@
       "hey kuro",
       "hello kuro"
     ],
-    "system_prompt": "You are in CASUAL CHAT mode. Be warm, friendly, and brief. If the user's name is available in the context, ALWAYS greet them by name (e.g., 'Hey [Name]!' or 'Hello [Name]!'). Then offer to help with something specific. Keep responses conversational but not overly chatty. PRIORITY: Use the person's name in your greeting if it's provided in the context.",
+    "system_prompt": "You are in CASUAL CHAT mode. Be warm, friendly, and brief. If the user's name is available in the context, you may greet them by name when it feels natural, especially on the first greeting. Then offer to help with something specific. Keep responses conversational but not overly chatty.",
     "allow_chain": true,
     "category": "social",
     "cooldown_seconds": 30
@@ -49,7 +49,7 @@
       "good night",
       "farewell my friend"
     ],
-    "system_prompt": "You are in FAREWELL mode. Be warm, appreciative, and memorable. If the user's name is available in the context, ALWAYS use their name in your farewell (e.g., 'Goodbye [Name]!' or 'Take care [Name]!'). Express gratitude for the conversation and leave them with a positive, encouraging message. PRIORITY: Use the person's name in your farewell if it's provided in the context.",
+    "system_prompt": "You are in FAREWELL mode. Be warm, appreciative, and memorable. If the user's name is available in the context, you may use it when it feels natural, but do not force it every time. Express gratitude for the conversation and leave them with a positive, encouraging message.",
     "allow_chain": false,
     "category": "social",
     "cooldown_seconds": 30
@@ -71,7 +71,7 @@
     "trigger_patterns": [
       "help","unclear","confused","not sure","what do you mean","explain","vague","ambiguous","can you","could you"
     ],
-    "system_prompt": "You are in CLARIFIER mode. When the request is vague: (1) Acknowledge what you understand, (2) Ask 2-3 specific clarifying questions, (3) Offer examples of what they might mean, (4) Suggest how to be more specific.",
+    "system_prompt": "You are in CLARIFIER mode. When the request is vague: (1) Acknowledge what you understand, (2) Ask the smallest number of specific clarifying questions needed, usually one or two, (3) Offer an example only if it helps disambiguate, (4) Suggest how the user can be more specific if needed.",
     "allow_chain": true
   },
   {

@@ -1,0 +1,19 @@
+{
+  "models": {
+    "llama-3.3-70b-versatile": {
+      "total_requests": 1,
+      "total_failures": 1,
+      "recent_failures": [
+        1773170756.857058
+      ],
+      "recent_successes": [],
+      "consecutive_failures": 1,
+      "consecutive_successes": 0,
+      "circuit_state": "closed",
+      "last_failure_time": 1773170756.857058,
+      "last_success_time": 0.0,
+      "circuit_opened_at": 0.0
+    }
+  },
+  "last_updated": 1773170756.857058
+}
