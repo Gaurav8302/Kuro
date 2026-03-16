@@ -346,6 +346,7 @@ class ChatInput(BaseModel):
     session_id: Optional[str] = Field(None, description="Optional session ID")
     model: Optional[str] = Field(None, description="Optional model override")
     search_mode: bool = Field(False, description="Force web search via compound research")
+    skill: str = Field("auto", description="Skill override: auto, code, explain, creative, problem, web")
 
 class ChatResponse(BaseModel):
     """Response model for chat messages"""
@@ -585,6 +586,7 @@ async def chat_endpoint(chat_message: ChatInput):
             message=chat_message.message,
             session_id=chat_message.session_id or "default",
             search_mode=chat_message.search_mode,
+            skill=chat_message.skill,
         )
 
         latency_ms = int((_time.time() - request_start) * 1000)

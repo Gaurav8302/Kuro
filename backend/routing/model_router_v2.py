@@ -116,6 +116,14 @@ SKILL_KEYWORD_PATTERNS: Dict[str, List[str]] = {
     ],
 }
 
+UI_SKILL_TO_ROUTER_SKILL: Dict[str, str] = {
+    "code": "code",
+    "creative": "conversation",
+    "problem": "reasoning",
+    "explain": "summarization",
+    "web": "research",
+}
+
 
 def _now() -> float:
     return time.time()
@@ -183,6 +191,7 @@ async def get_best_model(
     session_id: Optional[str] = None, 
     history: Optional[List[Dict[str, str]]] = None, 
     system: Optional[str] = None,
+    skill: Optional[str] = None,
     intent: Optional[str] = None,
     forced_model: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -209,8 +218,24 @@ async def get_best_model(
             "confidence": 1.0,
             "fallback_used": False,
         }
+
+    # PRIORITY 2: Manual skill override
+    normalized_skill = (skill or "auto").strip().lower()
+    if normalized_skill != "auto":
+        mapped_skill = UI_SKILL_TO_ROUTER_SKILL.get(normalized_skill)
+        if mapped_skill:
+            manual_model = normalize_model_id(SKILL_TO_MODEL[mapped_skill])
+            logger.info("🎯 Manual skill override: %s -> %s", normalized_skill, manual_model)
+            return {
+                "chosen_model": manual_model,
+                "source": get_model_source(manual_model),
+                "reason": f"skill_override:{normalized_skill}",
+                "confidence": 1.0,
+                "fallback_used": False,
+            }
+        logger.warning("Unknown skill override '%s', falling back to auto routing", normalized_skill)
     
-    # PRIORITY 2: Cache check
+    # PRIORITY 3: Cache check
     key = query.strip().lower()[:128]
     now = _now()
     
@@ -231,7 +256,7 @@ async def get_best_model(
                 _route_cache.pop(key, None)
                 logger.debug("🗑️ Expired cache entry removed for query: %s", key[:50])
 
-    # PRIORITY 3: Rule-based skill routing
+    # PRIORITY 4: Rule-based skill routing
     rb_model, rb_conf, rb_reason = rule_based_router(query, intent=intent)
     if rb_model and rb_conf >= 0.75:
         rb_model_norm = normalize_model_id(rb_model)
@@ -260,13 +285,13 @@ async def get_best_model(
         
         return result
 
-    # PRIORITY 4: Score-based routing (optional, env-controlled)
+    # PRIORITY 5: Score-based routing (optional, env-controlled)
     if ENABLE_SCORE_ROUTING and ROUTING_STRATEGY == "score":
         logger.warning("⚠️ Score-based routing not fully implemented yet, falling back to conversation")
         # TODO: Implement score-based routing if needed
         # For now, fall through to default
     
-    # PRIORITY 5: Default to conversation model
+    # PRIORITY 6: Default to conversation model
     model = normalize_model_id(KIMMI_CONVERSATIONAL)
     reason = "default:conversation"
     conf = 0.6

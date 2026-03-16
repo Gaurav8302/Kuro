@@ -1,6 +1,7 @@
 import React, { memo, Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
 import { Message } from '@/types';
+import { ChatSkill } from '@/hooks/use-chat-panel';
 import { MessageList } from '@/components/MessageList';
 import { useOptimizedAnimations } from '@/hooks/use-performance';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ interface KuroChatContentProps {
   isLoading: boolean;
   onRetry: () => void;
   onSearchRequest?: (userMessage: string) => void;
+  onSelectSkill?: (skill: ChatSkill) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -31,7 +33,7 @@ interface KuroChatContentProps {
  * EmptyState - Professional empty state with 3D Kuro Bot
  * The bot's head follows the cursor
  */
-const EmptyState = memo<{ isLoading: boolean }>(({ isLoading }) => {
+const EmptyState = memo<{ isLoading: boolean; onSelectSkill?: (skill: ChatSkill) => void }>(({ isLoading, onSelectSkill }) => {
   const { shouldReduceAnimations } = useOptimizedAnimations();
 
   if (isLoading) {
@@ -87,17 +89,23 @@ const EmptyState = memo<{ isLoading: boolean }>(({ isLoading }) => {
           
           {/* Quick action suggestions */}
           <div className="flex flex-wrap justify-center gap-2">
-            {["Write code", "Explain concepts", "Creative writing", "Problem solving"].map((action, i) => (
-              <motion.div
-                key={action}
+            {[
+              { id: 'code' as ChatSkill, label: 'Write code' },
+              { id: 'explain' as ChatSkill, label: 'Explain concepts' },
+              { id: 'creative' as ChatSkill, label: 'Creative writing' },
+              { id: 'problem' as ChatSkill, label: 'Problem solving' },
+            ].map((action, i) => (
+              <motion.button
+                key={action.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 + i * 0.1 }}
-                className="px-4 py-2 rounded-full glass border border-primary/20 text-sm text-foreground flex items-center gap-2 cursor-default"
+                className="px-4 py-2 rounded-full glass border border-primary/20 text-sm text-foreground flex items-center gap-2 cursor-pointer hover:border-primary/40 hover:bg-primary/10 transition-colors"
+                onClick={() => onSelectSkill?.(action.id)}
               >
                 <Sparkles className="w-3 h-3 text-primary" />
-                {action}
-              </motion.div>
+                {action.label}
+              </motion.button>
             ))}
           </div>
         </motion.div>
@@ -119,6 +127,7 @@ export const KuroChatContent: React.FC<KuroChatContentProps> = memo(({
   isLoading,
   onRetry,
   onSearchRequest,
+  onSelectSkill,
   messagesEndRef
 }) => {
   const { shouldReduceAnimations } = useOptimizedAnimations();
@@ -133,7 +142,7 @@ export const KuroChatContent: React.FC<KuroChatContentProps> = memo(({
       {/* Empty State - shown when no messages */}
       {!hasMessages && (
         <div className="h-full flex items-center justify-center py-12">
-          <EmptyState isLoading={isLoading && !hasMessages} />
+          <EmptyState isLoading={isLoading && !hasMessages} onSelectSkill={onSelectSkill} />
         </div>
       )}
 

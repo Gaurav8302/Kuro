@@ -47,6 +47,7 @@ from memory.model_lock import resolve_model
 # --------------------------------------------------------------------------
 from memory.chat_database import save_chat_to_db
 from memory.user_profile import get_user_name as get_profile_name, set_user_name
+from config.model_config import SKILL_TO_MODEL, normalize_model_id
 from utils.kuro_prompt import build_kuro_prompt, sanitize_response
 from utils.safety import validate_response, get_fallback_response
 from utils.groq_client import GroqClient
@@ -95,6 +96,22 @@ except Exception as e:
 # Post-session summarization threshold (number of exchanges)
 # Lowered from 50 to 6 so that short conversations get summarized too
 POST_SESSION_SUMMARY_THRESHOLD = int(os.getenv("POST_SESSION_SUMMARY_THRESHOLD", "6"))
+
+UI_SKILL_TO_TASK_TYPE: Dict[str, str] = {
+    "code": "code",
+    "creative": "conversation",
+    "problem": "reasoning",
+    "explain": "summarization",
+    "web": "research",
+}
+
+UI_SKILL_TO_ROUTER_SKILL: Dict[str, str] = {
+    "code": "code",
+    "creative": "conversation",
+    "problem": "reasoning",
+    "explain": "summarization",
+    "web": "research",
+}
 
 _LIVE_RESEARCH_SYSTEM_OVERRIDE = """LIVE RESEARCH MODE:
 - Browser search/web research is already enabled for this turn.
@@ -197,6 +214,7 @@ class ChatManager:
         session_id: Optional[str] = None,
         top_k: int = 5,
         search_mode: bool = False,
+        skill: str = "auto",
     ) -> Tuple[str, str, str]:
         """Process a user message within a session.
 
@@ -218,8 +236,8 @@ class ChatManager:
         route_rule = "default"
 
         logger.info(
-            "chat_with_memory called: user=%s session=%s search_mode=%s router_v3=%s",
-            user_id[:20], session_id[:30], search_mode, ROUTER_V3_AVAILABLE,
+            "chat_with_memory called: user=%s session=%s search_mode=%s skill=%s router_v3=%s",
+            user_id[:20], session_id[:30], search_mode, skill, ROUTER_V3_AVAILABLE,
         )
 
         try:
@@ -266,12 +284,29 @@ class ChatManager:
             context_messages = ctx["messages"]
             system_prompt = ctx["system"]
 
-            # --- 4. Router v3 (LLM classifier) ---
+            # --- 4. Router selection (manual override or automatic routing) ---
             research_required = False
             research_context: Optional[str] = None
             task_type = "conversation"  # default
 
-            if ROUTER_V3_AVAILABLE:
+            normalized_skill = (skill or "auto").strip().lower()
+            manual_skill_selected = normalized_skill in UI_SKILL_TO_ROUTER_SKILL
+
+            if manual_skill_selected:
+                mapped_skill = UI_SKILL_TO_ROUTER_SKILL[normalized_skill]
+                router_pick = normalize_model_id(SKILL_TO_MODEL[mapped_skill])
+                task_type = UI_SKILL_TO_TASK_TYPE.get(normalized_skill, "conversation")
+                research_required = normalized_skill == "web"
+                route_rule = f"manual_skill:{normalized_skill}"
+                if research_required:
+                    search_mode = True
+                logger.info(
+                    "Manual skill override active: ui_skill=%s mapped_skill=%s model=%s",
+                    normalized_skill,
+                    mapped_skill,
+                    router_pick,
+                )
+            elif ROUTER_V3_AVAILABLE:
                 try:
                     v3_decision = get_best_model_v3(
                         query=message,
@@ -330,13 +365,17 @@ class ChatManager:
                     logger.error("Compound research failed: %s", e)
 
             # --- 6. Model locking / resolution ---
-            model_decision = resolve_model(
-                session_id=session_id,
-                user_message=message,
-                router_pick=router_pick,
-                context_tokens=debug["estimated_tokens"],
-            )
-            model_id = model_decision["model_id"]
+            if manual_skill_selected:
+                model_id = router_pick
+                model_decision = {"model_id": model_id, "source": "manual_skill_override"}
+            else:
+                model_decision = resolve_model(
+                    session_id=session_id,
+                    user_message=message,
+                    router_pick=router_pick,
+                    context_tokens=debug["estimated_tokens"],
+                )
+                model_id = model_decision["model_id"]
 
             # --- Debug log ---
             logger.info("Memory retrieval triggered: %s", debug["long_term_triggered"])
@@ -665,6 +704,15 @@ def chat_with_memory(
     message: str,
     session_id: Optional[str] = None,
     top_k: int = 5,
+    search_mode: bool = False,
+    skill: str = "auto",
 ) -> Tuple[str, str, str]:
     """Backward-compatible function wrapper."""
-    return chat_manager.chat_with_memory(user_id, message, session_id, top_k)
+    return chat_manager.chat_with_memory(
+        user_id=user_id,
+        message=message,
+        session_id=session_id,
+        top_k=top_k,
+        search_mode=search_mode,
+        skill=skill,
+    )

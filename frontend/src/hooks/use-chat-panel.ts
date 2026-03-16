@@ -12,6 +12,8 @@ export type ClerkApiRequestFn = <T>(
   params?: any
 ) => Promise<T>;
 
+export type ChatSkill = 'auto' | 'code' | 'explain' | 'creative' | 'problem' | 'web';
+
 interface UseChatPanelOptions {
   sessionId: string | null;
   sessions: ChatSession[];
@@ -37,7 +39,7 @@ interface UseChatPanelReturn {
   messagesContainerRef: React.RefObject<HTMLDivElement>;
 
   // Handlers
-  sendMessage: (message: string, searchMode?: boolean) => Promise<void>;
+  sendMessage: (message: string, searchMode?: boolean, skill?: ChatSkill) => Promise<void>;
   loadSession: (id: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => Promise<void>;
   generateTitle: () => Promise<void>;
@@ -294,7 +296,7 @@ export function useChatPanel({
 
   // Send message
   const sendMessage = useCallback(
-    async (message: string, searchMode?: boolean) => {
+    async (message: string, searchMode?: boolean, skill: ChatSkill = 'auto') => {
       setIsLoading(true);
       setIsTyping(true);
       setError(null);
@@ -341,6 +343,7 @@ export function useChatPanel({
           message,
           session_id: sessionToUse.session_id,
           search_mode: searchMode || false,
+          skill,
         });
 
         const isRateLimitReply =

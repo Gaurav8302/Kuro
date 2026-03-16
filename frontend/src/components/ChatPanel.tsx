@@ -2,7 +2,7 @@ import React, { memo, useState, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PanelPosition, ChatSession } from '@/types';
-import { useChatPanel, ClerkApiRequestFn } from '@/hooks/use-chat-panel';
+import { useChatPanel, ClerkApiRequestFn, ChatSkill } from '@/hooks/use-chat-panel';
 import { useSplitView } from '@/contexts/SplitViewContext';
 import { useTextSelection } from '@/hooks/use-text-selection';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -61,15 +61,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
     messageIndex: number;
     initialQuestion?: string;
   } | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<ChatSkill>('auto');
 
   // Handle search request from SearchSuggestion button
   const handleSearchRequest = useCallback(
     (userMessage: string) => {
       if (userMessage) {
-        panel.sendMessage(userMessage, true);
+        panel.sendMessage(userMessage, true, selectedSkill);
       }
     },
-    [panel.sendMessage]
+    [panel.sendMessage, selectedSkill]
   );
 
   const showSidebarToggle = panelPosition === 'left' || panelPosition === 'top' || !isSplitMode;
@@ -118,6 +119,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
             isLoading={panel.isLoading}
             onRetry={panel.retryMessage}
             onSearchRequest={handleSearchRequest}
+            onSelectSkill={setSelectedSkill}
             messagesEndRef={panel.messagesEndRef}
           />
         </div>
@@ -184,6 +186,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
       <footer className="flex-shrink-0">
         <KuroChatInput
           onSendMessage={panel.sendMessage}
+          selectedSkill={selectedSkill}
+          onSkillChange={setSelectedSkill}
           sending={panel.isTyping || panel.isLoading}
           placeholder={
             panel.isTyping || panel.isLoading
