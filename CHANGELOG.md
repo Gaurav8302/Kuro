@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-03-18 - **FRONTEND OPTIMIZATIONS & SYSTEM OVERHAUL** 🚀⚡
+
+### ✨ Added
+- **React Lazy Loading & Suspense**: Implemented dynamic code splitting for heavy 3D components and chunked vendor libraries on the frontend.
+- **Improved Type Safety**: Replaced unsafe `any` typings with strict `unknown` type guards across React Contexts and hooks (`use-chat-panel.ts`, `SplitViewContext.tsx`).
+- **Comprehensive Backend Stability**: Refactored Model Router (v2.0) and simplified intention classifiers and memory management logic.
+
+### 🐛 Fixed
+- **Split-Screen UX**: Resolved UI layout bug in `SplitViewContext.tsx` where the "Expand Chat" feature failed to maximize panels due to React state updater conflicts.
+- **Frontend Build Size**: Vastly reduced excessive Vite initial chunk size through dynamic imports. 
+- **Skill Engine Desync**: "Web Research" is fully decoupled from manual UI dropdowns and is natively handled under the backend routing mechanism.
+
+### 🧹 Removed
+- Manual `web` skill from the `<select>` input and command regex arrays (`/web`) in the React `KuroChatInput.tsx` UI.
+
 ## [1.3.0] - 2025-08-11 - **SKILL ENGINE EXPANSION** 🧠✨
 
 ### ✨ Added
