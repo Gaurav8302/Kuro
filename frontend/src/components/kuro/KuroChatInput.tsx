@@ -11,7 +11,6 @@ const SKILLS: Array<{ id: ChatSkill; name: string }> = [
   { id: 'explain', name: 'Explain Concepts' },
   { id: 'creative', name: 'Creative Writing' },
   { id: 'problem', name: 'Problem Solving' },
-  { id: 'web', name: 'Web Research' },
 ];
 
 const SKILL_LABELS: Record<ChatSkill, string> = {
@@ -20,7 +19,6 @@ const SKILL_LABELS: Record<ChatSkill, string> = {
   explain: 'Explain Concepts',
   creative: 'Creative Writing',
   problem: 'Problem Solving',
-  web: 'Web Research',
 };
 
 interface KuroChatInputProps {
@@ -60,11 +58,11 @@ export const KuroChatInput = memo(function KuroChatInput({
     let finalSkill = selectedSkill;
     let finalMessage = trimmed;
 
-    const slashMatch = trimmed.match(/^\/(auto|code|explain|creative|problem|web)\b/i);
+    const slashMatch = trimmed.match(/^\/(auto|code|explain|creative|problem)\b/i);
     if (slashMatch) {
       finalSkill = slashMatch[1].toLowerCase() as ChatSkill;
       onSkillChange(finalSkill);
-      finalMessage = trimmed.replace(/^\/(auto|code|explain|creative|problem|web)\b\s*/i, '').trim();
+      finalMessage = trimmed.replace(/^\/(auto|code|explain|creative|problem)\b\s*/i, '').trim();
       if (!finalMessage) {
         setMessage('');
         return;

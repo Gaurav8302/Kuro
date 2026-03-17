@@ -12,7 +12,7 @@ export type ClerkApiRequestFn = <T>(
   params?: Record<string, unknown>
 ) => Promise<T>;
 
-export type ChatSkill = 'auto' | 'code' | 'explain' | 'creative' | 'problem' | 'web';
+export type ChatSkill = 'auto' | 'code' | 'explain' | 'creative' | 'problem';
 
 interface UseChatPanelOptions {
   sessionId: string | null;
