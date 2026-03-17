@@ -78,7 +78,6 @@ class UltraLightweightMemoryManager:
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
             # Return a default embedding vector of appropriate size
-            return [0.0] * 384
             return [0.0] * 384  # Match Pinecone index dimension
 
     def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:

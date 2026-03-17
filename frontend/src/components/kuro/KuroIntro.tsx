@@ -1,7 +1,8 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, memo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KuroBackground } from './KuroBackground';
-import KuroBot3D from './KuroBot3D';
+
+const KuroBot3D = lazy(() => import('./KuroBot3D'));
 
 interface KuroIntroProps {
   phrases?: string[];
@@ -66,14 +67,20 @@ export const KuroIntro = memo(function KuroIntro({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0, 0, 0.2, 1] }}
-          className="mb-8 shrink-0"
-        >
-          <KuroBot3D className={fullscreen ? 'h-56 w-56 md:h-72 md:w-72' : 'h-36 w-36 md:h-44 md:w-44'} />
-        </motion.div>
+            className={`mb-8 shrink-0 ${fullscreen ? 'min-h-[14rem] md:min-h-[18rem]' : 'min-h-[9rem] md:min-h-[11rem]'}`}
+          >
+            <Suspense fallback={
+              <div className={`${fullscreen ? 'h-56 w-56 md:h-72 md:w-72' : 'h-36 w-36 md:h-44 md:w-44'} flex items-center justify-center`}>
+                <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+              </div>
+            }>
+              <KuroBot3D className={fullscreen ? 'h-56 w-56 md:h-72 md:w-72' : 'h-36 w-36 md:h-44 md:w-44'} />
+            </Suspense>
+          </motion.div>
 
-        {/* Animated phrase */}
-        <div className="h-24 flex items-center justify-center overflow-hidden">
-          <AnimatePresence mode="wait">
+          {/* Animated phrase */}
+          <div className="h-20 md:h-24 relative flex items-center justify-center overflow-hidden">
+            <AnimatePresence mode="wait">
             <motion.h1
               key={currentPhrase}
               className={`

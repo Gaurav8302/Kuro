@@ -1,19 +1,43 @@
 {
   "models": {
     "llama-3.3-70b-versatile": {
-      "total_requests": 1,
-      "total_failures": 1,
+      "total_requests": 6,
+      "total_failures": 6,
       "recent_failures": [
-        1773170756.857058
+        1773767198.5575144
       ],
+      "recent_successes": [],
+      "consecutive_failures": 6,
+      "consecutive_successes": 0,
+      "circuit_state": "open",
+      "last_failure_time": 1773767198.5575144,
+      "last_success_time": 0.0,
+      "circuit_opened_at": 1773767198.5575144
+    },
+    "moonshotai/kimi-dev-72b:free": {
+      "total_requests": 2,
+      "total_failures": 1,
+      "recent_failures": [],
       "recent_successes": [],
       "consecutive_failures": 1,
       "consecutive_successes": 0,
       "circuit_state": "closed",
-      "last_failure_time": 1773170756.857058,
+      "last_failure_time": 1773765532.8569374,
+      "last_success_time": 1773765499.4136508,
+      "circuit_opened_at": 0.0
+    },
+    "deepseek-r1-distill-llama-70b": {
+      "total_requests": 1,
+      "total_failures": 1,
+      "recent_failures": [],
+      "recent_successes": [],
+      "consecutive_failures": 1,
+      "consecutive_successes": 0,
+      "circuit_state": "closed",
+      "last_failure_time": 1773765531.2159288,
       "last_success_time": 0.0,
       "circuit_opened_at": 0.0
     }
   },
-  "last_updated": 1773170756.857058
+  "last_updated": 1773767198.5575144
 }

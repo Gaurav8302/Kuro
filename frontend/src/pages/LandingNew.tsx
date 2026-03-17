@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useUser, useAuth, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
-import KuroBot3D from "@/components/kuro/KuroBot3D";
 import { Button } from "@/components/ui/button";
+
+const KuroBot3D = lazy(() => import("@/components/kuro/KuroBot3D"));
 
 const Header = () => {
   return (
@@ -98,18 +99,23 @@ const Landing = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: "easeOut" }}
-            className="relative z-10 mb-8 shrink-0"
-          >
-            <KuroBot3D className="w-80 h-80 md:w-96 md:h-96" />
-          </motion.div>
+              className="relative z-10 mb-8 shrink-0 min-h-[320px] md:min-h-[384px]"
+            >
+              <Suspense fallback={
+                <div className="w-80 h-80 md:w-96 md:h-96 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                </div>
+              }>
+                <KuroBot3D className="w-80 h-80 md:w-96 md:h-96" />
+              </Suspense>
+            </motion.div>
 
-          {/* Hero Content */}
-          <motion.div
-            className="relative z-10 mx-auto max-w-3xl text-center"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
+            <motion.div
+              className="relative z-10 mx-auto max-w-3xl text-center"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
               <span className="text-foreground">Kuro.</span>
               <br />

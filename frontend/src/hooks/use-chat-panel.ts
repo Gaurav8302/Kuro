@@ -8,8 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 export type ClerkApiRequestFn = <T>(
   endpoint: string,
   method: 'get' | 'post' | 'put' | 'delete',
-  data?: any,
-  params?: any
+  data?: unknown,
+  params?: Record<string, unknown>
 ) => Promise<T>;
 
 export type ChatSkill = 'auto' | 'code' | 'explain' | 'creative' | 'problem' | 'web';
@@ -80,8 +80,10 @@ function detectSystemMessage(messageText: string): {
 /**
  * Map raw backend history to Message[].
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapHistory(history: any[]): Message[] {
   const mapped: Message[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   history.forEach((item: any) => {
     if (item.user) {
       mapped.push({
@@ -222,9 +224,10 @@ export function useChatPanel({
           setCurrentSession({ session_id: id, title: 'Chat Session' });
           setHasUserEditedTitle(true);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('[useChatPanel] Error loading session:', err);
-        setError(isDev ? maintenanceMessage : 'Failed to load session messages');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(isDev ? maintenanceMessage : 'Failed to load session messages: ' + errorMessage);
         const session = sessions.find((s) => s.session_id === id);
         if (session) {
           setCurrentSession(session);
@@ -287,8 +290,9 @@ export function useChatPanel({
           title: 'Session renamed',
           description: 'Chat session title has been updated successfully.',
         });
-      } catch (err: any) {
-        showErrorToast('Error', 'Failed to rename session: ' + err.message);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        showErrorToast('Error', 'Failed to rename session: ' + errorMessage);
       }
     },
     [clerkApiRequest, currentSession, onSessionsChanged, toast, showErrorToast]
@@ -422,10 +426,11 @@ export function useChatPanel({
             console.log('Auto-naming failed:', err);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setIsTyping(false);
         setLastFailedMessage(message);
-        showErrorToast('Error', err.message);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        showErrorToast('Error', errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -466,10 +471,10 @@ export function useChatPanel({
       if (candidate.length < 3) candidate = 'Chat Session';
       await renameSession(currentSession.session_id, candidate);
       setHasUserEditedTitle(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Title generation failed',
-        description: err.message || 'Could not generate a title right now.',
+        description: err instanceof Error ? err.message : 'Could not generate a title right now.',
         variant: 'destructive',
       });
     } finally {

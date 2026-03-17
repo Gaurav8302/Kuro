@@ -202,37 +202,32 @@ class ChatDatabase:
                 for s in titled_sessions_cursor
             ]
 
+            titled_ids = {s["session_id"] for s in titled_sessions}
+            merged_sessions = list(titled_sessions)
+
             # Fallback: infer sessions from existing chat messages (for legacy data without titles)
-            inferred_by_id: Dict[str, Dict[str, Any]] = {}
             try:
-                chats_cursor = self.chat_collection.find({"user_id": user_id})
-                for c in chats_cursor:
-                    sid = c.get("session_id")
-                    if not sid:
-                        continue
-                    ts = c.get("timestamp")
-                    # Track the earliest timestamp seen as "created_at"
-                    if sid not in inferred_by_id:
-                        inferred_by_id[sid] = {
-                            "session_id": sid,
-                            # Use first user message as a provisional title (trimmed)
-                            "title": (c.get("message") or "Chat Session")[:100],
-                            "created_at": ts,
-                        }
-                    else:
-                        # Update created_at to the earliest timestamp if needed
-                        if ts and inferred_by_id[sid].get("created_at") and ts < inferred_by_id[sid]["created_at"]:
-                            inferred_by_id[sid]["created_at"] = ts
+                # Optimized query: only aggregate over sessions that don't already have titles
+                pipeline = [
+                    {"$match": {"user_id": user_id, "session_id": {"$nin": list(titled_ids)}}},
+                    {"$sort": {"timestamp": 1}},
+                    {"$group": {
+                        "_id": "$session_id",
+                        "title": {"$first": "$message"},
+                        "created_at": {"$first": "$timestamp"}
+                    }}
+                ]
+                
+                legacy_sessions = list(self.chat_collection.aggregate(pipeline))
+                for s in legacy_sessions:
+                    merged_sessions.append({
+                        "session_id": s["_id"],
+                        "title": (s.get("title") or "Chat Session")[:100],
+                        "created_at": s.get("created_at")
+                    })
             except Exception as sub_e:
                 # Non-fatal: we can still return titled sessions
                 logger.debug(f"Session inference from chats failed: {sub_e}")
-
-            # Merge: add inferred sessions that don't already have titles
-            titled_ids = {s["session_id"] for s in titled_sessions}
-            merged_sessions = list(titled_sessions)
-            for sid, info in inferred_by_id.items():
-                if sid not in titled_ids:
-                    merged_sessions.append(info)
 
             # Sort by created_at desc when available
             merged_sessions.sort(key=lambda s: s.get("created_at") or datetime.min, reverse=True)

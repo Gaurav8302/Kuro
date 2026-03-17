@@ -1,6 +1,7 @@
 // Performance optimization utilities for Kuro AI
 
 // Debounce utility for expensive operations
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -13,6 +14,7 @@ export const debounce = <T extends (...args: any[]) => any>(
 };
 
 // Throttle utility for scroll/resize events
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const throttle = <T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -30,7 +32,9 @@ export const throttle = <T extends (...args: any[]) => any>(
 // Memory management utilities
 export const cleanupUnusedResources = () => {
   // Force garbage collection if available (Chrome DevTools)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if ('gc' in window && typeof (window as any).gc === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).gc();
   }
   
@@ -95,9 +99,11 @@ export const reportPerformanceMetrics = () => {
         console.log('LCP:', entry.startTime);
       }
       if (entry.entryType === 'first-input') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         console.log('FID:', (entry as any).processingStart - entry.startTime);
       }
       if (entry.entryType === 'layout-shift') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         console.log('CLS:', (entry as any).value);
       }
     });
@@ -112,6 +118,7 @@ export const reportPerformanceMetrics = () => {
 
   // Memory usage monitoring
   if ('memory' in performance) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const memory = (performance as any).memory;
     console.log('Memory usage:', {
       used: Math.round(memory.usedJSHeapSize / 1048576) + 'MB',

@@ -265,7 +265,7 @@ async def security_headers_middleware(request: Request, call_next):
 from fastapi import Query
 from memory.chat_database import create_new_session
 @app.post("/session/create", tags=["Sessions"])
-async def create_session(
+def create_session(
     user_id: str = Query(...),
     force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists")
 ):
@@ -450,7 +450,7 @@ class SetNameRequest(BaseModel):
     name: str = Field(..., description="User's name")
 
 @app.post("/user/{user_id}/set-name", tags=["Users"])
-async def set_user_name_endpoint(user_id: str, request: SetNameRequest):
+def set_user_name_endpoint(user_id: str, request: SetNameRequest):
     """Set user name"""
     try:
         from memory.user_profile import set_user_name
@@ -461,7 +461,7 @@ async def set_user_name_endpoint(user_id: str, request: SetNameRequest):
         return {"status": "success", "message": "Name processing completed"}  # Always success to avoid breaking chat
 
 @app.get("/user/{user_id}/name", tags=["Users"])
-async def get_user_name_endpoint(user_id: str):
+def get_user_name_endpoint(user_id: str):
     """Get user name"""
     try:
         from memory.user_profile import get_user_name
@@ -472,7 +472,7 @@ async def get_user_name_endpoint(user_id: str):
         return {"user_id": user_id, "name": None}
 
 @app.get("/user/{user_id}/has-name", tags=["Users"])
-async def check_user_has_name(user_id: str):
+def check_user_has_name(user_id: str):
     """Check if user has set their name"""
     try:
         from memory.user_profile import get_user_name
@@ -488,7 +488,7 @@ class IntroShownRequest(BaseModel):
     shown: bool = Field(default=True, description="Whether intro was shown")
 
 @app.get("/user/{user_id}/intro-shown", tags=["Users"])
-async def get_intro_shown_endpoint(user_id: str):
+def get_intro_shown_endpoint(user_id: str):
     """Return whether the welcome intro was already displayed."""
     try:
         from memory.user_profile import get_intro_shown
@@ -499,7 +499,7 @@ async def get_intro_shown_endpoint(user_id: str):
         return {"user_id": user_id, "intro_shown": False}
 
 @app.post("/user/{user_id}/intro-shown", tags=["Users"])
-async def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
+def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
     """Mark intro as shown (idempotent)."""
     if not body.shown:
         return {"status": "ignored", "reason": "Only true is accepted"}
@@ -513,7 +513,7 @@ async def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
 
 # Memory management endpoints
 @app.post("/store-memory", tags=["Memory"])
-async def store_user_memory(payload: MemoryInput):
+def store_user_memory(payload: MemoryInput):
     """
     Store user memory in the vector database
     
@@ -533,7 +533,7 @@ async def store_user_memory(payload: MemoryInput):
         raise HTTPException(status_code=500, detail=f"Failed to store memory: {str(e)}")
 
 @app.post("/retrieve-memory", tags=["Memory"])
-async def retrieve_memories(payload: QueryInput):
+def retrieve_memories(payload: QueryInput):
     """
     Retrieve relevant memories based on a query
     
@@ -569,7 +569,7 @@ async def retrieve_memories(payload: QueryInput):
 
 # Chat endpoints
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
-async def chat_endpoint(chat_message: ChatInput):
+def chat_endpoint(chat_message: ChatInput):
     """
     Send a message to the AI chatbot.
 
@@ -620,7 +620,7 @@ async def chat_endpoint(chat_message: ChatInput):
 
 # Session management endpoints
 @app.get("/sessions/{user_id}", tags=["Sessions"])
-async def get_user_sessions(user_id: str):
+def get_user_sessions(user_id: str):
     """
     Get all chat sessions for a specific user from MongoDB
     
@@ -637,7 +637,7 @@ async def get_user_sessions(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve sessions: {str(e)}")
 
 @app.get("/chat/{session_id}", tags=["Sessions"])
-async def get_session_chat(session_id: str):
+def get_session_chat(session_id: str):
     """
     Get full chat history for a specific session from MongoDB
     
@@ -656,7 +656,7 @@ async def get_session_chat(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve chat history: {str(e)}")
 
 @app.get("/history/{user_id}", tags=["Sessions"])
-async def get_user_chat_history(user_id: str):
+def get_user_chat_history(user_id: str):
     """
     Get complete chat history for a user across all sessions
     
@@ -673,7 +673,7 @@ async def get_user_chat_history(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user history: {str(e)}")
 
 @app.put("/session/{session_id}", tags=["Sessions"])
-async def rename_session(session_id: str, request: RenameRequest):
+def rename_session(session_id: str, request: RenameRequest):
     """
     Rename a chat session
     
@@ -695,7 +695,7 @@ async def rename_session(session_id: str, request: RenameRequest):
         raise HTTPException(status_code=500, detail=f"Failed to rename session: {str(e)}")
 
 @app.delete("/session/{session_id}", tags=["Sessions"])
-async def delete_session(session_id: str):
+def delete_session(session_id: str):
     """
     Delete a chat session
     
@@ -717,7 +717,7 @@ async def delete_session(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
 @app.post("/session/summarize/{session_id}", tags=["Sessions"])
-async def summarize_session(session_id: str, user_id: str):
+def summarize_session(session_id: str, user_id: str):
     """
     Generate a post-session summary and store in Pinecone (Layer 2).
 
@@ -749,7 +749,7 @@ async def summarize_session(session_id: str, user_id: str):
 
 # Enhanced Memory Management endpoints
 @app.get("/user/{user_id}/context", tags=["Memory"])
-async def get_user_context(user_id: str):
+def get_user_context(user_id: str):
     """
     Get comprehensive user context including name, preferences, goals, etc.
     
@@ -766,7 +766,7 @@ async def get_user_context(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user context: {str(e)}")
 
 @app.post("/user/{user_id}/cleanup", tags=["Memory"])
-async def cleanup_user_memories(user_id: str, days_threshold: int = 30):
+def cleanup_user_memories(user_id: str, days_threshold: int = 30):
     """
     Clean up old, low-importance memories for a user
     
@@ -829,7 +829,7 @@ class InlineQueryResponse(BaseModel):
     answer: str = Field(..., description="AI explanation")
 
 @app.post("/inline-query", tags=["Chat"], response_model=InlineQueryResponse)
-async def inline_query_endpoint(payload: InlineQueryInput):
+def inline_query_endpoint(payload: InlineQueryInput):
     """
     Ephemeral endpoint for inline side-questions with READ-ONLY session context.
 

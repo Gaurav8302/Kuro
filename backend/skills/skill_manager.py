@@ -42,7 +42,7 @@ class Skill:
         self.tags: List[str] = raw.get("tags", [])
         
         # Enhanced features (regex-based instead of embedding-based)
-        self.regex_examples: List[str] = raw.get("regex_examples", [])  # Renamed from embedding_examples
+        self.regex_examples: List[str] = raw.get("regex_examples") or raw.get("embedding_examples", [])
         self.conflict_categories: Set[str] = set(raw.get("conflict_categories", []))
         self.quality_threshold: float = raw.get("quality_threshold", 0.7)
         self.intent_triggers: List[str] = raw.get("intent_triggers", [])  # Intent-based triggers

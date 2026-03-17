@@ -230,9 +230,12 @@ _compiled_ambiguous = [re.compile(p, re.IGNORECASE) for p in _AMBIGUOUS_PATTERNS
 # ---------------------------------------------------------------------------
 
 def _has_any_term(text: str, terms: List[str]) -> Tuple[bool, str]:
-    """Check if any term from the list appears in text. Returns (found, matched_term)."""
+    """Check if any term appears with token boundaries. Returns (found, matched_term)."""
     for term in terms:
-        if term in text:
+        # Prevent substring false positives like "improve" matching "mp".
+        escaped = re.escape(term).replace(r"\ ", r"\s+")
+        pattern = rf"(?<!\w){escaped}(?!\w)"
+        if re.search(pattern, text, re.IGNORECASE):
             return True, term
     return False, ""
 
