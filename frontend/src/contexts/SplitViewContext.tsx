@@ -234,6 +234,12 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           panels: [{ sessionId, position: primaryPos }],
         };
       }
+      
+      // OPTIMIZATION: Do not update layout state if the sessionId is already the primary one
+      if (prev.panels[0].sessionId === sessionId) {
+        return prev;
+      }
+
       const panels = prev.panels.map((p, i) =>
         i === 0 ? { ...p, sessionId } : p
       );

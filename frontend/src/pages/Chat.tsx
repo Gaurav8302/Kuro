@@ -428,7 +428,8 @@ const ChatInner = () => {
 
   // --- Determine panel layout ---
   const { layout } = splitView;
-  const primarySessionId = layout.panels[0]?.sessionId || sessionId || null;
+  // Prioritize URL (sessionId) over layout state to eliminate one render cycle of lag during chat switch
+  const primarySessionId = sessionId || layout.panels[0]?.sessionId || null;
   const secondarySessionId = layout.mode === 'split' ? layout.panels[1]?.sessionId || null : null;
 
   // --- Build main content ---

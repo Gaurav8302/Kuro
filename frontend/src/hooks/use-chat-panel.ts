@@ -209,6 +209,7 @@ export function useChatPanel({
     async (id: string) => {
       setIsLoading(true);
       setError(null);
+      setMessages([]); // Instantly clear old messages to make UI feel responsive
 
       try {
         console.log('[useChatPanel] Loading session:', id);
