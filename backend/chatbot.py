@@ -41,8 +41,9 @@ import logging
 import os
 
 # Import our custom modules
-# v2 memory system — minimal, deterministic, no progressive summarization
-from memory.chat_manager_v2 import chat_manager
+# v3 memory system
+from memory.chat_manager_v3 import ChatManagerV3
+chat_manager_v3_instance = ChatManagerV3()
 from memory.chat_database import save_chat_to_db
 from memory.chat_database import (
     get_sessions_by_user, 
@@ -569,7 +570,7 @@ def retrieve_memories(payload: QueryInput):
 
 # Chat endpoints
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
-def chat_endpoint(chat_message: ChatInput):
+async def chat_endpoint(chat_message: ChatInput):
     """
     Send a message to the AI chatbot.
 
@@ -581,13 +582,15 @@ def chat_endpoint(chat_message: ChatInput):
     import time as _time
     request_start = _time.time()
     try:
-        response_text, model_used, route_rule = chat_manager.chat_with_memory(
+        response_data = await chat_manager_v3_instance.handle_chat(
             user_id=chat_message.user_id,
-            message=chat_message.message,
             session_id=chat_message.session_id or "default",
-            search_mode=chat_message.search_mode,
-            skill=chat_message.skill,
+            user_input=chat_message.message,
+            chat_history=[]
         )
+        response_text = response_data.get("response", "")
+        model_used = response_data.get("model", "v3_model")
+        route_rule = response_data.get("route_rule", "v3_rule")
 
         latency_ms = int((_time.time() - request_start) * 1000)
         logger.info(
