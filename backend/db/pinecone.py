@@ -40,6 +40,7 @@ def upsert_vector(vec_id, text, user_id, memory_type, importance):
     
     vec = _embed_text(text)
     metadata = {
+        "id": str(vec_id),
         "content": text,
         "user_id": user_id,
         "type": memory_type,
@@ -68,7 +69,14 @@ def query_vectors(query, user_id, memory_types, top_k):
             top_k=top_k,
             include_metadata=True
         )
-        return [match.metadata.get("content", "") for match in results.matches]
+        return [
+            {
+                "text": match.metadata.get("content", ""),
+                "score": float(getattr(match, "score", 0.0) or 0.0),
+                "metadata": dict(getattr(match, "metadata", {}) or {}),
+            }
+            for match in results.matches
+        ]
     except Exception as e:
         print(f"Pinecone query error: {e}")
         return []

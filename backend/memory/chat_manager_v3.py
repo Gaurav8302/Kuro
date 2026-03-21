@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+import logging
 from typing import List, Dict, Any
 
 from memory.controller import MemoryController
@@ -7,6 +7,9 @@ from memory.retriever import MemoryRetriever
 from memory.updater import MemoryUpdater
 from llm.router import LLMRouter
 from llm.prompts import PromptBuilder
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChatManagerV3:
@@ -23,7 +26,7 @@ class ChatManagerV3:
         session_id: str,
         user_input: str,
         chat_history: List[Dict[str, str]],
-    ) -> Dict[str, Any]:
+    ) -> str:
 
         # -----------------------------
         # 1. INTENT ANALYSIS
@@ -59,6 +62,10 @@ class ChatManagerV3:
                 memories=retrieved_memories,
                 top_k=5,
             )
+            self.memory_updater.reinforce_memories(retrieved_memories)
+
+        print("INTENT:", intent_data)
+        print("MEMORIES:", retrieved_memories)
 
         # -----------------------------
         # 5. BUILD PROMPT
@@ -77,19 +84,17 @@ class ChatManagerV3:
         # -----------------------------
         # 7. UPDATE MEMORY (ASYNC)
         # -----------------------------
-        asyncio.create_task(
+        task = asyncio.create_task(
             self.memory_updater.process(
                 user_id=user_id,
                 user_input=user_input,
                 assistant_response=response,
             )
         )
+        task.add_done_callback(self._on_updater_done)
 
-        return {
-            "response": response,
-            "memories_used": retrieved_memories,
-            "intent": intent_data,
-        }
+        print("FINAL RESPONSE:", response)
+        return response
 
     # =====================================================
     # INTERNAL METHODS
@@ -123,10 +128,48 @@ class ChatManagerV3:
         import json
 
         try:
-            return json.loads(text)
+            cleaned = (text or "").strip()
+            if cleaned.startswith("```json"):
+                cleaned = cleaned.replace("```json", "", 1)
+            if cleaned.startswith("```"):
+                cleaned = cleaned.replace("```", "", 1)
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+
+            data = json.loads(cleaned.strip())
+            if not isinstance(data, dict):
+                raise ValueError("Invalid intent payload format")
+
+            memory_types = data.get("memory_types", [])
+            if not isinstance(memory_types, list):
+                memory_types = []
+
+            normalized_types = []
+            for t in memory_types:
+                if not isinstance(t, str):
+                    continue
+                ts = t.strip().lower()
+                if ts in ("fact", "facts"):
+                    normalized_types.append("fact")
+                elif ts in ("preference", "preferences"):
+                    normalized_types.append("preference")
+                elif ts in ("event", "events"):
+                    normalized_types.append("event")
+
+            return {
+                "intent": data.get("intent", "general"),
+                "needs_memory": bool(data.get("needs_memory", False)),
+                "memory_types": list(dict.fromkeys(normalized_types)),
+            }
         except Exception:
             return {
                 "intent": "general",
                 "needs_memory": False,
                 "memory_types": []
             }
+
+    def _on_updater_done(self, task: asyncio.Task) -> None:
+        try:
+            task.result()
+        except Exception as exc:
+            logger.error("Memory updater background task failed: %s", exc, exc_info=True)

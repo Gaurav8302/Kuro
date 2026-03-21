@@ -27,9 +27,8 @@ class GenericModel:
             if hasattr(self.client, 'generate_chat_response_async'):
                 return await self.client.generate_chat_response_async(self.model_name, [{"role": "user", "content": prompt}], max_tokens=1000, temperature=0.7)
             else:
-                # Stub fallback since we don't have exact groq client method, 
-                # but let's just assume we return dummy for now if it doesn't exist
-                return '{"intent": "general", "needs_memory": true, "memory_types": ["fact"]}'
+                # Fallback must be natural language to avoid leaking internal JSON to the user.
+                return "I can help with that. Please continue with your question."
         except Exception as e:
             logger.error(f"Error generating from model {self.model_name}: {e}")
             return "{}"

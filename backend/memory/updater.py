@@ -1,6 +1,6 @@
 from datetime import datetime
 from llm.router import LLMRouter
-from db.mongo import insert_memory, find_similar_memory, update_memory
+from db.mongo import insert_memory, find_similar_memory_semantic, update_memory, reinforce_memories
 
 class MemoryUpdater:
     def __init__(self):
@@ -9,14 +9,28 @@ class MemoryUpdater:
     async def process(self, user_id, user_input, assistant_response):
         extracted = await self.extract_memory(user_input, assistant_response)
 
+        type_map = {
+            "facts": "fact",
+            "preferences": "preference",
+            "events": "event",
+            "fact": "fact",
+            "preference": "preference",
+            "event": "event",
+        }
+
         for mem_type, items in extracted.items():
+            normalized_type = type_map.get(str(mem_type).lower())
+            if not normalized_type:
+                continue
             for content in items:
+                if not isinstance(content, str) or not content.strip():
+                    continue
                 importance = await self.score_importance(content)
 
                 memory = {
                     "user_id": user_id,
-                    "type": mem_type,
-                    "content": content,
+                    "type": normalized_type,
+                    "content": content.strip(),
                     "importance": importance,
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow(),
@@ -82,18 +96,19 @@ class MemoryUpdater:
         return await self.llm.generate(prompt)
 
     async def _upsert(self, new_memory):
-        # Apply decay to existing before finding similarities / resolving
-        # Assuming find_similar_memory returns dict or None
-        existing = find_similar_memory(content=new_memory["content"], user_id=new_memory["user_id"])
+        existing = find_similar_memory_semantic(
+            content=new_memory["content"],
+            user_id=new_memory["user_id"],
+            memory_types=[new_memory["type"]],
+            min_score=0.85,
+        )
 
         if existing:
             merged_content = await self.resolve_conflict(existing["content"], new_memory["content"])
             
-            # Apply time-based decay 
             days_old = (datetime.utcnow() - existing.get("updated_at", existing.get("created_at", datetime.utcnow()))).days
-            existing_decayed_importance = existing.get("importance", 5) * (0.98 ** days_old)
+            existing_decayed_importance = float(existing.get("importance", 5.0)) * (0.97 ** max(days_old, 0))
             
-            # Reinforcement + combination
             new_importance = max(existing_decayed_importance, new_memory["importance"]) + 1
 
             update_memory(existing["_id"], {
@@ -103,3 +118,14 @@ class MemoryUpdater:
             })
         else:
             insert_memory(new_memory)
+
+    def reinforce_memories(self, memories):
+        memory_ids = []
+        for memory in memories:
+            if not isinstance(memory, dict):
+                continue
+            memory_id = memory.get("metadata", {}).get("id")
+            if memory_id:
+                memory_ids.append(memory_id)
+        if memory_ids:
+            reinforce_memories(memory_ids)

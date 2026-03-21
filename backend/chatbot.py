@@ -291,41 +291,7 @@ def _auto_summarize_previous_session(user_id: str):
     """Find the user's most recent session with messages and summarize it
     into Pinecone (long-term memory) if not already summarized.
     Runs in a background thread to avoid blocking the session creation response."""
-    import threading
-
-    def _do_summarize():
-        try:
-            from memory.chat_database import get_sessions_by_user
-            from memory.session_memory import session_memory
-            from memory.long_term_memory import long_term_memory
-
-            sessions = get_sessions_by_user(user_id)
-            if not sessions:
-                return
-
-            # Find the most recent session that has messages
-            for session_info in sessions:
-                sid = session_info.get("session_id", "")
-                msg_count = session_memory.get_message_count(sid)
-                if msg_count >= 4:  # Need at least 4 exchanges to be worth summarizing
-                    messages = session_memory.get_recent_messages(sid, limit=200)
-                    if messages:
-                        summary = long_term_memory.summarize_session(
-                            user_id=user_id,
-                            session_id=sid,
-                            messages=messages,
-                        )
-                        if summary:
-                            logger.info(
-                                "Auto-summarized previous session %s for user %s (%d chars)",
-                                sid, user_id, len(summary),
-                            )
-                        return  # Only summarize the most recent non-empty session
-        except Exception as e:
-            logger.error("Background auto-summarization failed: %s", e)
-
-    thread = threading.Thread(target=_do_summarize, daemon=True)
-    thread.start()
+    logger.info("Auto-summarization disabled in unified memory mode for user %s", user_id)
 
 # Pydantic models for request/response validation
 class MemoryInput(BaseModel):
@@ -588,9 +554,9 @@ async def chat_endpoint(chat_message: ChatInput):
             user_input=chat_message.message,
             chat_history=[]
         )
-        response_text = response_data.get("response", "")
-        model_used = response_data.get("model", "v3_model")
-        route_rule = response_data.get("route_rule", "v3_rule")
+        response_text = response_data if isinstance(response_data, str) else str(response_data)
+        model_used = "v3_model"
+        route_rule = "v3_rule"
 
         latency_ms = int((_time.time() - request_start) * 1000)
         logger.info(
@@ -727,28 +693,13 @@ def summarize_session(session_id: str, user_id: str):
     Call this when a session is considered "closed" or when the user
     explicitly wants to archive their conversation context.
     """
-    try:
-        from memory.session_memory import session_memory
-        from memory.long_term_memory import long_term_memory
-
-        messages = session_memory.get_recent_messages(session_id, limit=200)
-        if len(messages) < 4:
-            return {"status": "skipped", "reason": "Session too short to summarize"}
-
-        summary = long_term_memory.summarize_session(
-            user_id=user_id,
-            session_id=session_id,
-            messages=messages,
-        )
-        if summary:
-            logger.info("Session %s summarized (%d chars)", session_id, len(summary))
-            return {"status": "success", "summary_length": len(summary)}
-        else:
-            return {"status": "error", "message": "Summarization returned empty result"}
-
-    except Exception as e:
-        logger.error("Error summarizing session %s: %s", session_id, e)
-        raise HTTPException(status_code=500, detail=f"Failed to summarize session: {e}")
+    logger.info("Session summarization endpoint disabled in unified memory mode")
+    return {
+        "status": "disabled",
+        "reason": "Long-term session summarization disabled in unified memory mode",
+        "session_id": session_id,
+        "user_id": user_id,
+    }
 
 # Enhanced Memory Management endpoints
 @app.get("/user/{user_id}/context", tags=["Memory"])
@@ -906,20 +857,7 @@ def inline_query_endpoint(payload: InlineQueryInput):
             except Exception as e:
                 logger.warning("Inline query: failed to load session messages: %s", e)
 
-        # 2. Load session summary (read-only, from long-term memory)
-        if payload.user_id and payload.session_id:
-            try:
-                from memory.long_term_memory import long_term_memory
-                summaries = long_term_memory.retrieve(
-                    payload.selected_text, payload.user_id, top_k=1
-                )
-                if summaries:
-                    session_summary_text = summaries[0].get("text", "")
-                    # Cap summary to ~200 tokens (~800 chars)
-                    if len(session_summary_text) > 800:
-                        session_summary_text = session_summary_text[:797] + "..."
-            except Exception as e:
-                logger.warning("Inline query: failed to load session summary: %s", e)
+        # 2. Session summary retrieval is disabled in unified memory mode.
 
         # --- Build prompt with full context ---
         system_instruction = (

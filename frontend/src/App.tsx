@@ -197,12 +197,12 @@ const App = () => {
                 </ProtectedRoute>
               } 
             />
-            <Route path="/auth/signin" element={
+            <Route path="/sign-in" element={
               <PublicRoute>
                 <SignInPage />
               </PublicRoute>
             } />
-            <Route path="/auth/signup" element={
+            <Route path="/sign-up" element={
               <PublicRoute>
                 <SignUpPage />
               </PublicRoute>

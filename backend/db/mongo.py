@@ -1,7 +1,7 @@
 from database.db import get_collection
 from bson.objectid import ObjectId
 from datetime import datetime
-from db.pinecone import upsert_vector
+from db.pinecone import upsert_vector, query_vectors
 
 def memories_collection():
     return get_collection("memories_v3")
@@ -20,12 +20,31 @@ def insert_memory(memory):
     )
     return inserted_id
 
-def find_similar_memory(content, user_id=None):
-    # Quick text match for similarity simulation before embedding logic
-    query = {"content": content}
-    if user_id:
-        query["user_id"] = user_id
-    return memories_collection().find_one(query)
+def find_similar_memory_semantic(content, user_id, memory_types=None, min_score=0.85):
+    results = query_vectors(
+        query=content,
+        user_id=user_id,
+        memory_types=memory_types,
+        top_k=1,
+    )
+    if not results:
+        return None
+
+    best = results[0]
+    if best.get("score", 0.0) < min_score:
+        return None
+
+    meta = best.get("metadata", {})
+    memory_id = meta.get("id")
+    if not memory_id:
+        return None
+
+    doc = memories_collection().find_one({"_id": ObjectId(memory_id)})
+    if not doc:
+        return None
+
+    doc["similarity"] = best.get("score", 0.0)
+    return doc
 
 def update_memory(memory_id, new_data):
     new_data["updated_at"] = datetime.utcnow()
@@ -45,3 +64,16 @@ def update_memory(memory_id, new_data):
             memory_type=updated_doc.get("type"),
             importance=updated_doc.get("importance", 5)
         )
+
+
+def reinforce_memories(memory_ids):
+    for memory_id in memory_ids:
+        try:
+            obj_id = ObjectId(memory_id) if isinstance(memory_id, str) else memory_id
+            doc = memories_collection().find_one({"_id": obj_id})
+            if not doc:
+                continue
+            new_importance = float(doc.get("importance", 0.0)) + 1.0
+            update_memory(obj_id, {"importance": new_importance})
+        except Exception:
+            continue

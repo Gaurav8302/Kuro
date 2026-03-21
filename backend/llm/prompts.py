@@ -8,7 +8,12 @@ class PromptBuilder:
         )
 
         return f"""
-        Relevant Memory:
+        System Instruction:
+        - You are a conversational AI.
+        - NEVER output JSON.
+        - Always respond naturally in plain language.
+
+        Relevant context about user:
         {memory_section}
 
         Chat History:
@@ -26,4 +31,12 @@ class PromptBuilder:
         if not memories:
             return "None"
 
-        return "\n".join([f"- {m}" for m in memories])
+        clean_lines = []
+        for memory in memories[:5]:
+            if isinstance(memory, dict):
+                text = memory.get("text", "")
+            else:
+                text = str(memory)
+            if text:
+                clean_lines.append(f"- {text}")
+        return "\n".join(clean_lines) if clean_lines else "None"

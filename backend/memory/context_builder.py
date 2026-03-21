@@ -27,7 +27,6 @@ import os
 from typing import Dict, Any, Optional, List
 
 from memory.session_memory import session_memory
-from memory.long_term_memory import long_term_memory
 from utils.token_estimator import estimate_tokens
 
 logger = logging.getLogger(__name__)
@@ -90,7 +89,8 @@ def build_context(
     )
 
     # --- 3. Long-term memory check (Layer 2) ---
-    lt_triggered, lt_reason = long_term_memory.should_retrieve(new_message)
+    lt_triggered = False
+    lt_reason = "disabled_unified_memory_v3"
     lt_results: List[Dict[str, Any]] = []
     lt_context_text = ""
 
@@ -100,26 +100,7 @@ def build_context(
         lt_triggered, lt_reason, new_message,
     )
 
-    if lt_triggered:
-        try:
-            lt_results = long_term_memory.retrieve(new_message, user_id)
-            if lt_results:
-                lines = ["\nRelevant Past Context (from previous conversations):"]
-                for i, r in enumerate(lt_results, 1):
-                    lines.append(f"  {i}. {r['text']}")
-                lt_context_text = "\n".join(lines)
-                logger.info("Memories injected: %d", len(lt_results))
-                for i, r in enumerate(lt_results, 1):
-                    logger.info(
-                        "  Memory %d (score=%.4f): %.120s",
-                        i, r.get("score", 0), r["text"][:120],
-                    )
-            else:
-                logger.info("Memories injected: 0 (retrieval returned empty)")
-        except Exception as e:
-            logger.warning("Context builder: long-term retrieval failed: %s", e)
-    else:
-        logger.info("Memories injected: 0 (retrieval not triggered)")
+    logger.info("Memories injected: 0 (legacy long-term retrieval disabled)")
 
     # --- 4. Assemble messages list ---
     messages: List[Dict[str, str]] = []
