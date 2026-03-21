@@ -564,6 +564,22 @@ async def chat_endpoint(chat_message: ChatInput):
             chat_message.user_id, latency_ms, model_used, route_rule,
         )
 
+        # Persist chat exchange so sessions/history remain consistent across reloads.
+        try:
+            persisted_session_id = save_chat_to_db(
+                user_id=chat_message.user_id,
+                message=chat_message.message,
+                reply=response_text,
+                session_id=chat_message.session_id,
+            )
+            logger.debug(
+                "Saved chat exchange for user %s in session %s",
+                chat_message.user_id,
+                persisted_session_id,
+            )
+        except Exception as save_err:
+            logger.error("Failed to persist chat exchange: %s", save_err, exc_info=True)
+
         # Detect if the response is a safety-triggered browser suggestion
         _is_safety_response = route_rule and (
             "time_sensitive" in route_rule or "verified_blocked" in route_rule
