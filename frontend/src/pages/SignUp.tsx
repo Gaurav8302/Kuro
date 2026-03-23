@@ -47,13 +47,23 @@ const SignUp = () => {
   };
 
   const shouldRetryWithoutNames = (err: any): boolean => {
+    const first = err?.errors?.[0];
+    const code = String(first?.code || '').toLowerCase();
     const message = getClerkErrorMessage(err).toLowerCase();
+    const hasNameField =
+      message.includes('first_name') ||
+      message.includes('last_name') ||
+      message.includes('firstname') ||
+      message.includes('lastname');
+    const isUnsupportedField =
+      code.includes('unknown') ||
+      message.includes('unknown') ||
+      message.includes('not a valid parameter') ||
+      message.includes('invalid parameter') ||
+      message.includes('parameter for this request');
+
     return (
-      message.includes('unknown') &&
-      (message.includes('first_name') ||
-        message.includes('last_name') ||
-        message.includes('firstname') ||
-        message.includes('lastname'))
+      hasNameField && isUnsupportedField
     );
   };
 
