@@ -37,7 +37,13 @@ const SignUp = () => {
   const [code, setCode] = useState('');
 
   const getClerkErrorMessage = (err: any): string => {
-    return err?.errors?.[0]?.message || err?.message || 'Failed to sign up. Please try again.';
+    const first = err?.errors?.[0];
+    return (
+      first?.longMessage ||
+      first?.message ||
+      err?.message ||
+      'Failed to sign up. Please try again.'
+    );
   };
 
   const shouldRetryWithoutNames = (err: any): boolean => {
@@ -373,6 +379,8 @@ const SignUp = () => {
                       </>
                     )}
                   </HolographicButton>
+
+                  <div id="clerk-captcha" className="min-h-[80px]" />
                 </form>
               ) : (
                 <form onSubmit={onPressVerify} className="space-y-6">
