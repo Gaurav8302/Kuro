@@ -46,10 +46,10 @@ const Header = () => {
         <div className="flex items-center gap-3">
           <SignedOut>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/auth/signin">Sign in</Link>
+              <Link to="/sign-in">Sign in</Link>
             </Button>
             <Button variant="hero" size="sm" asChild>
-              <Link to="/auth/signup">Get Started</Link>
+              <Link to="/sign-up">Get Started</Link>
             </Button>
           </SignedOut>
           <SignedIn>

@@ -404,7 +404,7 @@ const SignUp = () => {
                 <p className="text-holo-cyan-100/70 text-sm font-space">
                   Already have an account?{' '}
                   <Link 
-                    to="/auth/signin" 
+                    to="/sign-in" 
                     className="text-holo-cyan-400 hover:text-holo-cyan-300 font-medium font-orbitron tracking-wide hover:text-holo-glow transition-all duration-300"
                   >
                     AUTHENTICATE HERE

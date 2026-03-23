@@ -207,6 +207,16 @@ const App = () => {
                 <SignUpPage />
               </PublicRoute>
             } />
+            <Route path="/auth/signin" element={
+              <PublicRoute>
+                <SignInPage />
+              </PublicRoute>
+            } />
+            <Route path="/auth/signup" element={
+              <PublicRoute>
+                <SignUpPage />
+              </PublicRoute>
+            } />
             <Route path="/sso-callback" element={<SSOCallback />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

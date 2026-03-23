@@ -73,7 +73,7 @@ const Landing = () => {
       navigate('/chat');
     } else {
       // User is not signed in, redirect to sign-in page
-      navigate('/auth/signin');
+      navigate('/sign-in');
     }
   };
 
@@ -146,14 +146,14 @@ const Landing = () => {
                   <HolographicButton
                     variant="ghost"
                     size="md"
-                    onClick={() => navigate('/auth/signin')}
+                    onClick={() => navigate('/sign-in')}
                   >
                       SIGN IN
                   </HolographicButton>
                   <HolographicButton
                     variant="accent"
                     size="md"
-                    onClick={() => navigate('/auth/signup')}
+                    onClick={() => navigate('/sign-up')}
                   >
                       SIGN UP
                   </HolographicButton>
