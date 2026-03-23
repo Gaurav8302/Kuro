@@ -36,6 +36,21 @@ const SignUp = () => {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
 
+  const getClerkErrorMessage = (err: any): string => {
+    return err?.errors?.[0]?.message || err?.message || 'Failed to sign up. Please try again.';
+  };
+
+  const shouldRetryWithoutNames = (err: any): boolean => {
+    const message = getClerkErrorMessage(err).toLowerCase();
+    return (
+      message.includes('unknown') &&
+      (message.includes('first_name') ||
+        message.includes('last_name') ||
+        message.includes('firstname') ||
+        message.includes('lastname'))
+    );
+  };
+
   // Show loading if Clerk is not ready
   if (!signUpLoaded) {
     return (
@@ -86,18 +101,29 @@ const SignUp = () => {
     setError('');
 
     try {
-      await signUp.create({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        emailAddress: formData.email,
-        password: formData.password,
-      });
+      try {
+        await signUp.create({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          emailAddress: formData.email,
+          password: formData.password,
+        });
+      } catch (createErr: any) {
+        if (!shouldRetryWithoutNames(createErr)) {
+          throw createErr;
+        }
+
+        await signUp.create({
+          emailAddress: formData.email,
+          password: formData.password,
+        });
+      }
 
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setPendingVerification(true);
     } catch (err: any) {
       console.error('Sign up error:', err);
-      setError(err.errors?.[0]?.message || 'Failed to sign up. Please try again.');
+      setError(getClerkErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

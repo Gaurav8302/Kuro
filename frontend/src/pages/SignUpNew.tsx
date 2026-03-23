@@ -27,6 +27,21 @@ const SignUp = () => {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
 
+  const getClerkErrorMessage = (err: any): string => {
+    return err?.errors?.[0]?.message || err?.message || 'Failed to create account. Please try again.';
+  };
+
+  const shouldRetryWithoutNames = (err: any): boolean => {
+    const message = getClerkErrorMessage(err).toLowerCase();
+    return (
+      message.includes('unknown') &&
+      (message.includes('first_name') ||
+        message.includes('last_name') ||
+        message.includes('firstname') ||
+        message.includes('lastname'))
+    );
+  };
+
   // Loading state
   if (!isLoaded) {
     return (
@@ -66,12 +81,25 @@ const SignUp = () => {
     setError('');
 
     try {
-      const result = await signUp.create({
-        firstName,
-        lastName,
-        emailAddress: email,
-        password,
-      });
+      let result;
+
+      try {
+        result = await signUp.create({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          emailAddress: email,
+          password,
+        });
+      } catch (createErr: any) {
+        if (!shouldRetryWithoutNames(createErr)) {
+          throw createErr;
+        }
+
+        result = await signUp.create({
+          emailAddress: email,
+          password,
+        });
+      }
 
       if (result.status === 'complete' && result.createdSessionId) {
         await setActive({ session: result.createdSessionId });
@@ -83,7 +111,7 @@ const SignUp = () => {
         setPendingVerification(true);
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Failed to create account. Please try again.');
+      setError(getClerkErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
