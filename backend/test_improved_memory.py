@@ -12,14 +12,30 @@ Tests the refactored minimal/deterministic memory system:
 
 import uuid
 import time
+import os
+
+import pytest
 
 # These imports are safe without API keys
 from memory.long_term_memory import should_retrieve_long_term
 from memory.model_lock import resolve_model, get_locked_model, lock_model
 
 
+def _require_mongodb():
+    """Skip integration tests gracefully when MongoDB isn't reachable."""
+    mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=1000)
+        client.admin.command("ping")
+        client.close()
+    except Exception as exc:
+        pytest.skip(f"MongoDB not available for integration test: {exc}")
+
+
 def test_session_memory():
     """Test Layer 1 — raw message fetch from MongoDB (requires API keys)."""
+    _require_mongodb()
     from memory.chat_manager_v2 import chat_with_memory
     from memory.user_profile import set_user_name
     from memory.chat_database import create_new_session
@@ -67,6 +83,7 @@ def test_session_memory():
 
 def test_context_builder():
     """Test context_builder produces correct structure (requires MongoDB)."""
+    _require_mongodb()
     from memory.chat_database import save_chat_to_db, create_new_session
     from memory.context_builder import build_context
 
@@ -163,6 +180,7 @@ def test_model_locking():
 
 def test_context_building_multi_turn():
     """Test context building with 10+ conversation turns (the core bug scenario)."""
+    _require_mongodb()
     from memory.chat_database import save_chat_to_db, create_new_session
     from memory.context_builder import build_context
 
