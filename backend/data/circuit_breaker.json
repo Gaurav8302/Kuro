@@ -1,18 +1,19 @@
 {
   "models": {
     "llama-3.3-70b-versatile": {
-      "total_requests": 6,
-      "total_failures": 6,
+      "total_requests": 9,
+      "total_failures": 9,
       "recent_failures": [
-        1773767198.5575144
+        1774423788.9713957,
+        1774423863.9904218
       ],
       "recent_successes": [],
-      "consecutive_failures": 6,
+      "consecutive_failures": 9,
       "consecutive_successes": 0,
       "circuit_state": "open",
-      "last_failure_time": 1773767198.5575144,
+      "last_failure_time": 1774423863.9904218,
       "last_success_time": 0.0,
-      "circuit_opened_at": 1773767198.5575144
+      "circuit_opened_at": 1774423863.9904315
     },
     "moonshotai/kimi-dev-72b:free": {
       "total_requests": 2,
@@ -39,5 +40,5 @@
       "circuit_opened_at": 0.0
     }
   },
-  "last_updated": 1773767198.5575144
+  "last_updated": 1774423863.9908555
 }

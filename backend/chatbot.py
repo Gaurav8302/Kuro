@@ -330,6 +330,7 @@ class ChatResponse(BaseModel):
     latency_ms: Optional[int] = Field(None, description="Response latency in milliseconds")
     intents: Optional[list] = Field(None, description="Classified intents")
     suggest_search: bool = Field(False, description="True when the response suggests enabling browser search")
+    session_id: Optional[str] = Field(None, description="Session ID used for this response")
 
 class RenameRequest(BaseModel):
     """Request model for renaming sessions"""
@@ -555,13 +556,21 @@ async def chat_endpoint(chat_message: ChatInput):
     import time as _time
     request_start = _time.time()
     try:
+        effective_session_id = chat_message.session_id
+        if not effective_session_id:
+            try:
+                effective_session_id = create_new_session(chat_message.user_id)
+            except Exception as create_err:
+                logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
+                effective_session_id = "default"
+
         if os.getenv("DISABLE_MEMORY_INIT") == "1":
             # Legacy compatibility path used by lightweight tests that monkeypatch chat manager.
             from memory import chat_manager as legacy_chat_manager
             response_data = legacy_chat_manager.chat_with_memory(
                 user_id=chat_message.user_id,
                 message=chat_message.message,
-                session_id=chat_message.session_id,
+                session_id=effective_session_id,
             )
             if isinstance(response_data, tuple):
                 response_text = str(response_data[0])
@@ -572,11 +581,21 @@ async def chat_endpoint(chat_message: ChatInput):
                 model_used = "legacy_model"
                 route_rule = "legacy_rule"
         else:
+            db_history = get_chat_by_session(effective_session_id)
+            chat_history: list[dict[str, str]] = []
+            for turn in db_history[-20:]:
+                user_msg = str(turn.get("user", "") or "").strip()
+                assistant_msg = str(turn.get("assistant", "") or "").strip()
+                if user_msg:
+                    chat_history.append({"role": "user", "content": user_msg})
+                if assistant_msg:
+                    chat_history.append({"role": "assistant", "content": assistant_msg})
+
             response_data = await chat_manager_v3_instance.handle_chat(
                 user_id=chat_message.user_id,
-                session_id=chat_message.session_id or "default",
+                session_id=effective_session_id,
                 user_input=chat_message.message,
-                chat_history=[]
+                chat_history=chat_history,
             )
             response_text = response_data if isinstance(response_data, str) else str(response_data)
             model_used = "v3_model"
@@ -594,8 +613,9 @@ async def chat_endpoint(chat_message: ChatInput):
                 user_id=chat_message.user_id,
                 message=chat_message.message,
                 reply=response_text,
-                session_id=chat_message.session_id,
+                session_id=effective_session_id,
             )
+            effective_session_id = persisted_session_id or effective_session_id
             logger.debug(
                 "Saved chat exchange for user %s in session %s",
                 chat_message.user_id,
@@ -616,6 +636,7 @@ async def chat_endpoint(chat_message: ChatInput):
             latency_ms=latency_ms,
             intents=None,
             suggest_search=bool(_is_safety_response),
+            session_id=effective_session_id,
         )
 
     except Exception as e:

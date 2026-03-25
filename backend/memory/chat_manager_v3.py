@@ -205,11 +205,20 @@ class ChatManagerV3:
         raw_intent = str(intent_data.get("intent", "") or "").lower()
         query = (user_input or "").lower()
 
+        # Keep emotionally charged or interpersonal statements in conversation mode.
+        conversational_tone_markers = {
+            "i don't like", "i dont like", "you are the problem", "youre the problem",
+            "i hate", "annoying", "upset", "frustrated", "mad at you"
+        }
+        if any(marker in query for marker in conversational_tone_markers):
+            return "conversation"
+
         code_markers = {
             "code", "coding", "programming", "debug", "bug", "refactor", "function", "api", "script"
         }
         reasoning_markers = {
-            "reasoning", "logic", "math", "analysis", "problem", "compare", "decision", "plan"
+            "reasoning", "logic", "math", "analysis", "compare", "decision", "plan",
+            "solve", "equation", "proof", "derive", "optimize"
         }
         summary_markers = {
             "summary", "summarize", "explain", "tl;dr", "recap", "overview"
