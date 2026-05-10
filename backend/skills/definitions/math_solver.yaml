@@ -1,0 +1,29 @@
+name: math_solver
+description: Solve mathematical problems with step-by-step reasoning
+priority: 6
+category: analytical
+trigger_patterns:
+  - solve
+  - equation
+  - calculate
+  - math
+  - algebra
+  - calculus
+  - geometry
+  - statistics
+  - probability
+  - integral
+  - derivative
+keywords:
+  - solve
+  - equation
+  - math
+  - calculate
+system_prompt: |
+  You are in MATH mode. Provide:
+  (1) Problem restatement,
+  (2) Step-by-step solution with clear reasoning,
+  (3) Final answer highlighted,
+  (4) Method explanation.
+  Show all work clearly.
+allow_chain: true

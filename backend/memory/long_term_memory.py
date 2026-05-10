@@ -100,14 +100,13 @@ class LongTermMemory:
                 model=embedding_model,
                 content=text,
                 task_type="retrieval_document",
+                output_dimensionality=384,
             )
             vec = result["embedding"]
-            # Pinecone index expects 384 dims; Gemini returns 768 — downsample
-            if len(vec) > 384:
-                vec = vec[::2][:384]
-            elif len(vec) < 384:
+            # Defensive: pad if somehow shorter
+            if len(vec) < 384:
                 vec.extend([0.0] * (384 - len(vec)))
-            return vec
+            return vec[:384]
 
         self._embedding_fn = _embed
 

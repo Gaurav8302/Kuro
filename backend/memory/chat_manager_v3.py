@@ -1,15 +1,29 @@
 import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from memory.controller import MemoryController
 from memory.retriever import MemoryRetriever
 from memory.updater import MemoryUpdater
+from memory.context_assembler import ContextAssembler
 from llm.router import LLMRouter
-from llm.prompts import PromptBuilder
+from skills.router import SkillRouter
+from core.hooks import HookPoint, get_hook_registry
+from core.events import event_bus, Event
 
 
 logger = logging.getLogger(__name__)
+
+# Default system prompt for Kuro
+_SYSTEM_PROMPT = (
+    "You are Kuro, a friendly conversational AI.\n"
+    "- NEVER output JSON.\n"
+    "- Always respond naturally in plain language.\n"
+    "- Keep a warm, human tone without sounding overly formal.\n"
+    "- Avoid repetitive opening lines and avoid reusing the same sentence patterns turn after turn.\n"
+    "- Prefer specific, useful responses over generic filler.\n"
+    "- If the user message is short or casual, keep your response concise and friendly."
+)
 
 
 class ChatManagerV3:
@@ -17,8 +31,10 @@ class ChatManagerV3:
         self.memory_retriever = MemoryRetriever()
         self.memory_updater = MemoryUpdater()
         self.llm_router = LLMRouter()
-        self.memory_controller = MemoryController(llm_client=self.llm_router.get_model("fast"))
-        self.prompt_builder = PromptBuilder()
+        self.memory_controller = MemoryController()
+        self.context_assembler = ContextAssembler()
+        self.skill_router = SkillRouter()
+        self.hooks = get_hook_registry()
         self._recent_responses: Dict[str, List[str]] = {}
 
     async def handle_chat(
@@ -30,9 +46,29 @@ class ChatManagerV3:
     ) -> str:
 
         # -----------------------------
+        # 0. PRE-CHAT HOOK
+        # -----------------------------
+        pre_ctx = await self.hooks.execute(HookPoint.PRE_CHAT, {
+            "user_id": user_id, "session_id": session_id,
+            "user_input": user_input,
+        })
+        if pre_ctx.abort:
+            return pre_ctx.abort_reason or "Request blocked by safety hook."
+
+        # -----------------------------
         # 1. INTENT ANALYSIS
         # -----------------------------
         intent_data = await self._analyze_intent(user_input)
+
+        # -----------------------------
+        # 1b. SKILL MATCHING
+        # -----------------------------
+        matched_skill = self.skill_router.match(user_input, intent=intent_data.get("intent"))
+        skill_prompt = ""
+        if matched_skill:
+            skill_prompt = matched_skill.system_prompt or ""
+            self.skill_router.mark_used(matched_skill.name)
+            logger.debug("SKILL MATCHED: %s", matched_skill.name)
 
         # -----------------------------
         # 2. MEMORY DECISION
@@ -65,20 +101,33 @@ class ChatManagerV3:
             )
             self.memory_updater.reinforce_memories(retrieved_memories)
 
+            # POST-MEMORY HOOK
+            await self.hooks.execute(HookPoint.POST_MEMORY, {
+                "user_id": user_id, "memories": retrieved_memories,
+            })
+
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
         # -----------------------------
-        # 5. BUILD PROMPT
+        # 5. BUILD PROMPT (token-aware)
         # -----------------------------
-        prompt = self.prompt_builder.build(
-            user_input=user_input,
-            chat_history=chat_history,
-            memories=retrieved_memories,
-        )
+        # Merge system prompt: base + skill-specific
+        system_prompt = _SYSTEM_PROMPT
+        if skill_prompt:
+            system_prompt = f"{_SYSTEM_PROMPT}\n\n{skill_prompt}"
+
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)
-        styled_prompt = self._apply_turn_style(prompt, user_input, intent_data)
+        style_hint = self._get_style_hint(style_intent, user_input)
+
+        styled_prompt = self.context_assembler.build(
+            system_prompt=system_prompt,
+            memories=retrieved_memories,
+            history=chat_history,
+            user_message=user_input,
+            style_hint=style_hint,
+        )
 
         # -----------------------------
         # 6. GENERATE RESPONSE
@@ -114,6 +163,19 @@ class ChatManagerV3:
         )
         task.add_done_callback(self._on_updater_done)
 
+        # -----------------------------
+        # 8. POST-CHAT HOOK + EVENTS
+        # -----------------------------
+        await self.hooks.execute(HookPoint.POST_CHAT, {
+            "user_id": user_id, "session_id": session_id,
+            "user_input": user_input, "response": response,
+            "intent": intent_data, "skill": matched_skill.name if matched_skill else None,
+        })
+        await event_bus.emit(Event("chat.responded", {
+            "user_id": user_id, "session_id": session_id,
+            "intent": intent_data.get("intent"),
+        }))
+
         logger.debug("FINAL RESPONSE: %s", response)
         return response
 
@@ -122,24 +184,95 @@ class ChatManagerV3:
     # =====================================================
 
     async def _analyze_intent(self, user_input: str) -> Dict:
-        prompt = f"""
-        Classify user intent.
+        """Rule-based intent classification — zero LLM calls.
 
-        Return JSON:
-        {{
-            "intent": "...",
-            "needs_memory": true/false,
-            "memory_types": ["fact", "event", "preference"]
-        }}
-
-        User Input:
-        {user_input}
+        Replaces the previous LLM-driven classifier that added ~500ms
+        latency per turn. Uses keyword/regex matching which is both
+        faster and more deterministic.
         """
+        import re
 
-        model = self.llm_router.get_model("fast")
-        result = await model.generate(prompt)
+        query = (user_input or "").lower().strip()
 
-        return self._safe_json_parse(result)
+        # --- Keyword sets for intent detection ---
+        _PERSONAL_KW = {
+            "my name", "i am", "i'm", "i like", "i prefer", "i love",
+            "i hate", "i want", "my favorite", "remember that", "do you remember",
+            "did i tell you", "i told you", "about me", "my birthday",
+            "i live", "my hobby", "i work", "my job", "my email",
+        }
+        _RECALL_KW = {
+            "do you remember", "did i tell", "what did i say",
+            "what do you know about me", "recall", "what is my",
+            "what's my", "you told me", "we talked about",
+            "last time", "previously", "before",
+        }
+        _CODE_KW = {
+            "code", "function", "debug", "bug", "error", "script",
+            "python", "javascript", "typescript", "api", "refactor",
+            "implement", "class", "method", "variable", "compile",
+            "traceback", "exception", "syntax", "algorithm",
+        }
+        _REASONING_KW = {
+            "why", "how does", "explain", "compare", "difference",
+            "pros and cons", "analyze", "reason", "logic", "math",
+            "calculate", "equation", "derive", "prove", "optimize",
+        }
+        _GREETING_KW = {
+            "hi", "hello", "hey", "sup", "yo", "good morning",
+            "good evening", "good night", "howdy", "what's up",
+            "how are you", "how's it going",
+        }
+        _CREATIVE_KW = {
+            "write a story", "poem", "creative", "imagine", "fiction",
+            "song", "lyrics", "narrative",
+        }
+
+        # --- Matching logic ---
+        def _has_any(keywords):
+            return any(kw in query for kw in keywords)
+
+        # Greeting — no memory needed
+        if _has_any(_GREETING_KW) and len(query.split()) <= 8:
+            return {"intent": "greeting", "needs_memory": False, "memory_types": []}
+
+        # Personal recall — definitely needs memory
+        if _has_any(_RECALL_KW):
+            return {
+                "intent": "recall",
+                "needs_memory": True,
+                "memory_types": ["fact", "preference", "event"],
+            }
+
+        # Personal information sharing — needs memory for dedup
+        if _has_any(_PERSONAL_KW):
+            return {
+                "intent": "personal",
+                "needs_memory": True,
+                "memory_types": ["fact", "preference"],
+            }
+
+        # Code help
+        if _has_any(_CODE_KW) or re.search(r"```|def |class |import |function\s|const |let |var ", query):
+            return {"intent": "code", "needs_memory": False, "memory_types": []}
+
+        # Reasoning / analysis
+        if _has_any(_REASONING_KW):
+            return {"intent": "reasoning", "needs_memory": False, "memory_types": []}
+
+        # Creative
+        if _has_any(_CREATIVE_KW):
+            return {"intent": "creative", "needs_memory": False, "memory_types": []}
+
+        # Default: general conversation — light memory check
+        if len(query.split()) > 12:
+            return {
+                "intent": "general",
+                "needs_memory": True,
+                "memory_types": ["fact"],
+            }
+
+        return {"intent": "general", "needs_memory": False, "memory_types": []}
 
     async def _generate_response(self, prompt: str, model_type: str = "main") -> str:
         model = self.llm_router.get_model(model_type)
@@ -151,55 +284,53 @@ class ChatManagerV3:
             return "I'm here with you. Could you share a little more detail so I can help better?"
         return "\n\n".join(part.strip() for part in cleaned.split("\n\n") if part.strip())
 
-    def _apply_turn_style(self, base_prompt: str, user_input: str, intent_data: Dict[str, Any]) -> str:
+    def _get_style_hint(self, style_intent: str, user_input: str) -> str:
+        """Return a style hint string based on intent and message length."""
         words = (user_input or "").strip().split()
         word_count = len(words)
-        style_intent = self._normalize_style_intent(intent_data, user_input)
 
         if style_intent == "code":
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Use a clear code-support format: short diagnosis, then fix/solution.\n"
                 "- Include numbered steps for debugging or implementation tasks.\n"
                 "- Keep explanations practical and concrete."
             )
         elif style_intent == "reasoning":
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Use structured reasoning with clear numbered steps.\n"
                 "- State assumptions briefly when needed.\n"
                 "- End with a concise final takeaway."
             )
         elif style_intent == "summarization":
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Start with a brief key takeaway.\n"
                 "- Use compact bullet points for core details.\n"
                 "- Keep it concise and easy to skim."
             )
         elif word_count <= 6:
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Keep it short: 1-3 sentences.\n"
                 "- Friendly, natural, and direct.\n"
                 "- No long preamble."
             )
         elif word_count <= 25:
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Keep it medium length and easy to scan.\n"
                 "- Use a warm tone and practical wording.\n"
                 "- Add brief structure only if it improves clarity."
             )
         else:
-            style_hint = (
+            return (
                 "Response style for this turn:\n"
                 "- Provide a structured response with clear sections or bullets if helpful.\n"
                 "- Keep a friendly tone while being detailed and specific.\n"
                 "- End with a clear next step when appropriate."
             )
-
-        return f"{base_prompt}\n\n{style_hint}"
 
     def _normalize_style_intent(self, intent_data: Dict[str, Any], user_input: str) -> str:
         raw_intent = str(intent_data.get("intent", "") or "").lower()

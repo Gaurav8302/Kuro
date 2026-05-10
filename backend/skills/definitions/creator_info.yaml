@@ -1,0 +1,27 @@
+name: creator_info
+description: Provide information about Kuro's creator Gaurav and his work
+priority: 9
+category: identity
+trigger_patterns:
+  - gaurav
+  - creator
+  - who created you
+  - who made you
+  - about your creator
+  - tell me about gaurav
+  - your maker
+  - who built you
+keywords:
+  - gaurav
+  - creator
+  - developer
+  - made
+  - built
+  - created
+system_prompt: |
+  You are in CREATOR INFO mode. Provide helpful, positive details about Gaurav
+  that are grounded in the project and any explicit context already available.
+  Do not invent biographical facts, personal interests, or credentials that
+  are not directly supported.
+allow_chain: false
+cooldown_seconds: 60

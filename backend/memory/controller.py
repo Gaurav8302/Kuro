@@ -1,107 +1,97 @@
-import json
+"""
+Memory Controller — Rule-Based Decision Engine
+
+Determines whether to retrieve memories and what types to fetch
+based on intent data from the classifier. Zero LLM calls.
+
+Replaces the previous LLM-driven controller that added ~500ms
+latency per turn for a simple yes/no routing decision.
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class MemoryController:
+    """Pure rule-based memory retrieval decision engine."""
+
+    # Intent → retrieval strategy mapping
+    _STRATEGY_MAP = {
+        "recall": {
+            "use_memory": True,
+            "types": ["fact", "preference", "event"],
+            "top_k": 10,
+        },
+        "personal": {
+            "use_memory": True,
+            "types": ["fact", "preference"],
+            "top_k": 7,
+        },
+        "general": {
+            "use_memory": True,
+            "types": ["fact"],
+            "top_k": 5,
+        },
+    }
+
+    # Intents that never need memory retrieval
+    _NO_MEMORY_INTENTS = {"greeting", "code", "reasoning", "creative"}
+
     def __init__(self, llm_client=None):
-        self.llm = llm_client
+        # llm_client kept for backward compatibility but is no longer used
+        pass
 
     async def decide(self, intent_data: dict, user_input: str = "") -> dict:
         """
-        Dynamically decide whether to trigger memory retrieval based on intent and user input.
+        Decide memory retrieval strategy based on intent data.
+        Pure rule-based — no LLM calls.
+
         Returns:
-        {
-            "use_memory": bool,
-            "types": list,
-            "top_k": int
-        }
+            {"use_memory": bool, "types": list, "top_k": int}
         """
         default = {"use_memory": False, "types": [], "top_k": 0}
 
-        # If we have an LLM driven controller, we can formulate a prompt
-        if self.llm and user_input:
-            prompt = f"""
-            Analyze the user input and decide memory retrieval strategy.
-            User input: "{user_input}"
-            Detected intent: "{intent_data.get('intent', 'general')}"
-            
-            Return JSON only:
-            {{
-                "use_memory": true/false,
-                "types": ["facts", "preferences", "events"], 
-                "top_k": int (0-10)
-            }}
-            """
-            
-            try:
-                response = await self.llm.generate(prompt) # Assuming generate logic exists in llm
-                text = response.strip()
-                if text.startswith("```json"): text = text.replace("```json", "", 1)
-                if text.startswith("```"): text = text.replace("```", "", 1)
-                if text.endswith("```"): text = text[:-3]
-                
-                decision = json.loads(text.strip())
-                validated = self._validate_decision(decision)
-                if validated is not None:
-                    return validated
-            except Exception:
-                pass # Fallback to rule-based
+        intent = (intent_data.get("intent") or "general").lower()
+        needs_memory = intent_data.get("needs_memory", False)
 
-        # Fallback to rule logic, taking the previous logic and enhancing it
-        if not intent_data.get("needs_memory"):
+        # Fast exit: intent doesn't need memory
+        if intent in self._NO_MEMORY_INTENTS or not needs_memory:
             return default
 
-        intent = intent_data.get("intent", "general")
+        # Look up strategy from the map
+        strategy = self._STRATEGY_MAP.get(intent)
+        if strategy:
+            return dict(strategy)  # return a copy
 
-        # dynamic rules
-        if intent in ["personal", "project", "learning"]:
-            return {"use_memory": True, "types": ["facts", "preferences", "events"], "top_k": 10}
-
-        if intent == "casual":
-            return default
-
+        # Fallback: use memory_types from intent_data if available
         types = intent_data.get("memory_types", [])
-        fallback = {
-            "use_memory": bool(types), 
-            "types": types, 
-            "top_k": 5
+        if types:
+            normalized = self._normalize_types(types)
+            if normalized:
+                return {
+                    "use_memory": True,
+                    "types": normalized,
+                    "top_k": 5,
+                }
+
+        return default
+
+    @staticmethod
+    def _normalize_types(raw_types: list) -> list:
+        """Normalize memory type names and deduplicate."""
+        _TYPE_MAP = {
+            "fact": "fact", "facts": "fact",
+            "preference": "preference", "preferences": "preference",
+            "event": "event", "events": "event",
         }
-        return self._validate_decision(fallback) or default
-
-    def _validate_decision(self, decision):
-        if not isinstance(decision, dict):
-            return None
-
-        use_memory = bool(decision.get("use_memory", False))
-        raw_types = decision.get("types", [])
-        if not isinstance(raw_types, list):
-            raw_types = []
-
-        normalized = []
+        seen = set()
+        result = []
         for t in raw_types:
             if not isinstance(t, str):
                 continue
-            ts = t.strip().lower()
-            if ts in ("fact", "facts"):
-                normalized.append("fact")
-            elif ts in ("preference", "preferences"):
-                normalized.append("preference")
-            elif ts in ("event", "events"):
-                normalized.append("event")
-
-        try:
-            top_k = int(decision.get("top_k", 0))
-        except Exception:
-            top_k = 0
-        top_k = max(0, min(top_k, 10))
-
-        if not use_memory:
-            return {"use_memory": False, "types": [], "top_k": 0}
-
-        normalized = list(dict.fromkeys(normalized))
-        if not normalized:
-            return {"use_memory": False, "types": [], "top_k": 0}
-
-        return {
-            "use_memory": True,
-            "types": normalized,
-            "top_k": max(top_k, 1),
-        }
+            normalized = _TYPE_MAP.get(t.strip().lower())
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                result.append(normalized)
+        return result

@@ -1,0 +1,33 @@
+name: debugging
+description: Diagnose and fix copy-pasted errors, stack traces, and code issues
+priority: 6
+category: analytical
+trigger_patterns:
+  - error
+  - exception
+  - stack trace
+  - traceback
+  - bug
+  - crash
+  - not working
+  - broken
+  - fails
+  - debug
+keywords:
+  - error
+  - exception
+  - debug
+  - traceback
+  - bug
+  - crash
+negative_patterns:
+  - what is debugging
+  - explain debugging
+system_prompt: |
+  You are in DEBUGGING mode for copy-pasted errors.
+  Output: (1) Error Analysis (what it means),
+  (2) Most Likely Causes (ranked),
+  (3) Fix Steps,
+  (4) Prevention Tips.
+  Focus only on the pasted error, not full project analysis.
+allow_chain: true

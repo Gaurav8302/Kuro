@@ -61,20 +61,16 @@ class UltraLightweightMemoryManager:
             result = genai.embed_content(
                 model=self.embedding_model,
                 content=text,
-                task_type="retrieval_document"
+                task_type="retrieval_document",
+                output_dimensionality=384,
             )
             embedding = result['embedding']
             
-            # Pinecone index expects 384 dimensions, but Gemini returns 768
-            # We need to reduce dimensions to match the index
-            if len(embedding) > 384:
-                # Simple dimension reduction: take every 2nd element
-                embedding = embedding[::2][:384]
-            elif len(embedding) < 384:
-                # Pad with zeros if needed
+            # Defensive: pad if somehow shorter (should not happen with output_dimensionality)
+            if len(embedding) < 384:
                 embedding.extend([0.0] * (384 - len(embedding)))
             
-            return embedding
+            return embedding[:384]
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")
             # Return a default embedding vector of appropriate size

@@ -4,6 +4,7 @@ import { useEffect, lazy, Suspense } from "react";
 import { useUser, useAuth, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AntigravityBackground from "@/components/AntigravityBackground";
 
 const KuroBot3D = lazy(() => import("@/components/kuro/KuroBot3D"));
 
@@ -76,22 +77,14 @@ const Landing = () => {
   }, [isLoaded, isSignedIn, navigate]);
 
   return (
-    <div className="min-h-screen bg-background kuro-gradient noise-overlay">
+    <div className="min-h-screen bg-background kuro-gradient noise-overlay relative">
+      {/* Antigravity cursor-reactive particle background — full page */}
+      <AntigravityBackground />
+      
       <Header />
 
       {/* Hero Section */}
       <section className="relative min-h-screen min-h-[100dvh] overflow-hidden px-6 pt-16">
-        {/* Background grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, hsl(var(--foreground)) 1px, transparent 1px),
-              linear-gradient(to bottom, hsl(var(--foreground)) 1px, transparent 1px)
-            `,
-            backgroundSize: "60px 60px",
-          }}
-        />
 
         <div className="relative z-10 flex min-h-[calc(100vh-4rem)] min-h-[calc(100dvh-4rem)] flex-col items-center justify-center">
           {/* Kuro 3D Bot */}

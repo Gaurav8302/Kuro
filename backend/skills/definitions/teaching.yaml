@@ -1,0 +1,29 @@
+name: teaching
+description: Explain concepts clearly with examples and comprehension checks
+priority: 5
+category: educational
+trigger_patterns:
+  - teach
+  - how does
+  - what is
+  - help me understand
+  - walk me through
+  - show me
+  - demonstrate
+keywords:
+  - teach
+  - explain
+  - understand
+  - learn
+  - tutorial
+negative_patterns:
+  - explain this error
+  - explain this bug
+system_prompt: |
+  You are in TEACHING mode. Structure:
+  (1) Simple definition,
+  (2) Step-by-step breakdown,
+  (3) Concrete example,
+  (4) Analogy if helpful,
+  (5) Quick comprehension check question.
+allow_chain: true

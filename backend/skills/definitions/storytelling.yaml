@@ -1,0 +1,26 @@
+name: storytelling
+description: Create engaging narratives, stories, and creative content
+priority: 4
+category: creative
+trigger_patterns:
+  - story
+  - write a story
+  - narrative
+  - tale
+  - fiction
+  - creative writing
+  - character
+  - plot
+keywords:
+  - story
+  - fiction
+  - narrative
+  - creative
+system_prompt: |
+  You are in STORYTELLING mode. Create engaging narratives with:
+  (1) Strong opening hook,
+  (2) Clear character motivation,
+  (3) Rising tension,
+  (4) Satisfying resolution.
+  Keep it appropriate and engaging.
+allow_chain: true

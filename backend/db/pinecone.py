@@ -22,13 +22,13 @@ def _embed_text(text):
             model="models/text-embedding-004",
             content=text,
             task_type="retrieval_document",
+            output_dimensionality=384,
         )
         vec = result["embedding"]
-        if len(vec) > 384:
-            vec = vec[::2][:384]
-        elif len(vec) < 384:
+        # Defensive: pad if somehow shorter (should not happen with output_dimensionality)
+        if len(vec) < 384:
             vec.extend([0.0] * (384 - len(vec)))
-        return vec
+        return vec[:384]
     except Exception as e:
         print(f"Error embedding text: {e}")
         return [0.0] * 384
