@@ -88,12 +88,15 @@ class UltraLightweightMemoryManager:
             
             # Enhanced metadata with defaults
             # Always store UTC ISO timestamps to avoid timezone drift / comparison bugs
+            user_val = metadata.get("user") or metadata.get("user_id") or "unknown"
             enhanced_metadata = {
                 "text": text,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "importance": importance if importance is not None else metadata.get("importance", 0.5),
                 "category": metadata.get("category", "general"),
-                "user": metadata.get("user", "unknown"),
+                "user": user_val,
+                "user_id": metadata.get("user_id", user_val),
+                "source": metadata.get("source", "memory"),
                 **metadata
             }
             

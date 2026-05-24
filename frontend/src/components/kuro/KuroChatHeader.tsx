@@ -1,17 +1,20 @@
 import React, { memo, useState } from 'react';
-import { Edit3, Check, X, Menu, Maximize2 } from 'lucide-react';
+import { Edit3, Check, X, Menu, Maximize2, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface KuroChatHeaderProps {
   title: string;
   onToggleSidebar: () => void;
+  onToggleDebug?: () => void;
   onRename: (newTitle: string) => void;
   hasSession: boolean;
   /** Split-view mode: show close/expand controls */
   isSplitMode?: boolean;
   /** Whether to show the sidebar toggle button (only for primary panel) */
   showSidebarToggle?: boolean;
+  /** Whether to show the debug toggle button */
+  showDebugToggle?: boolean;
   /** Called when close button is clicked in split mode */
   onClose?: () => void;
   /** Called when expand button is clicked in split mode */
@@ -25,10 +28,12 @@ interface KuroChatHeaderProps {
 export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
   title,
   onToggleSidebar,
+  onToggleDebug,
   onRename,
   hasSession,
   isSplitMode = false,
   showSidebarToggle = true,
+  showDebugToggle = false,
   onClose,
   onExpand,
 }) => {
@@ -66,6 +71,19 @@ export const KuroChatHeader: React.FC<KuroChatHeaderProps> = memo(({
           className="h-8 w-8"
         >
           <Menu className="h-4 w-4" />
+        </Button>
+      )}
+
+      {/* Debug Toggle Button */}
+      {showDebugToggle && onToggleDebug && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleDebug}
+          className="h-8 w-8"
+          title="Toggle Memory Debug"
+        >
+          <Bug className="h-4 w-4" />
         </Button>
       )}
 

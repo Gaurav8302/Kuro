@@ -23,6 +23,7 @@ const SKILL_LABELS: Record<ChatSkill, string> = {
 
 interface KuroChatInputProps {
   onSendMessage: (message: string, searchMode?: boolean, skill?: ChatSkill) => void;
+  onDebugQuery?: (message: string) => void;
   selectedSkill: ChatSkill;
   onSkillChange: (skill: ChatSkill) => void;
   disabled?: boolean;
@@ -38,6 +39,7 @@ interface KuroChatInputProps {
  */
 export const KuroChatInput = memo(function KuroChatInput({
   onSendMessage,
+  onDebugQuery,
   selectedSkill,
   onSkillChange,
   disabled = false,
@@ -70,6 +72,7 @@ export const KuroChatInput = memo(function KuroChatInput({
     }
 
     onSendMessage(finalMessage, searchMode, finalSkill);
+    if (onDebugQuery) onDebugQuery(finalMessage);
     setMessage('');
     // Reset search mode after sending
     setSearchMode(false);

@@ -26,6 +26,7 @@ class RAGConfig:
             "user_profile": 0.95,
             "faq": 0.9,
             "memory": 0.7,
+            "session_summary": 0.6,
             "chat_exchange": 0.6,
             "unknown": 0.5,
         }

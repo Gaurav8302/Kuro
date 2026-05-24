@@ -26,7 +26,8 @@ class MemoryUpdater:
     """Batched memory extraction with rule-based importance scoring."""
 
     # Number of conversation turns to batch before extraction
-    BATCH_SIZE = 5
+    # Tuneable via env for faster memory capture (default 3)
+    BATCH_SIZE = int(__import__("os").getenv("MEMORY_BATCH_SIZE", "3"))
 
     def __init__(self):
         from llm.router import LLMRouter
@@ -104,17 +105,21 @@ class MemoryUpdater:
         )
 
         prompt = f"""Extract memorable information from this conversation.
-Only extract concrete, specific facts — not generic statements.
+Only extract concrete, specific facts about the user that will remain true long-term.
+Skip temporary plans, short-lived tasks, transient states, or anything likely to change soon.
 Skip greetings, filler, and anything not worth remembering.
 
-Return JSON:
-{{
+Return strict JSON only (no markdown, no commentary):
+{
     "facts": ["specific factual info about the user"],
     "preferences": ["user likes/dislikes/preferences"],
     "events": ["specific events or experiences mentioned"]
-}}
+}
 
-If nothing is worth remembering, return empty arrays.
+Rules:
+- Keep each item short (1 sentence max)
+- De-duplicate semantically similar items
+- If nothing is worth remembering, return empty arrays
 
 Conversation ({len(batch)} turns):
 {transcript}

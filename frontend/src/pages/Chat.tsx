@@ -14,6 +14,7 @@ import {
 import { KuroSidebar } from '@/components/kuro/KuroSidebar';
 import { KuroIntro } from '@/components/kuro/KuroIntro';
 import { KuroBackground } from '@/components/kuro/KuroBackground';
+import { MemoryDebugSidebar } from '@/components/kuro/MemoryDebugSidebar';
 import { ChatLayout } from '@/components/ChatLayout';
 import { ChatPanel } from '@/components/ChatPanel';
 import { SplitViewDropZone } from '@/components/SplitViewDropZone';
@@ -60,6 +61,11 @@ const ChatInner = () => {
   const [introChecking, setIntroChecking] = useState(true);
   const [displayedName, setDisplayedName] = useState(user?.fullName || user?.username || '');
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [showMemoryDebug, setShowMemoryDebug] = useState(false);
+  const [memoryDebugQuery, setMemoryDebugQuery] = useState('');
+  const [memoryDebugData, setMemoryDebugData] = useState<Record<string, unknown> | null>(null);
+  const [memoryDebugLoading, setMemoryDebugLoading] = useState(false);
+  const [memoryDebugError, setMemoryDebugError] = useState<string | null>(null);
 
   // DnD state
   const [draggedSession, setDraggedSession] = useState<{
@@ -324,6 +330,57 @@ const ChatInner = () => {
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const fetchMemoryDebug = useCallback(
+    async (query: string) => {
+      if (!user || !query) return;
+      setMemoryDebugLoading(true);
+      setMemoryDebugError(null);
+      try {
+        const data = await clerkApiRequest<Record<string, unknown>>('/debug/memory', 'get', null, {
+          user_id: user.id,
+          query,
+          top_k: 10,
+        });
+        setMemoryDebugData(data);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to load memory debug';
+        setMemoryDebugError(message);
+      } finally {
+        setMemoryDebugLoading(false);
+      }
+    },
+    [user, clerkApiRequest]
+  );
+
+  const toggleMemoryDebug = () => {
+    const next = !showMemoryDebug;
+    setShowMemoryDebug(next);
+    if (!next) return;
+    const query = memoryDebugQuery || 'memory debug';
+    setMemoryDebugQuery(query);
+    fetchMemoryDebug(query);
+  };
+
+  useEffect(() => {
+    if (showMemoryDebug && memoryDebugQuery) {
+      fetchMemoryDebug(memoryDebugQuery);
+    }
+  }, [showMemoryDebug, memoryDebugQuery, fetchMemoryDebug]);
+
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      const custom = evt as CustomEvent<{ message?: string }>;
+      const message = custom?.detail?.message;
+      if (typeof message === 'string') {
+        setMemoryDebugQuery(message);
+        if (showMemoryDebug) {
+          fetchMemoryDebug(message);
+        }
+      }
+    };
+    window.addEventListener('kuro:debug-query', handler as EventListener);
+    return () => window.removeEventListener('kuro:debug-query', handler as EventListener);
+  }, [showMemoryDebug, fetchMemoryDebug]);
 
   // --- DnD handlers ---
   const handleDragStart = (event: DragStartEvent) => {
@@ -435,11 +492,54 @@ const ChatInner = () => {
   // --- Build main content ---
   const mainContent =
     layout.mode === 'split' && secondarySessionId ? (
-      <ResizablePanelGroup
-        direction={isMobile ? 'vertical' : 'horizontal'}
-        onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
-      >
-        <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={20}>
+      <div className="flex h-full min-h-0 w-full">
+        <ResizablePanelGroup
+          direction={isMobile ? 'vertical' : 'horizontal'}
+          onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
+          className="flex-1 min-w-0"
+        >
+          <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={20}>
+            <ChatPanel
+              sessionId={primarySessionId}
+              sessions={sessions}
+              userId={user?.id}
+              userAvatar={user?.imageUrl || ''}
+              clerkApiRequest={clerkApiRequest}
+              panelPosition={isMobile ? 'top' : 'left'}
+              isSplitMode={true}
+              onSessionsChanged={fetchSessions}
+              onToggleSidebar={toggleSidebar}
+              onToggleDebug={toggleMemoryDebug}
+              showDebugToggle={true}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={20}>
+            <ChatPanel
+              sessionId={secondarySessionId}
+              sessions={sessions}
+              userId={user?.id}
+              userAvatar={user?.imageUrl || ''}
+              clerkApiRequest={clerkApiRequest}
+              panelPosition={isMobile ? 'bottom' : 'right'}
+              isSplitMode={true}
+              onSessionsChanged={fetchSessions}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+        <MemoryDebugSidebar
+          open={showMemoryDebug && !isMobile}
+          query={memoryDebugQuery}
+          data={memoryDebugData}
+          loading={memoryDebugLoading}
+          error={memoryDebugError}
+          onClose={toggleMemoryDebug}
+          onRefresh={() => fetchMemoryDebug(memoryDebugQuery)}
+        />
+      </div>
+    ) : (
+      <div className="flex h-full min-h-0 w-full">
+        <div className="flex-1 min-w-0">
           <ChatPanel
             sessionId={primarySessionId}
             sessions={sessions}
@@ -447,37 +547,23 @@ const ChatInner = () => {
             userAvatar={user?.imageUrl || ''}
             clerkApiRequest={clerkApiRequest}
             panelPosition={isMobile ? 'top' : 'left'}
-            isSplitMode={true}
+            isSplitMode={false}
             onSessionsChanged={fetchSessions}
             onToggleSidebar={toggleSidebar}
+            onToggleDebug={toggleMemoryDebug}
+            showDebugToggle={true}
           />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={20}>
-          <ChatPanel
-            sessionId={secondarySessionId}
-            sessions={sessions}
-            userId={user?.id}
-            userAvatar={user?.imageUrl || ''}
-            clerkApiRequest={clerkApiRequest}
-            panelPosition={isMobile ? 'bottom' : 'right'}
-            isSplitMode={true}
-            onSessionsChanged={fetchSessions}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    ) : (
-      <ChatPanel
-        sessionId={primarySessionId}
-        sessions={sessions}
-        userId={user?.id}
-        userAvatar={user?.imageUrl || ''}
-        clerkApiRequest={clerkApiRequest}
-        panelPosition={isMobile ? 'top' : 'left'}
-        isSplitMode={false}
-        onSessionsChanged={fetchSessions}
-        onToggleSidebar={toggleSidebar}
-      />
+        </div>
+        <MemoryDebugSidebar
+          open={showMemoryDebug && !isMobile}
+          query={memoryDebugQuery}
+          data={memoryDebugData}
+          loading={memoryDebugLoading}
+          error={memoryDebugError}
+          onClose={toggleMemoryDebug}
+          onRefresh={() => fetchMemoryDebug(memoryDebugQuery)}
+        />
+      </div>
     );
 
   // --- Sidebar ---

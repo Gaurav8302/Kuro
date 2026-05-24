@@ -18,6 +18,21 @@ def insert_memory(memory):
         memory_type=memory.get("type"),
         importance=memory.get("importance", 5)
     )
+    # ingest into keyword index (best-effort)
+    try:
+        from retrieval import ingest_document
+        ingest_document(
+            str(inserted_id),
+            memory.get("content", ""),
+            {
+                "user": memory.get("user_id"),
+                "category": memory.get("type"),
+                "timestamp": (memory.get("updated_at") or memory.get("created_at") or ""),
+                "source": "memory",
+            },
+        )
+    except Exception:
+        pass
     return inserted_id
 
 def find_similar_memory_semantic(content, user_id, memory_types=None, min_score=0.85):
@@ -64,6 +79,21 @@ def update_memory(memory_id, new_data):
             memory_type=updated_doc.get("type"),
             importance=updated_doc.get("importance", 5)
         )
+        # refresh keyword index (best-effort)
+        try:
+            from retrieval import ingest_document
+            ingest_document(
+                str(updated_doc["_id"]),
+                updated_doc.get("content", ""),
+                {
+                    "user": updated_doc.get("user_id"),
+                    "category": updated_doc.get("type"),
+                    "timestamp": (updated_doc.get("updated_at") or updated_doc.get("created_at") or ""),
+                    "source": "memory",
+                },
+            )
+        except Exception:
+            pass
 
 
 def reinforce_memories(memory_ids):

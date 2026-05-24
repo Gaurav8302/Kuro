@@ -10,6 +10,7 @@ from llm.router import LLMRouter
 from skills.router import SkillRouter
 from core.hooks import HookPoint, get_hook_registry
 from core.events import event_bus, Event
+from retrieval import get_rag_pipeline, rag_retrieval_enabled
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class ChatManagerV3:
         # 3. MEMORY RETRIEVAL
         # -----------------------------
         retrieved_memories = []
+        rag_context = ""
         if use_memory and memory_types:
             retrieved_memories = await self.memory_retriever.retrieve(
                 user_id=user_id,
@@ -106,6 +108,17 @@ class ChatManagerV3:
                 "user_id": user_id, "memories": retrieved_memories,
             })
 
+            # -----------------------------
+            # 4b. OPTIONAL RAG MEMORY (facts + preferences + summaries)
+            # -----------------------------
+            if rag_retrieval_enabled():
+                try:
+                    pipeline = get_rag_pipeline()
+                    rag_result = pipeline.retrieve(user_input, user_id=user_id)
+                    rag_context = rag_result.get("context", "") or ""
+                except Exception as rag_err:
+                    logger.debug("RAG retrieval failed (non-blocking): %s", rag_err)
+
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
@@ -116,6 +129,8 @@ class ChatManagerV3:
         system_prompt = _SYSTEM_PROMPT
         if skill_prompt:
             system_prompt = f"{_SYSTEM_PROMPT}\n\n{skill_prompt}"
+        if rag_context:
+            system_prompt = f"{system_prompt}\n\nRelevant memory context:\n{rag_context}"
 
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)
@@ -252,13 +267,13 @@ class ChatManagerV3:
                 "memory_types": ["fact", "preference"],
             }
 
-        # Code help
+        # Code help (still allow memory if self-referential cues present)
         if _has_any(_CODE_KW) or re.search(r"```|def |class |import |function\s|const |let |var ", query):
-            return {"intent": "code", "needs_memory": False, "memory_types": []}
+            return {"intent": "code", "needs_memory": bool(_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)), "memory_types": ["fact", "preference", "event"] if (_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)) else []}
 
-        # Reasoning / analysis
+        # Reasoning / analysis (still allow memory if self-referential cues present)
         if _has_any(_REASONING_KW):
-            return {"intent": "reasoning", "needs_memory": False, "memory_types": []}
+            return {"intent": "reasoning", "needs_memory": bool(_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)), "memory_types": ["fact", "preference", "event"] if (_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)) else []}
 
         # Creative
         if _has_any(_CREATIVE_KW):
@@ -269,7 +284,7 @@ class ChatManagerV3:
             return {
                 "intent": "general",
                 "needs_memory": True,
-                "memory_types": ["fact"],
+                "memory_types": ["fact", "preference"],
             }
 
         return {"intent": "general", "needs_memory": False, "memory_types": []}

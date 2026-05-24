@@ -59,6 +59,22 @@ def get_rag_pipeline() -> RAGPipeline:
                 ultra_lightweight_memory_manager.get_embedding,
             )
             keyword_index = InMemoryKeywordIndex()
+            # Warm keyword index from Mongo memory store (best-effort)
+            try:
+                from db.mongo import memories_collection
+                for doc in memories_collection().find({}):
+                    text = doc.get("content", "")
+                    if not text:
+                        continue
+                    meta = {
+                        "user": doc.get("user_id"),
+                        "category": doc.get("type"),
+                        "timestamp": (doc.get("updated_at") or doc.get("created_at") or ""),
+                        "source": "memory",
+                    }
+                    keyword_index.add_document(str(doc.get("_id")), text, meta)
+            except Exception:
+                pass
             _rag_pipeline = RAGPipeline(vector_client, keyword_index, RAGConfig())
             logger.info("Initialized global RAG pipeline")
             # Initial readiness probe (non-fatal)

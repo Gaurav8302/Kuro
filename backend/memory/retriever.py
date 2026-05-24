@@ -26,10 +26,10 @@ class MemoryRetriever:
     """Retrieves and ranks memories without any LLM calls."""
 
     # Minimum vector similarity to consider a result
-    MIN_SIMILARITY = 0.25
+    MIN_SIMILARITY = 0.2
 
     # Minimum importance to consider a result (filters noise)
-    MIN_IMPORTANCE = 2
+    MIN_IMPORTANCE = 1
 
     def __init__(self):
         # No LLM needed anymore

@@ -75,13 +75,14 @@ class LongTermMemory:
     def __init__(self):
         self._index = None  # lazy-loaded Pinecone index
         self._embedding_fn = None  # lazy-loaded embedding function
+        self._genai_configured = False
 
     # ------------------------------------------------------------------
     # Lazy Pinecone + Gemini initialisation
     # ------------------------------------------------------------------
     def _ensure_clients(self):
         """Initialise Pinecone index and Gemini embeddings on first use."""
-        if self._index is not None:
+        if self._index is not None and self._embedding_fn is not None:
             return
 
         import os
@@ -92,7 +93,9 @@ class LongTermMemory:
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY required for long-term memory embeddings")
-        genai.configure(api_key=api_key)
+        if not self._genai_configured:
+            genai.configure(api_key=api_key)
+            self._genai_configured = True
         embedding_model = "models/text-embedding-004"
 
         def _embed(text: str) -> List[float]:
@@ -189,13 +192,21 @@ class LongTermMemory:
             meta = {
                 "text": summary[:2000],  # Pinecone metadata limit
                 "user_id": user_id,
+                "user": user_id,  # compat with existing filter patterns
                 "session_id": session_id,
                 "summary_type": "session_summary",
+                "category": "session_summary",
+                "source": "session_summary",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "user": user_id,  # compat with existing filter patterns
             }
             vec_id = f"sess_summary_{session_id}_{uuid.uuid4().hex[:8]}"
             self._index.upsert([(vec_id, vec, meta)])
+            # ingest into keyword index (best-effort)
+            try:
+                from retrieval import ingest_document
+                ingest_document(vec_id, summary, meta)
+            except Exception:
+                pass
             logger.info(
                 "LongTermMemory: stored summary for session %s (%d chars)",
                 session_id,
@@ -224,14 +235,26 @@ class LongTermMemory:
         try:
             self._ensure_clients()
             query_vec = self._embedding_fn(query)
-            results = self._index.query(
+            index = self._index
+            if index is None:
+                return []
+            results = index.query(
                 vector=query_vec,
                 top_k=top_k,
                 include_metadata=True,
                 filter={"user": user_id},
             )
+            # Fallback for legacy summaries that only stored user_id
+            if not getattr(results, "matches", None):
+                results = index.query(
+                    vector=query_vec,
+                    top_k=top_k,
+                    include_metadata=True,
+                    filter={"user_id": user_id},
+                )
+
             out = []
-            for match in results.matches:
+            for match in getattr(results, "matches", []) or []:
                 score = float(match.score)
                 # Only include results above similarity threshold
                 if score >= SIMILARITY_THRESHOLD:
@@ -244,12 +267,12 @@ class LongTermMemory:
             logger.info(
                 "LongTermMemory: retrieved %d summaries (of %d candidates, threshold=%.2f) for user %s",
                 len(out),
-                len(results.matches),
+                len(getattr(results, "matches", []) or []),
                 SIMILARITY_THRESHOLD,
                 user_id,
             )
             # Log individual match scores for debugging
-            for match in results.matches:
+            for match in getattr(results, "matches", []) or []:
                 logger.info(
                     "  LTM candidate: score=%.4f threshold=%.2f pass=%s text=%.80s",
                     float(match.score),

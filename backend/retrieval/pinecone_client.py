@@ -36,15 +36,24 @@ class PineconeVectorClient(VectorStoreClient):  # type: ignore[misc]
             kwargs["namespace"] = namespace
         try:
             res = self.index.query(**kwargs)
+            # Fallback for legacy metadata that only used user_id
+            if user_filter and (not getattr(res, "matches", None)):
+                legacy_filter = dict(filter or {})
+                legacy_filter["user_id"] = user_filter
+                kwargs["filter"] = legacy_filter
+                res = self.index.query(**kwargs)
         except Exception:
             return []
         out: List[RetrievedChunk] = []
         for m in getattr(res, "matches", []) or []:
             md = m.metadata or {}
+            text_val = md.get("text") or md.get("content") or ""
+            if "category" not in md and md.get("type"):
+                md["category"] = md.get("type")
             out.append(
                 RetrievedChunk(
                     id=getattr(m, "id", md.get("id") or "unknown"),
-                    text=md.get("text", ""),
+                    text=text_val,
                     metadata=md,
                     similarity=float(getattr(m, "score", 0.0)),
                     source=md.get("source", "memory"),

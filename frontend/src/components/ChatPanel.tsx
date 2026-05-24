@@ -22,6 +22,8 @@ interface ChatPanelProps {
   isSplitMode: boolean;
   onSessionsChanged: () => void;
   onToggleSidebar?: () => void;
+  onToggleDebug?: () => void;
+  showDebugToggle?: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
   isSplitMode,
   onSessionsChanged,
   onToggleSidebar,
+  onToggleDebug,
+  showDebugToggle = false,
 }) => {
   const isMobile = useIsMobile();
   const splitView = useSplitView();
@@ -75,6 +79,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
 
   const showSidebarToggle = panelPosition === 'left' || panelPosition === 'top' || !isSplitMode;
 
+  const handleDebugQuery = useCallback(
+    (message: string) => {
+      if (onToggleDebug) {
+        // If debug is toggled on, update the query and refresh
+        if (message && typeof message === 'string') {
+          if (onToggleDebug && showDebugToggle) {
+            // Use a custom event to bubble up query changes
+            window.dispatchEvent(new CustomEvent('kuro:debug-query', { detail: { message } }));
+          }
+        }
+      }
+    },
+    [onToggleDebug, showDebugToggle]
+  );
+
   return (
     <div className="flex flex-col h-full min-h-0 w-full">
       {/* Header */}
@@ -82,6 +101,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
         <KuroChatHeader
           title={panel.currentSession?.title || 'New Chat'}
           onToggleSidebar={onToggleSidebar || (() => {})}
+          onToggleDebug={onToggleDebug || (() => {})}
           onRename={(newTitle) => {
             if (panel.currentSession) {
               panel.renameSession(panel.currentSession.session_id, newTitle);
@@ -90,6 +110,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
           hasSession={!!panel.currentSession}
           isSplitMode={isSplitMode}
           showSidebarToggle={showSidebarToggle}
+          showDebugToggle={showDebugToggle}
           onClose={
             isSplitMode
               ? () => splitView.closePanel(panelPosition)
@@ -186,6 +207,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = memo(({
       <footer className="flex-shrink-0">
         <KuroChatInput
           onSendMessage={panel.sendMessage}
+          onDebugQuery={handleDebugQuery}
           selectedSkill={selectedSkill}
           onSkillChange={setSelectedSkill}
           sending={panel.isTyping || panel.isLoading}

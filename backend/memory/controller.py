@@ -30,13 +30,19 @@ class MemoryController:
         },
         "general": {
             "use_memory": True,
-            "types": ["fact"],
-            "top_k": 5,
+            "types": ["fact", "preference"],
+            "top_k": 6,
         },
     }
 
-    # Intents that never need memory retrieval
-    _NO_MEMORY_INTENTS = {"greeting", "code", "reasoning", "creative"}
+    # Intents that rarely need memory retrieval (can be overridden by personal references)
+    _NO_MEMORY_INTENTS = {"greeting", "creative"}
+
+    # Personal-reference triggers (self-referential queries should use memory)
+    _PERSONAL_REF_MARKERS = {
+        "my", "me", "mine", "i am", "i'm", "i have", "i've", "we", "our", "us",
+        "remember", "recall", "previous", "last time", "earlier", "before",
+    }
 
     def __init__(self, llm_client=None):
         # llm_client kept for backward compatibility but is no longer used
@@ -55,9 +61,17 @@ class MemoryController:
         intent = (intent_data.get("intent") or "general").lower()
         needs_memory = intent_data.get("needs_memory", False)
 
-        # Fast exit: intent doesn't need memory
-        if intent in self._NO_MEMORY_INTENTS or not needs_memory:
+        # Fast exit: intent doesn't need memory AND no personal reference
+        if intent in self._NO_MEMORY_INTENTS and not self._has_personal_reference(user_input):
             return default
+
+        # If intent classifier says no memory but user is self-referential, still use memory
+        if not needs_memory and self._has_personal_reference(user_input):
+            return {
+                "use_memory": True,
+                "types": ["fact", "preference", "event"],
+                "top_k": 8,
+            }
 
         # Look up strategy from the map
         strategy = self._STRATEGY_MAP.get(intent)
@@ -76,6 +90,13 @@ class MemoryController:
                 }
 
         return default
+
+    @classmethod
+    def _has_personal_reference(cls, text: str) -> bool:
+        if not text:
+            return False
+        lowered = text.lower()
+        return any(marker in lowered for marker in cls._PERSONAL_REF_MARKERS)
 
     @staticmethod
     def _normalize_types(raw_types: list) -> list:

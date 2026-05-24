@@ -298,7 +298,45 @@ def _auto_summarize_previous_session(user_id: str):
     """Find the user's most recent session with messages and summarize it
     into Pinecone (long-term memory) if not already summarized.
     Runs in a background thread to avoid blocking the session creation response."""
-    logger.info("Auto-summarization disabled in unified memory mode for user %s", user_id)
+    try:
+        from memory.chat_database import chat_db
+        from memory.long_term_memory import long_term_memory
+
+        # Find most recent session title for user
+        sessions = chat_db.get_sessions_by_user(user_id)
+        if not sessions:
+            return
+        # sessions are sorted desc by created_at already
+        latest_session = sessions[0]
+        session_id = latest_session.get("session_id")
+        if not session_id:
+            return
+
+        # Avoid re-summarizing: check for existing summary in Pinecone by querying w/ session_id filter
+        try:
+            # If Pinecone has summary, skip (cheap query using session_id text)
+            existing = long_term_memory.retrieve(f"session {session_id}", user_id=user_id, top_k=1)
+            if existing:
+                return
+        except Exception:
+            pass
+
+        # Pull full session history
+        history = chat_db.get_chat_by_session(session_id)
+        messages = []
+        for turn in history:
+            if turn.get("user"):
+                messages.append({"role": "user", "content": turn.get("user", "")})
+            if turn.get("assistant"):
+                messages.append({"role": "assistant", "content": turn.get("assistant", "")})
+
+        if len(messages) < 6:
+            return
+
+        # Summarize and store
+        long_term_memory.summarize_session(user_id=user_id, session_id=session_id, messages=messages)
+    except Exception as e:
+        logger.warning("Auto-summarize of previous session failed (non-blocking): %s", e)
 
 # Pydantic models for request/response validation
 class MemoryInput(BaseModel):
@@ -541,6 +579,47 @@ def retrieve_memories(payload: QueryInput):
     except Exception as e:
         logger.error(f"Error retrieving memories: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve memories: {str(e)}")
+
+
+# Debug memory endpoint
+@app.get("/debug/memory", tags=["Debug"])
+async def debug_memory(user_id: str, query: str, top_k: int = 10):
+    """Debug endpoint to inspect memory retrieval and RAG context."""
+    try:
+        from memory.retriever import MemoryRetriever
+        from retrieval import get_rag_pipeline, rag_retrieval_enabled
+
+        retriever = MemoryRetriever()
+        memories = []
+        if user_id and query:
+            try:
+                raw = await retriever.retrieve(
+                    user_id=user_id,
+                    query=query,
+                    memory_types=["fact", "preference", "event"],
+                    top_k=top_k,
+                )
+                memories = await retriever.rerank(query=query, memories=raw, top_k=min(top_k, 8))
+            except Exception as e:
+                logger.error("Debug memory retrieval failed: %s", e)
+
+        rag = None
+        if rag_retrieval_enabled():
+            try:
+                pipeline = get_rag_pipeline()
+                rag = pipeline.retrieve(query, user_id=user_id)
+            except Exception as e:
+                logger.error("Debug RAG retrieval failed: %s", e)
+
+        return {
+            "user_id": user_id,
+            "query": query,
+            "memories": memories,
+            "rag": rag,
+        }
+    except Exception as e:
+        logger.error("Debug memory endpoint failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Chat endpoints
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
