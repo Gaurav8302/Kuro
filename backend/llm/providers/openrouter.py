@@ -11,7 +11,7 @@ import time
 import logging
 from typing import List, Optional
 
-import requests
+import httpx
 
 from llm.provider import (
     LLMProvider, LLMError, AuthenticationError, RateLimitError,
@@ -95,10 +95,11 @@ class OpenRouterProvider(LLMProvider):
 
         start = time.monotonic()
         try:
-            resp = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers, json=payload, timeout=60,
-            )
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers, json=payload,
+                )
             if resp.status_code == 401:
                 raise AuthenticationError("Invalid OpenRouter API key", ProviderType.OPENROUTER)
             if resp.status_code == 429:

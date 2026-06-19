@@ -383,10 +383,6 @@ async def root_head():
 async def root():
     return {"message": "AI Chatbot API is running", "status": "healthy"}
 
-@app.get("/healthz", tags=["Health"])
-async def healthz():
-    return {"status": "ok"}
-
 @app.get("/live", tags=["Health"])
 async def live():
     return {"live": True}
@@ -643,40 +639,28 @@ async def chat_endpoint(chat_message: ChatInput):
                 logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
                 effective_session_id = "default"
 
-        if os.getenv("DISABLE_MEMORY_INIT") == "1":
-            # Legacy compatibility path used by lightweight tests that monkeypatch chat manager.
-            from memory import chat_manager as legacy_chat_manager
-            response_data = legacy_chat_manager.chat_with_memory(
-                user_id=chat_message.user_id,
-                message=chat_message.message,
-                session_id=effective_session_id,
-            )
-            if isinstance(response_data, tuple):
-                response_text = str(response_data[0])
-                model_used = str(response_data[1]) if len(response_data) > 1 else "legacy_model"
-                route_rule = str(response_data[2]) if len(response_data) > 2 else "legacy_rule"
-            else:
-                response_text = str(response_data)
-                model_used = "legacy_model"
-                route_rule = "legacy_rule"
-        else:
-            db_history = get_chat_by_session(effective_session_id)
-            chat_history: list[dict[str, str]] = []
-            for turn in db_history[-20:]:
-                user_msg = str(turn.get("user", "") or "").strip()
-                assistant_msg = str(turn.get("assistant", "") or "").strip()
-                if user_msg:
-                    chat_history.append({"role": "user", "content": user_msg})
-                if assistant_msg:
-                    chat_history.append({"role": "assistant", "content": assistant_msg})
+        db_history = get_chat_by_session(effective_session_id)
+        chat_history: list[dict[str, str]] = []
+        for turn in db_history[-20:]:
+            user_msg = str(turn.get("user", "") or "").strip()
+            assistant_msg = str(turn.get("assistant", "") or "").strip()
+            if user_msg:
+                chat_history.append({"role": "user", "content": user_msg})
+            if assistant_msg:
+                chat_history.append({"role": "assistant", "content": assistant_msg})
 
-            response_data = await chat_manager_v3_instance.handle_chat(
-                user_id=chat_message.user_id,
-                session_id=effective_session_id,
-                user_input=chat_message.message,
-                chat_history=chat_history,
-            )
-            response_text = response_data if isinstance(response_data, str) else str(response_data)
+        response_data = await chat_manager_v3_instance.handle_chat(
+            user_id=chat_message.user_id,
+            session_id=effective_session_id,
+            user_input=chat_message.message,
+            chat_history=chat_history,
+        )
+        if isinstance(response_data, dict):
+            response_text = response_data.get("response", str(response_data))
+            model_used = response_data.get("model", "v3_model")
+            route_rule = response_data.get("rule", "v3_rule")
+        else:
+            response_text = str(response_data)
             model_used = "v3_model"
             route_rule = "v3_rule"
 

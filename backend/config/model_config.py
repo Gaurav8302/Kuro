@@ -381,8 +381,6 @@ def get_fallback_chain(primary_model: str) -> List[str]:
         if safe not in seen:
             out.append(safe)
     
-    return out
-    # if out empty, fallback to SAFE_DEFAULT_MODEL normalized
     if not out:
         out = [normalize_model_id(SAFE_DEFAULT_MODEL)]
     return out

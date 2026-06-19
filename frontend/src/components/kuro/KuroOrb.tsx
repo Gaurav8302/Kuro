@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState, useCallback, memo } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
+import { useOptimizedAnimations } from '../../hooks/use-performance';
 
 interface KuroOrbProps {
   size?: number;
@@ -7,81 +8,69 @@ interface KuroOrbProps {
   intensity?: 'subtle' | 'normal' | 'vibrant';
 }
 
-/**
- * KuroOrb - A living, cursor-following orb entity
- * Inspired by GitHub's homepage animation
- * 
- * Features:
- * - Spring-based cursor tracking with inertia
- * - Proximity-based size reactions
- * - Idle breathing animation
- * - Click ripple effects
- * - Internal gradient drift
- */
 export const KuroOrb = memo(function KuroOrb({ 
   size = 200, 
   className = '',
   intensity = 'normal'
 }: KuroOrbProps) {
+  const { shouldReduceAnimations, springConfig: perfSpring } = useOptimizedAnimations();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
-  // Spring physics for smooth cursor tracking
-  const springConfig = { damping: 25, stiffness: 150, mass: 1 };
+  const springConfig = shouldReduceAnimations
+    ? { damping: 25, stiffness: 150, mass: 0.5 }
+    : { damping: 25, stiffness: 150, mass: 1 };
   const mouseX = useSpring(0, springConfig);
   const mouseY = useSpring(0, springConfig);
   
-  // Transform mouse position to orb offset (subtle movement)
-  const orbX = useTransform(mouseX, (val) => val * 0.15);
-  const orbY = useTransform(mouseY, (val) => val * 0.15);
+  const orbX = useTransform(mouseX, (val) => val * (shouldReduceAnimations ? 0.05 : 0.15));
+  const orbY = useTransform(mouseY, (val) => val * (shouldReduceAnimations ? 0.05 : 0.15));
   
-  // Track cursor globally
   useEffect(() => {
     setIsMounted(true);
-    
+    if (shouldReduceAnimations) return;
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      
       const rect = containerRef.current.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      
-      // Calculate offset from center
       const offsetX = e.clientX - centerX;
       const offsetY = e.clientY - centerY;
-      
       mouseX.set(offsetX);
       mouseY.set(offsetY);
-      
-      // Check proximity for hover effect
       const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
       setIsHovered(distance < size * 1.5);
     };
-    
     const handleClick = () => {
       setIsClicked(true);
       setTimeout(() => setIsClicked(false), 300);
     };
-    
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('click', handleClick);
-    
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('click', handleClick);
     };
-  }, [mouseX, mouseY, size]);
+  }, [mouseX, mouseY, size, shouldReduceAnimations]);
   
-  // Intensity-based opacity values
   const opacityMap = {
     subtle: { base: 0.4, glow: 0.2 },
     normal: { base: 0.6, glow: 0.35 },
     vibrant: { base: 0.8, glow: 0.5 }
   };
-  
   const { base: baseOpacity, glow: glowOpacity } = opacityMap[intensity];
+  
+  const animTransition = shouldReduceAnimations
+    ? { duration: 0.1 }
+    : { type: 'spring' as const, damping: 20, stiffness: 200 };
+  const rotateTransition = shouldReduceAnimations
+    ? { rotate: { duration: 20, repeat: Infinity, ease: 'linear' as const } }
+    : { rotate: { duration: 20, repeat: Infinity, ease: 'linear' as const } };
+  const pulseDuration = shouldReduceAnimations ? 8 : 4;
+  const breatheDuration = shouldReduceAnimations ? 6 : 3;
   
   return (
     <div 
@@ -89,7 +78,6 @@ export const KuroOrb = memo(function KuroOrb({
       className={`relative ${className}`}
       style={{ width: size, height: size }}
     >
-      {/* Outer glow layer */}
       <motion.div
         className="absolute inset-0 rounded-full"
         style={{
@@ -111,7 +99,6 @@ export const KuroOrb = memo(function KuroOrb({
         }}
       />
       
-      {/* Core orb */}
       <motion.div
         className="absolute inset-0 rounded-full overflow-hidden"
         style={{
@@ -121,9 +108,8 @@ export const KuroOrb = memo(function KuroOrb({
         animate={{
           scale: isHovered ? 1.08 : isClicked ? 0.95 : 1,
         }}
-        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+        transition={animTransition}
       >
-        {/* Glassy surface */}
         <div 
           className="absolute inset-0 rounded-full"
           style={{
@@ -141,31 +127,23 @@ export const KuroOrb = memo(function KuroOrb({
           }}
         />
         
-        {/* Internal gradient animation - Plasma effect */}
-        <motion.div
-          className="absolute inset-4 rounded-full"
-          style={{
-            background: `conic-gradient(from 0deg at 50% 50%, 
-              rgba(59, 130, 246, 0.4) 0deg,
-              rgba(139, 92, 246, 0.3) 90deg,
-              rgba(59, 130, 246, 0.2) 180deg,
-              rgba(139, 92, 246, 0.4) 270deg,
-              rgba(59, 130, 246, 0.4) 360deg)`,
-            filter: 'blur(20px)',
-          }}
-          animate={{
-            rotate: [0, 360],
-          }}
-          transition={{
-            rotate: {
-              duration: 20,
-              repeat: Infinity,
-              ease: 'linear',
-            },
-          }}
-        />
+        {!shouldReduceAnimations && (
+          <motion.div
+            className="absolute inset-4 rounded-full"
+            style={{
+              background: `conic-gradient(from 0deg at 50% 50%, 
+                rgba(59, 130, 246, 0.4) 0deg,
+                rgba(139, 92, 246, 0.3) 90deg,
+                rgba(59, 130, 246, 0.2) 180deg,
+                rgba(139, 92, 246, 0.4) 270deg,
+                rgba(59, 130, 246, 0.4) 360deg)`,
+              filter: 'blur(20px)',
+            }}
+            animate={{ rotate: [0, 360] }}
+            transition={rotateTransition}
+          />
+        )}
         
-        {/* Inner glow core */}
         <motion.div
           className="absolute rounded-full"
           style={{
@@ -184,13 +162,12 @@ export const KuroOrb = memo(function KuroOrb({
             opacity: [0.6, 0.8, 0.6],
           }}
           transition={{
-            duration: 4,
+            duration: pulseDuration,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
         
-        {/* Breathing pulse */}
         <motion.div
           className="absolute inset-0 rounded-full"
           style={{
@@ -201,20 +178,17 @@ export const KuroOrb = memo(function KuroOrb({
             opacity: [0.5, 0.8, 0.5],
           }}
           transition={{
-            duration: 3,
+            duration: breatheDuration,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
       </motion.div>
       
-      {/* Click ripple effect */}
       {isClicked && (
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{
-            border: '2px solid rgba(59, 130, 246, 0.5)',
-          }}
+          style={{ border: '2px solid rgba(59, 130, 246, 0.5)' }}
           initial={{ scale: 1, opacity: 0.8 }}
           animate={{ scale: 1.5, opacity: 0 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}

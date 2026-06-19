@@ -74,15 +74,16 @@ class ContextAssembler:
         fixed = system_tokens + user_tokens + self.response_headroom
         remaining = max(0, budget - fixed)
 
-        # Dynamic allocations
-        memory_budget = int(remaining * self.memory_ratio)
-        history_budget = int(remaining * self.history_ratio)
-
-        # If style hint doesn't fit, skip it
+        # If style hint is too expensive, skip it
         if style_tokens > remaining * 0.05:
             style_hint = ""
+            style_tokens = 0
         else:
             remaining -= style_tokens
+
+        # Dynamic allocations (after style hint deduction)
+        memory_budget = int(remaining * self.memory_ratio)
+        history_budget = int(remaining * self.history_ratio)
 
         # Select memories (highest scored first, already sorted by reranker)
         selected_memories = self._select_within_budget(

@@ -333,51 +333,49 @@ async def get_best_model(
 
 async def execute_with_fallbacks(model_chain: List[str], query: str, system: Optional[str] = None) -> Tuple[str, str, bool]:
     """Execute query with simplified fallback chain (max 2 backups).
-    
+
     Returns:
         (response, used_model, fallback_used)
     """
-    # Limit chain to max 3 models (primary + 2 backups)
+    from utils.groq_client import GroqClient
+
     model_chain = model_chain[:3]
-    
-    logger.debug("🔄 Starting fallback execution chain: %s", model_chain)
-    
+
+    logger.debug("Starting fallback execution chain: %s", model_chain)
+
     last_err: Optional[Exception] = None
+    groq = GroqClient()
     for idx, model in enumerate(model_chain):
         try:
-            # Normalize model ID for consistency
             model = normalize_model_id(model)
-            logger.debug("🎯 Trying model %d/%d: %s", idx + 1, len(model_chain), model)
-            
-            if model.startswith("fail:"):
-                raise RuntimeError("simulated failure")
-            
-            # Minimal placeholder response
-            reply = f"[model:{model}] OK"
-            
-            # Log fallback usage if not the first model
+            logger.debug("Trying model %d/%d: %s", idx + 1, len(model_chain), model)
+
+            if system:
+                reply = groq.generate_content(prompt=query, system_instruction=system, model_id=model)
+            else:
+                reply = groq.generate_content(prompt=query, model_id=model)
+
             if idx > 0:
-                logger.warning("⚠️ Fallback used: model %d succeeded (%s)", idx + 1, model)
+                logger.warning("Fallback used: model %d succeeded (%s)", idx + 1, model)
                 try:
                     await update_llm_call({
                         "fallback_hop": idx,
                         "model_selected": model,
                     })
-                except Exception as telemetry_err:
-                    logger.error("❌ Telemetry error: %s", telemetry_err)
+                except Exception:
+                    pass
             else:
-                logger.debug("✅ Primary model succeeded: %s", model)
-            
+                logger.debug("Primary model succeeded: %s", model)
+
             return reply, model, idx > 0
-            
+
         except Exception as e:
             last_err = e
-            logger.warning("❌ Model %s failed: %s", model, e)
+            logger.warning("Model %s failed: %s", model, e)
             continue
-    
-    # All models failed
+
     error_msg = f"All {len(model_chain)} models failed; last_error={last_err}"
-    logger.error("💥 %s", error_msg)
+    logger.error(error_msg)
     raise RuntimeError(error_msg)
 
 

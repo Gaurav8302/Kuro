@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useMemo } from 'react';
+import { useOptimizedAnimations } from '../hooks/use-performance';
 
 // ─────────────────────────────────────────────────────────────────────
 //  AntigravityBackground – Physics-based, field-distorted, multi-layer
@@ -189,6 +190,7 @@ const AntigravityBackground: React.FC<AntigravityBackgroundProps> = ({
   className = '',
   style,
 }) => {
+  const { shouldReduceAnimations, particleCount } = useOptimizedAnimations();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const dashesRef = useRef<Dash[]>([]);
@@ -541,6 +543,16 @@ const AntigravityBackground: React.FC<AntigravityBackgroundProps> = ({
       window.removeEventListener('resize', handleResize);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (shouldReduceAnimations) {
+    return (
+      <div
+        className={`fixed inset-0 w-full h-full pointer-events-none ${className}`}
+        style={{ zIndex: 1, background: 'radial-gradient(ellipse at 30% 50%, rgba(88,130,248,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 20%, rgba(139,92,246,0.06) 0%, transparent 50%)', ...style }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   return (
     <canvas

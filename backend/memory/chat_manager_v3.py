@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from typing import List, Dict, Any, Optional
 
 from memory.controller import MemoryController
@@ -26,6 +27,42 @@ _SYSTEM_PROMPT = (
     "- If the user message is short or casual, keep your response concise and friendly."
 )
 
+# Keyword sets for intent detection
+_PERSONAL_KW = frozenset({
+    "my name", "i am", "i'm", "i like", "i prefer", "i love",
+    "i hate", "i want", "my favorite", "remember that", "do you remember",
+    "did i tell you", "i told you", "about me", "my birthday",
+    "i live", "my hobby", "i work", "my job", "my email",
+})
+_RECALL_KW = frozenset({
+    "do you remember", "did i tell", "what did i say",
+    "what do you know about me", "recall", "what is my",
+    "what's my", "you told me", "we talked about",
+    "last time", "previously", "before",
+})
+_CODE_KW = frozenset({
+    "code", "function", "debug", "bug", "error", "script",
+    "python", "javascript", "typescript", "api", "refactor",
+    "implement", "class", "method", "variable", "compile",
+    "traceback", "exception", "syntax", "algorithm",
+})
+_REASONING_KW = frozenset({
+    "why", "how does", "explain", "compare", "difference",
+    "pros and cons", "analyze", "reason", "logic", "math",
+    "calculate", "equation", "derive", "prove", "optimize",
+})
+_GREETING_KW = frozenset({
+    "hi", "hello", "hey", "sup", "yo", "good morning",
+    "good evening", "good night", "howdy", "what's up",
+    "how are you", "how's it going",
+})
+_CREATIVE_KW = frozenset({
+    "write a story", "poem", "creative", "imagine", "fiction",
+    "song", "lyrics", "narrative",
+})
+
+_CODE_RE = re.compile(r"```|def |class |import |function\s|const |let |var ")
+
 
 class ChatManagerV3:
     def __init__(self):
@@ -44,7 +81,7 @@ class ChatManagerV3:
         session_id: str,
         user_input: str,
         chat_history: List[Dict[str, str]],
-    ) -> str:
+    ) -> Dict[str, Any]:
 
         # -----------------------------
         # 0. PRE-CHAT HOOK
@@ -54,7 +91,7 @@ class ChatManagerV3:
             "user_input": user_input,
         })
         if pre_ctx.abort:
-            return pre_ctx.abort_reason or "Request blocked by safety hook."
+            return {"response": pre_ctx.abort_reason or "Request blocked by safety hook.", "model": "hook", "rule": "pre_chat_hook"}
 
         # -----------------------------
         # 1. INTENT ANALYSIS
@@ -136,6 +173,15 @@ class ChatManagerV3:
         model_type = self._model_type_for_style_intent(style_intent)
         style_hint = self._get_style_hint(style_intent, user_input)
 
+        # Look up the actual model name that will be used
+        _model_map = {
+            "code": "llama-3.1-8b-instant",
+            "reasoning": "deepseek-r1-distill-llama-70b",
+            "summarization": "mixtral-8x7b-32k",
+            "conversation": "llama-3.3-70b-versatile",
+        }
+        actual_model = _model_map.get(model_type, "llama-3.3-70b-versatile")
+
         styled_prompt = self.context_assembler.build(
             system_prompt=system_prompt,
             memories=retrieved_memories,
@@ -191,8 +237,12 @@ class ChatManagerV3:
             "intent": intent_data.get("intent"),
         }))
 
-        logger.debug("FINAL RESPONSE: %s", response)
-        return response
+        logger.debug("FINAL RESPONSE: %s (model=%s, rule=%s)", response, actual_model, style_intent)
+        return {
+            "response": response,
+            "model": actual_model,
+            "rule": f"skill:{style_intent}",
+        }
 
     # =====================================================
     # INTERNAL METHODS
@@ -205,45 +255,8 @@ class ChatManagerV3:
         latency per turn. Uses keyword/regex matching which is both
         faster and more deterministic.
         """
-        import re
-
         query = (user_input or "").lower().strip()
 
-        # --- Keyword sets for intent detection ---
-        _PERSONAL_KW = {
-            "my name", "i am", "i'm", "i like", "i prefer", "i love",
-            "i hate", "i want", "my favorite", "remember that", "do you remember",
-            "did i tell you", "i told you", "about me", "my birthday",
-            "i live", "my hobby", "i work", "my job", "my email",
-        }
-        _RECALL_KW = {
-            "do you remember", "did i tell", "what did i say",
-            "what do you know about me", "recall", "what is my",
-            "what's my", "you told me", "we talked about",
-            "last time", "previously", "before",
-        }
-        _CODE_KW = {
-            "code", "function", "debug", "bug", "error", "script",
-            "python", "javascript", "typescript", "api", "refactor",
-            "implement", "class", "method", "variable", "compile",
-            "traceback", "exception", "syntax", "algorithm",
-        }
-        _REASONING_KW = {
-            "why", "how does", "explain", "compare", "difference",
-            "pros and cons", "analyze", "reason", "logic", "math",
-            "calculate", "equation", "derive", "prove", "optimize",
-        }
-        _GREETING_KW = {
-            "hi", "hello", "hey", "sup", "yo", "good morning",
-            "good evening", "good night", "howdy", "what's up",
-            "how are you", "how's it going",
-        }
-        _CREATIVE_KW = {
-            "write a story", "poem", "creative", "imagine", "fiction",
-            "song", "lyrics", "narrative",
-        }
-
-        # --- Matching logic ---
         def _has_any(keywords):
             return any(kw in query for kw in keywords)
 
@@ -268,12 +281,13 @@ class ChatManagerV3:
             }
 
         # Code help (still allow memory if self-referential cues present)
-        if _has_any(_CODE_KW) or re.search(r"```|def |class |import |function\s|const |let |var ", query):
-            return {"intent": "code", "needs_memory": bool(_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)), "memory_types": ["fact", "preference", "event"] if (_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)) else []}
+        has_recall_or_personal = _has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)
+        if _has_any(_CODE_KW) or _CODE_RE.search(query):
+            return {"intent": "code", "needs_memory": has_recall_or_personal, "memory_types": ["fact", "preference", "event"] if has_recall_or_personal else []}
 
         # Reasoning / analysis (still allow memory if self-referential cues present)
         if _has_any(_REASONING_KW):
-            return {"intent": "reasoning", "needs_memory": bool(_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)), "memory_types": ["fact", "preference", "event"] if (_has_any(_RECALL_KW) or _has_any(_PERSONAL_KW)) else []}
+            return {"intent": "reasoning", "needs_memory": has_recall_or_personal, "memory_types": ["fact", "preference", "event"] if has_recall_or_personal else []}
 
         # Creative
         if _has_any(_CREATIVE_KW):
@@ -421,50 +435,6 @@ class ChatManagerV3:
             self._recent_responses[user_id] = []
         self._recent_responses[user_id].append(response)
         self._recent_responses[user_id] = self._recent_responses[user_id][-4:]
-
-    def _safe_json_parse(self, text: str) -> Dict:
-        import json
-
-        try:
-            cleaned = (text or "").strip()
-            if cleaned.startswith("```json"):
-                cleaned = cleaned.replace("```json", "", 1)
-            if cleaned.startswith("```"):
-                cleaned = cleaned.replace("```", "", 1)
-            if cleaned.endswith("```"):
-                cleaned = cleaned[:-3]
-
-            data = json.loads(cleaned.strip())
-            if not isinstance(data, dict):
-                raise ValueError("Invalid intent payload format")
-
-            memory_types = data.get("memory_types", [])
-            if not isinstance(memory_types, list):
-                memory_types = []
-
-            normalized_types = []
-            for t in memory_types:
-                if not isinstance(t, str):
-                    continue
-                ts = t.strip().lower()
-                if ts in ("fact", "facts"):
-                    normalized_types.append("fact")
-                elif ts in ("preference", "preferences"):
-                    normalized_types.append("preference")
-                elif ts in ("event", "events"):
-                    normalized_types.append("event")
-
-            return {
-                "intent": data.get("intent", "general"),
-                "needs_memory": bool(data.get("needs_memory", False)),
-                "memory_types": list(dict.fromkeys(normalized_types)),
-            }
-        except Exception:
-            return {
-                "intent": "general",
-                "needs_memory": False,
-                "memory_types": []
-            }
 
     def _on_updater_done(self, task: asyncio.Task) -> None:
         try:

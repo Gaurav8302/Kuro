@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useOptimizedAnimations } from '../hooks/use-performance';
 
 interface ParticleProps {
   count?: number;
@@ -9,12 +10,15 @@ interface ParticleProps {
 }
 
 export const HolographicParticles: React.FC<ParticleProps> = ({
-  count = 20, // Reduced default count
+  count: userCount,
   className = '',
   size = 'md',
   colors = ['#00e6d6', '#8c1aff', '#1a8cff'],
   speed = 'medium'
 }) => {
+  const { shouldReduceAnimations } = useOptimizedAnimations();
+  const count = shouldReduceAnimations ? 4 : (userCount ?? 20);
+
   const particles = useMemo(() => {
     const sizeMap = { sm: [1, 2], md: [2, 4], lg: [3, 6] };
     const speedMap = { slow: [6, 10], medium: [4, 8], fast: [2, 5] };
@@ -30,6 +34,8 @@ export const HolographicParticles: React.FC<ParticleProps> = ({
       opacity: Math.random() * 0.4 + 0.2
     }));
   }, [count, size, colors, speed]);
+
+  if (shouldReduceAnimations && count === 0) return null;
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
@@ -47,7 +53,8 @@ export const HolographicParticles: React.FC<ParticleProps> = ({
             boxShadow: `0 0 ${particle.size}px ${particle.color}`,
             animationDuration: `${particle.duration}s`,
             animationDelay: `${particle.delay}s`,
-            willChange: 'transform'
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
         />
       ))}

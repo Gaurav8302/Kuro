@@ -14,6 +14,9 @@ Importance scoring is now rule-based (no LLM call).
 
 import asyncio
 import logging
+import re
+import json
+import os
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -27,24 +30,35 @@ class MemoryUpdater:
 
     # Number of conversation turns to batch before extraction
     # Tuneable via env for faster memory capture (default 3)
-    BATCH_SIZE = int(__import__("os").getenv("MEMORY_BATCH_SIZE", "3"))
+    BATCH_SIZE = int(os.getenv("MEMORY_BATCH_SIZE", "3"))
 
     def __init__(self):
         from llm.router import LLMRouter
         self.llm = LLMRouter().get_model("mid")
         # Per-user turn buffers: {user_id: [(user_msg, assistant_msg), ...]}
         self._buffers: Dict[str, List[Tuple[str, str]]] = {}
+        self._buffer_timestamps: Dict[str, datetime] = {}
+        self._buffer_ttl_seconds = 300  # 5 min TTL to prevent stale buffer leaks
         self._lock = asyncio.Lock()
 
     async def process(self, user_id: str, user_input: str, assistant_response: str):
-        """Buffer a turn and extract when batch is full."""
+        """Buffer a turn and extract when batch is full or buffer is stale."""
         async with self._lock:
+            now = datetime.now(timezone.utc)
             if user_id not in self._buffers:
                 self._buffers[user_id] = []
+                self._buffer_timestamps[user_id] = now
             self._buffers[user_id].append((user_input, assistant_response))
+            self._buffer_timestamps[user_id] = now
 
-            if len(self._buffers[user_id]) >= self.BATCH_SIZE:
+            buf_len = len(self._buffers[user_id])
+            if buf_len >= self.BATCH_SIZE:
                 batch = self._buffers.pop(user_id)
+                self._buffer_timestamps.pop(user_id, None)
+            elif (now - self._buffer_timestamps[user_id]).total_seconds() > self._buffer_ttl_seconds:
+                # TTL expired — flush partial buffer to prevent memory leak
+                batch = self._buffers.pop(user_id)
+                self._buffer_timestamps.pop(user_id, None)
             else:
                 return  # Not enough turns yet
 
@@ -134,15 +148,7 @@ Conversation ({len(batch)} turns):
 
     @staticmethod
     def _score_importance_rule(content: str, memory_type: str) -> float:
-        """Rule-based importance scoring — no LLM call needed.
-
-        Scores from 1-10 based on content characteristics:
-        - Length and specificity of the content
-        - Type of memory (preferences > facts > events for base score)
-        - Presence of identifiers (names, numbers, dates)
-        """
-        import re
-
+        """Rule-based importance scoring — no LLM call needed."""
         score = 5.0  # Base
 
         # Type-based base adjustment
@@ -181,12 +187,13 @@ Conversation ({len(batch)} turns):
 
     async def _upsert(self, new_memory: Dict[str, Any]):
         """Upsert memory with conflict resolution."""
-        existing = find_similar_memory_semantic(
+        loop = asyncio.get_running_loop()
+        existing = await loop.run_in_executor(None, lambda: find_similar_memory_semantic(
             content=new_memory["content"],
             user_id=new_memory["user_id"],
             memory_types=[new_memory["type"]],
             min_score=0.85,
-        )
+        ))
 
         if existing:
             # Merge: keep the newer, more detailed version
@@ -206,13 +213,13 @@ Conversation ({len(batch)} turns):
 
             new_importance = max(existing_decayed, new_memory["importance"]) + 1
 
-            update_memory(existing["_id"], {
+            await loop.run_in_executor(None, lambda: update_memory(existing["_id"], {
                 "content": merged_content,
                 "importance": min(new_importance, 10.0),
                 "updated_at": datetime.now(timezone.utc),
-            })
+            }))
         else:
-            insert_memory(new_memory)
+            await loop.run_in_executor(None, lambda: insert_memory(new_memory))
 
     @staticmethod
     def _merge_memories(old_content: str, new_content: str) -> str:
@@ -248,8 +255,6 @@ Conversation ({len(batch)} turns):
     @staticmethod
     def _parse_extraction(result: str) -> Dict[str, List[str]]:
         """Parse LLM extraction result into structured dict."""
-        import json
-
         try:
             text = (result or "").strip()
             if text.startswith("```json"):

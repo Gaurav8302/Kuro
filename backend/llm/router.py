@@ -17,11 +17,9 @@ class GenericModel:
         try:
             import asyncio
 
-            # Prefer native async method when available.
             if hasattr(self.client, 'generate_chat_response_async'):
                 return await self.client.generate_chat_response_async(self.model_name, [{"role": "user", "content": prompt}], max_tokens=1000, temperature=0.7)
 
-            # Current GroqClient implementation is sync; run it in a thread so callers stay async.
             if hasattr(self.client, 'generate_content'):
                 try:
                     return await asyncio.to_thread(
@@ -30,7 +28,6 @@ class GenericModel:
                         model_id=self.model_name,
                     )
                 except TypeError:
-                    # Backward-compatible fallback for older generate_content signatures.
                     return await asyncio.to_thread(self.client.generate_content, prompt)
 
             if hasattr(self.client, 'generate_text'):

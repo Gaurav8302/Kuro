@@ -8,7 +8,6 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 import json
-import math
 
 # Google Gemini imports for embeddings only
 import google.generativeai as genai
@@ -43,17 +42,6 @@ class UltraLightweightMemoryManager:
         except Exception as e:
             logger.error(f"Failed to initialize Pinecone connection: {e}")
             raise
-    
-    def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """Calculate cosine similarity without numpy"""
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
-        norm1 = math.sqrt(sum(a * a for a in vec1))
-        norm2 = math.sqrt(sum(a * a for a in vec2))
-        
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-        
-        return dot_product / (norm1 * norm2)
     
     def get_embedding(self, text: str) -> List[float]:
         """Get embedding from Google Gemini (free tier)"""
@@ -90,6 +78,7 @@ class UltraLightweightMemoryManager:
             # Always store UTC ISO timestamps to avoid timezone drift / comparison bugs
             user_val = metadata.get("user") or metadata.get("user_id") or "unknown"
             enhanced_metadata = {
+                **metadata,
                 "text": text,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "importance": importance if importance is not None else metadata.get("importance", 0.5),
@@ -97,7 +86,6 @@ class UltraLightweightMemoryManager:
                 "user": user_val,
                 "user_id": metadata.get("user_id", user_val),
                 "source": metadata.get("source", "memory"),
-                **metadata
             }
             
             # Store in Pinecone
