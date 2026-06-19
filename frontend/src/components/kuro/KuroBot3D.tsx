@@ -2,12 +2,65 @@ import { useRef, useEffect, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Float, MeshDistortMaterial } from "@react-three/drei";
 import * as THREE from "three";
+import { useTheme } from "next-themes";
+
+interface BotColors {
+  body: string;
+  ring: string;
+  chest: string;
+  armJoint: string;
+  head: string;
+  visor: string;
+  eye: string;
+  antenna: string;
+  antennaTip: string;
+  ear: string;
+  particle1: string;
+  particle2: string;
+  light1: string;
+  light2: string;
+}
+
+const DARK_COLORS: BotColors = {
+  body: "#1a1a2e",
+  ring: "#00d4ff",
+  chest: "#00d4ff",
+  armJoint: "#a855f7",
+  head: "#1a1a2e",
+  visor: "#ff1493",
+  eye: "#00ffff",
+  antenna: "#1a1a2e",
+  antennaTip: "#00d4ff",
+  ear: "#a855f7",
+  particle1: "#00d4ff",
+  particle2: "#a855f7",
+  light1: "#00d4ff",
+  light2: "#a855f7",
+};
+
+const LIGHT_COLORS: BotColors = {
+  body: "#e8eaed",
+  ring: "#2563eb",
+  chest: "#2563eb",
+  armJoint: "#6366f1",
+  head: "#e8eaed",
+  visor: "#818cf8",
+  eye: "#2563eb",
+  antenna: "#e8eaed",
+  antennaTip: "#2563eb",
+  ear: "#6366f1",
+  particle1: "#2563eb",
+  particle2: "#6366f1",
+  light1: "#2563eb",
+  light2: "#6366f1",
+};
 
 interface BotProps {
   mousePosition: { x: number; y: number };
+  colors: BotColors;
 }
 
-const Bot = ({ mousePosition }: BotProps) => {
+const Bot = ({ mousePosition, colors }: BotProps) => {
   const headRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
   const targetRotation = useRef({ x: 0, y: 0 });
@@ -47,7 +100,7 @@ const Bot = ({ mousePosition }: BotProps) => {
         <mesh position={[0, 0, 0]}>
           <capsuleGeometry args={[0.6, 0.8, 16, 32]} />
           <meshStandardMaterial
-            color="#1a1a2e"
+            color={colors.body}
             metalness={0.8}
             roughness={0.2}
           />
@@ -57,8 +110,8 @@ const Bot = ({ mousePosition }: BotProps) => {
         <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.65, 0.03, 16, 32]} />
           <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
+            color={colors.ring}
+            emissive={colors.ring}
             emissiveIntensity={2}
           />
         </mesh>
@@ -67,8 +120,8 @@ const Bot = ({ mousePosition }: BotProps) => {
         <mesh position={[0, 0.1, 0.55]}>
           <circleGeometry args={[0.15, 32]} />
           <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
+            color={colors.chest}
+            emissive={colors.chest}
             emissiveIntensity={3}
           />
         </mesh>
@@ -78,7 +131,7 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh>
             <capsuleGeometry args={[0.12, 0.5, 8, 16]} />
             <meshStandardMaterial
-              color="#1a1a2e"
+              color={colors.body}
               metalness={0.8}
               roughness={0.2}
             />
@@ -87,8 +140,8 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[0, 0.3, 0]}>
             <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial
-              color="#a855f7"
-              emissive="#a855f7"
+              color={colors.armJoint}
+              emissive={colors.armJoint}
               emissiveIntensity={2}
             />
           </mesh>
@@ -98,7 +151,7 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh>
             <capsuleGeometry args={[0.12, 0.5, 8, 16]} />
             <meshStandardMaterial
-              color="#1a1a2e"
+              color={colors.body}
               metalness={0.8}
               roughness={0.2}
             />
@@ -107,8 +160,8 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[0, 0.3, 0]}>
             <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial
-              color="#a855f7"
-              emissive="#a855f7"
+              color={colors.armJoint}
+              emissive={colors.armJoint}
               emissiveIntensity={2}
             />
           </mesh>
@@ -120,7 +173,7 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh>
             <sphereGeometry args={[0.55, 32, 32]} />
             <meshStandardMaterial
-              color="#1a1a2e"
+              color={colors.head}
               metalness={0.9}
               roughness={0.1}
             />
@@ -130,8 +183,8 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[0, 0, 0.35]}>
             <sphereGeometry args={[0.4, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
             <MeshDistortMaterial
-              color="#ff1493"
-              emissive="#ff1493"
+              color={colors.visor}
+              emissive={colors.visor}
               emissiveIntensity={0.8}
               transparent
               opacity={0.9}
@@ -146,8 +199,8 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[-0.15, 0.05, 0.5]}>
             <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial
-              color="#00ffff"
-              emissive="#00ffff"
+              color={colors.eye}
+              emissive={colors.eye}
               emissiveIntensity={4}
             />
           </mesh>
@@ -156,8 +209,8 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[0.15, 0.05, 0.5]}>
             <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial
-              color="#00ffff"
-              emissive="#00ffff"
+              color={colors.eye}
+              emissive={colors.eye}
               emissiveIntensity={4}
             />
           </mesh>
@@ -167,7 +220,7 @@ const Bot = ({ mousePosition }: BotProps) => {
             <mesh>
               <cylinderGeometry args={[0.02, 0.02, 0.3, 8]} />
               <meshStandardMaterial
-                color="#1a1a2e"
+                color={colors.antenna}
                 metalness={0.8}
                 roughness={0.2}
               />
@@ -175,8 +228,8 @@ const Bot = ({ mousePosition }: BotProps) => {
             <mesh position={[0, 0.2, 0]}>
               <sphereGeometry args={[0.06, 16, 16]} />
               <meshStandardMaterial
-                color="#00d4ff"
-                emissive="#00d4ff"
+                color={colors.antennaTip}
+                emissive={colors.antennaTip}
                 emissiveIntensity={3}
               />
             </mesh>
@@ -186,16 +239,16 @@ const Bot = ({ mousePosition }: BotProps) => {
           <mesh position={[-0.55, 0, 0]}>
             <boxGeometry args={[0.1, 0.2, 0.15]} />
             <meshStandardMaterial
-              color="#a855f7"
-              emissive="#a855f7"
+              color={colors.ear}
+              emissive={colors.ear}
               emissiveIntensity={1}
             />
           </mesh>
           <mesh position={[0.55, 0, 0]}>
             <boxGeometry args={[0.1, 0.2, 0.15]} />
             <meshStandardMaterial
-              color="#a855f7"
-              emissive="#a855f7"
+              color={colors.ear}
+              emissive={colors.ear}
               emissiveIntensity={1}
             />
           </mesh>
@@ -215,7 +268,11 @@ const PARTICLE_DATA = [...Array(12)].map((_, i) => {
 });
 
 // Floating particles around the bot - stable idle animation unaffected by cursor
-const Particles = () => {
+interface ParticlesProps {
+  colors: BotColors;
+}
+
+const Particles = ({ colors }: ParticlesProps) => {
   const particlesRef = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -238,8 +295,8 @@ const Particles = () => {
         >
           <sphereGeometry args={[p.size, 8, 8]} />
           <meshStandardMaterial
-            color={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
-            emissive={i % 2 === 0 ? "#00d4ff" : "#a855f7"}
+            color={i % 2 === 0 ? colors.particle1 : colors.particle2}
+            emissive={i % 2 === 0 ? colors.particle1 : colors.particle2}
             emissiveIntensity={2}
           />
         </mesh>
@@ -255,6 +312,8 @@ interface KuroBot3DProps {
 const KuroBot3D = ({ className = "" }: KuroBot3DProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const { theme } = useTheme();
+  const colors = theme === "light" ? LIGHT_COLORS : DARK_COLORS;
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -283,8 +342,8 @@ const KuroBot3D = ({ className = "" }: KuroBot3DProps) => {
         gl={{ alpha: true, antialias: true }}
       >
         <ambientLight intensity={0.3} />
-        <pointLight position={[5, 5, 5]} intensity={1} color="#00d4ff" />
-        <pointLight position={[-5, 3, 5]} intensity={0.8} color="#a855f7" />
+        <pointLight position={[5, 5, 5]} intensity={1} color={colors.light1} />
+        <pointLight position={[-5, 3, 5]} intensity={0.8} color={colors.light2} />
         <spotLight
           position={[0, 5, 0]}
           intensity={0.5}
@@ -293,10 +352,10 @@ const KuroBot3D = ({ className = "" }: KuroBot3DProps) => {
           color="#ffffff"
         />
         
-        <Bot mousePosition={mousePosition} />
-        <Particles />
+        <Bot mousePosition={mousePosition} colors={colors} />
+        <Particles colors={colors} />
         
-        <Environment preset="night" />
+        <Environment preset={theme === "light" ? "city" : "night"} />
       </Canvas>
     </div>
   );

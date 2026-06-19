@@ -76,8 +76,8 @@ export const KuroAvatar = memo(function KuroAvatar({
             x: followCursor ? avatarX : 0,
             y: followCursor ? avatarY : 0,
             background: `radial-gradient(circle, 
-              rgba(59, 130, 246, 0.3) 0%, 
-              rgba(139, 92, 246, 0.2) 50%,
+              rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.3) 0%, 
+              rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), 0.2) 50%,
               transparent 70%)`,
             filter: 'blur(20px)',
           }}
@@ -100,10 +100,10 @@ export const KuroAvatar = memo(function KuroAvatar({
         style={{
           x: followCursor ? avatarX : 0,
           y: followCursor ? avatarY : 0,
-          border: '2px solid rgba(59, 130, 246, 0.3)',
+          border: '2px solid rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.3)',
           boxShadow: showGlow ? `
-            0 0 20px rgba(59, 130, 246, 0.2),
-            inset 0 0 20px rgba(59, 130, 246, 0.1)
+            0 0 20px rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.2),
+            inset 0 0 20px rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.1)
           ` : 'none',
         }}
         animate={{
@@ -137,7 +137,7 @@ export const KuroAvatar = memo(function KuroAvatar({
         <motion.div
           className="absolute inset-0 rounded-full pointer-events-none"
           style={{
-            border: '1px solid rgba(59, 130, 246, 0.2)',
+            border: '1px solid rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.2)',
           }}
           animate={{
             scale: [1, 1.08, 1],

@@ -81,8 +81,8 @@ export const KuroBot = memo(function KuroBot({
           left: '50%',
           x: '-50%',
           background: `radial-gradient(circle, 
-            rgba(59, 130, 246, 0.25) 0%, 
-            rgba(139, 92, 246, 0.15) 40%,
+            var(--kuro-bot-glow-primary) 0%, 
+            var(--kuro-bot-glow-accent) 40%,
             transparent 70%)`,
           filter: 'blur(30px)',
         }}
@@ -113,12 +113,12 @@ export const KuroBot = memo(function KuroBot({
         <div
           className="absolute inset-0 rounded-2xl overflow-hidden"
           style={{
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
-            border: '2px solid rgba(59, 130, 246, 0.3)',
+            background: 'linear-gradient(135deg, var(--kuro-bot-body) 0%, var(--kuro-bot-body-dark) 50%, var(--kuro-bot-body-deeper) 100%)',
+            border: '2px solid var(--kuro-bot-border-strong)',
             boxShadow: `
-              0 0 20px rgba(59, 130, 246, 0.2),
-              inset 0 2px 10px rgba(255, 255, 255, 0.05),
-              inset 0 -5px 15px rgba(0, 0, 0, 0.3)
+              0 0 20px var(--kuro-bot-glow-primary-2),
+              inset 0 2px 10px var(--kuro-bot-inset-light),
+              inset 0 -5px 15px var(--kuro-bot-inset-dark)
             `,
           }}
         >
@@ -126,8 +126,8 @@ export const KuroBot = memo(function KuroBot({
           <div 
             className="absolute inset-2 rounded-xl"
             style={{
-              background: 'linear-gradient(180deg, #1e1e3f 0%, #12122a 100%)',
-              border: '1px solid rgba(139, 92, 246, 0.2)',
+              background: 'linear-gradient(180deg, var(--kuro-bot-face) 0%, var(--kuro-bot-face-deep) 100%)',
+              border: '1px solid var(--kuro-bot-glow-accent-2)',
             }}
           >
             {/* Eyes container */}
@@ -145,10 +145,10 @@ export const KuroBot = memo(function KuroBot({
                 <div
                   className="w-full h-full rounded-full"
                   style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                    background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)',
                     boxShadow: `
-                      0 0 15px rgba(59, 130, 246, 0.6),
-                      0 0 30px rgba(139, 92, 246, 0.3),
+                      0 0 15px var(--kuro-bot-glow-primary-3),
+                      0 0 30px var(--kuro-bot-glow-accent),
                       inset 0 2px 4px rgba(255, 255, 255, 0.3)
                     `,
                   }}
@@ -172,10 +172,10 @@ export const KuroBot = memo(function KuroBot({
                 <div
                   className="w-full h-full rounded-full"
                   style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                    background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)',
                     boxShadow: `
-                      0 0 15px rgba(59, 130, 246, 0.6),
-                      0 0 30px rgba(139, 92, 246, 0.3),
+                      0 0 15px var(--kuro-bot-glow-primary-3),
+                      0 0 30px var(--kuro-bot-glow-accent),
                       inset 0 2px 4px rgba(255, 255, 255, 0.3)
                     `,
                   }}
@@ -198,7 +198,7 @@ export const KuroBot = memo(function KuroBot({
                   className="flex-1 rounded-full"
                   style={{
                     height: 3,
-                    background: 'rgba(59, 130, 246, 0.4)',
+                    background: 'var(--kuro-bot-mouth)',
                   }}
                   animate={{
                     opacity: [0.4, 0.8, 0.4],
@@ -219,15 +219,15 @@ export const KuroBot = memo(function KuroBot({
           <div 
             className="absolute -top-3 left-1/2 -translate-x-1/2 w-2 h-4 rounded-full"
             style={{
-              background: 'linear-gradient(180deg, #3b82f6 0%, #1e40af 100%)',
-              boxShadow: '0 0 10px rgba(59, 130, 246, 0.5)',
+              background: 'linear-gradient(180deg, var(--kuro-bot-antenna-top) 0%, var(--kuro-bot-antenna-bottom) 100%)',
+              boxShadow: '0 0 10px var(--kuro-bot-glow-primary-3)',
             }}
           >
             <motion.div
               className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
               style={{
-                background: 'radial-gradient(circle, #60a5fa 0%, #3b82f6 100%)',
-                boxShadow: '0 0 12px rgba(59, 130, 246, 0.8)',
+                background: 'radial-gradient(circle, var(--kuro-bot-antenna-tip) 0%, var(--kuro-bot-antenna-top) 100%)',
+                boxShadow: '0 0 12px var(--kuro-bot-border-strong)',
               }}
               animate={{
                 scale: [1, 1.2, 1],
@@ -245,15 +245,15 @@ export const KuroBot = memo(function KuroBot({
           <div 
             className="absolute top-1/3 -left-2 w-3 h-8 rounded-l-lg"
             style={{
-              background: 'linear-gradient(180deg, #1e40af 0%, #1e3a5f 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'var(--kuro-bot-side-panel)',
+              border: '1px solid var(--kuro-bot-border-strong)',
             }}
           />
           <div 
             className="absolute top-1/3 -right-2 w-3 h-8 rounded-r-lg"
             style={{
-              background: 'linear-gradient(180deg, #1e40af 0%, #1e3a5f 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'var(--kuro-bot-side-panel)',
+              border: '1px solid var(--kuro-bot-border-strong)',
             }}
           />
         </div>
@@ -265,9 +265,9 @@ export const KuroBot = memo(function KuroBot({
         style={{
           width: headSize * 0.3,
           height: neckHeight,
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%)',
-          borderLeft: '2px solid rgba(59, 130, 246, 0.2)',
-          borderRight: '2px solid rgba(59, 130, 246, 0.2)',
+          background: 'var(--kuro-bot-neck-grad)',
+          borderLeft: '2px solid var(--kuro-bot-border)',
+          borderRight: '2px solid var(--kuro-bot-border)',
         }}
       />
 
@@ -278,12 +278,12 @@ export const KuroBot = memo(function KuroBot({
           width: headSize * 0.9,
           height: bodyHeight * 0.5,
           marginTop: -2,
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #12122a 50%, #0a0a15 100%)',
+          background: 'var(--kuro-bot-body-grad)',
           borderRadius: '12px 12px 20px 20px',
-          border: '2px solid rgba(59, 130, 246, 0.25)',
+          border: '2px solid var(--kuro-bot-border-strong)',
           boxShadow: `
-            0 10px 30px rgba(0, 0, 0, 0.4),
-            inset 0 2px 10px rgba(255, 255, 255, 0.02)
+            0 10px 30px var(--kuro-bot-shadow),
+            inset 0 2px 10px var(--kuro-bot-inset-light)
           `,
         }}
       >
@@ -298,14 +298,14 @@ export const KuroBot = memo(function KuroBot({
           <motion.div
             className="w-full h-full rounded-lg"
             style={{
-              background: 'radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(139, 92, 246, 0.1) 70%, transparent 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
+              background: 'var(--kuro-bot-chest-grad)',
+              border: '1px solid var(--kuro-bot-border-strong)',
             }}
             animate={{
               boxShadow: [
-                'inset 0 0 10px rgba(59, 130, 246, 0.3)',
-                'inset 0 0 20px rgba(139, 92, 246, 0.5)',
-                'inset 0 0 10px rgba(59, 130, 246, 0.3)',
+                'inset 0 0 10px var(--kuro-bot-glow-primary-3)',
+                'inset 0 0 20px var(--kuro-bot-glow-accent)',
+                'inset 0 0 10px var(--kuro-bot-glow-primary-3)',
               ],
             }}
             transition={{
@@ -320,17 +320,17 @@ export const KuroBot = memo(function KuroBot({
         <div 
           className="absolute top-2 -left-2 w-4 h-4 rounded-full"
           style={{
-            background: 'linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%)',
-            border: '1px solid rgba(59, 130, 246, 0.4)',
-            boxShadow: '0 0 8px rgba(59, 130, 246, 0.3)',
+            background: 'var(--kuro-bot-shoulder)',
+            border: '1px solid var(--kuro-bot-border-strong)',
+            boxShadow: '0 0 8px var(--kuro-bot-glow-primary-2)',
           }}
         />
         <div 
           className="absolute top-2 -right-2 w-4 h-4 rounded-full"
           style={{
-            background: 'linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%)',
-            border: '1px solid rgba(59, 130, 246, 0.4)',
-            boxShadow: '0 0 8px rgba(59, 130, 246, 0.3)',
+            background: 'var(--kuro-bot-shoulder)',
+            border: '1px solid var(--kuro-bot-border-strong)',
+            boxShadow: '0 0 8px var(--kuro-bot-glow-primary-2)',
           }}
         />
       </div>
@@ -341,7 +341,7 @@ export const KuroBot = memo(function KuroBot({
         style={{
           width: headSize * 0.8,
           height: 8,
-          background: 'radial-gradient(ellipse, rgba(59, 130, 246, 0.2) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, var(--kuro-bot-reflection) 0%, transparent 70%)',
           filter: 'blur(4px)',
         }}
         animate={{

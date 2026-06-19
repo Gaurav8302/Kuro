@@ -72,6 +72,8 @@ export const KuroOrb = memo(function KuroOrb({
   const pulseDuration = shouldReduceAnimations ? 8 : 4;
   const breatheDuration = shouldReduceAnimations ? 6 : 3;
   
+  const p = (r: number, g: number, b: number, a: number) => `rgba(${r},${g},${b},${a})`;
+  
   return (
     <div 
       ref={containerRef}
@@ -84,8 +86,8 @@ export const KuroOrb = memo(function KuroOrb({
           x: orbX,
           y: orbY,
           background: `radial-gradient(circle, 
-            rgba(59, 130, 246, ${glowOpacity}) 0%, 
-            rgba(139, 92, 246, ${glowOpacity * 0.6}) 40%,
+            rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), ${glowOpacity}) 0%, 
+            rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), ${glowOpacity * 0.6}) 40%,
             transparent 70%)`,
           filter: 'blur(40px)',
         }}
@@ -115,14 +117,14 @@ export const KuroOrb = memo(function KuroOrb({
           style={{
             background: `radial-gradient(circle at 30% 30%, 
               rgba(255, 255, 255, 0.12) 0%,
-              rgba(59, 130, 246, ${baseOpacity * 0.3}) 30%,
-              rgba(139, 92, 246, ${baseOpacity * 0.2}) 60%,
-              rgba(0, 0, 0, 0.4) 100%)`,
+              rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), ${baseOpacity * 0.3}) 30%,
+              rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), ${baseOpacity * 0.2}) 60%,
+              rgba(var(--kuro-body-edge-r), var(--kuro-body-edge-g), var(--kuro-body-edge-b), 0.4) 100%)`,
             border: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: `
-              inset 0 0 60px rgba(59, 130, 246, 0.15),
-              inset 0 0 20px rgba(139, 92, 246, 0.1),
-              0 0 30px rgba(59, 130, 246, ${glowOpacity * 0.5})
+              inset 0 0 60px rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.15),
+              inset 0 0 20px rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), 0.1),
+              0 0 30px rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), ${glowOpacity * 0.5})
             `,
           }}
         />
@@ -132,11 +134,11 @@ export const KuroOrb = memo(function KuroOrb({
             className="absolute inset-4 rounded-full"
             style={{
               background: `conic-gradient(from 0deg at 50% 50%, 
-                rgba(59, 130, 246, 0.4) 0deg,
-                rgba(139, 92, 246, 0.3) 90deg,
-                rgba(59, 130, 246, 0.2) 180deg,
-                rgba(139, 92, 246, 0.4) 270deg,
-                rgba(59, 130, 246, 0.4) 360deg)`,
+                rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.4) 0deg,
+                rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), 0.3) 90deg,
+                rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.2) 180deg,
+                rgba(var(--kuro-accent-r), var(--kuro-accent-g), var(--kuro-accent-b), 0.4) 270deg,
+                rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.4) 360deg)`,
               filter: 'blur(20px)',
             }}
             animate={{ rotate: [0, 360] }}
@@ -153,7 +155,7 @@ export const KuroOrb = memo(function KuroOrb({
             height: '50%',
             background: `radial-gradient(circle,
               rgba(255, 255, 255, 0.15) 0%,
-              rgba(59, 130, 246, 0.3) 40%,
+              rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.3) 40%,
               transparent 70%)`,
             filter: 'blur(10px)',
           }}
@@ -171,7 +173,7 @@ export const KuroOrb = memo(function KuroOrb({
         <motion.div
           className="absolute inset-0 rounded-full"
           style={{
-            border: '1px solid rgba(59, 130, 246, 0.2)',
+            border: '1px solid rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.2)',
           }}
           animate={{
             scale: [1, 1.02, 1],
@@ -188,7 +190,7 @@ export const KuroOrb = memo(function KuroOrb({
       {isClicked && (
         <motion.div
           className="absolute inset-0 rounded-full"
-          style={{ border: '2px solid rgba(59, 130, 246, 0.5)' }}
+          style={{ border: '2px solid rgba(var(--kuro-primary-r), var(--kuro-primary-g), var(--kuro-primary-b), 0.5)' }}
           initial={{ scale: 1, opacity: 0.8 }}
           animate={{ scale: 1.5, opacity: 0 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}

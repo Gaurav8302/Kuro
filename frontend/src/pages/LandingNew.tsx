@@ -4,7 +4,8 @@ import { useEffect, lazy, Suspense } from "react";
 import { useUser, useAuth, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AntigravityBackground from "@/components/AntigravityBackground";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import KuroBackground from "@/components/background/KuroBackground";
 
 const KuroBot3D = lazy(() => import("@/components/kuro/KuroBot3D"));
 
@@ -43,6 +44,11 @@ const Header = () => {
           </Link>
         </nav>
 
+        {/* Theme toggle */}
+        <div className="flex items-center">
+          <ThemeToggle />
+        </div>
+
         {/* Auth CTA */}
         <div className="flex items-center gap-3">
           <SignedOut>
@@ -78,8 +84,8 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background kuro-gradient noise-overlay relative">
-      {/* Antigravity cursor-reactive particle background — full page */}
-      <AntigravityBackground />
+      {/* Kuro premium interactive background — soft glowing blobs with physics */}
+      <KuroBackground />
       
       <Header />
 

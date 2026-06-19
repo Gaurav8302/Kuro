@@ -56,6 +56,46 @@
     --sidebar-border: 225 15% 12%;
     --sidebar-ring: 195 90% 60%;
 
+    /* Kuro bot dark theme colors (default) */
+    --kuro-bot-body: #1a1a2e;
+    --kuro-bot-body-dark: #16213e;
+    --kuro-bot-body-deeper: #0f0f23;
+    --kuro-bot-face: #1e1e3f;
+    --kuro-bot-face-deep: #12122a;
+    --kuro-bot-glow-primary: rgba(59, 130, 246, 0.25);
+    --kuro-bot-glow-primary-2: rgba(59, 130, 246, 0.15);
+    --kuro-bot-glow-primary-3: rgba(59, 130, 246, 0.3);
+    --kuro-bot-glow-accent: rgba(139, 92, 246, 0.15);
+    --kuro-bot-glow-accent-2: rgba(139, 92, 246, 0.1);
+    --kuro-bot-border: rgba(59, 130, 246, 0.2);
+    --kuro-bot-border-strong: rgba(59, 130, 246, 0.3);
+    --kuro-bot-border-soft: rgba(59, 130, 246, 0.15);
+    --kuro-bot-inset-light: rgba(255, 255, 255, 0.05);
+    --kuro-bot-inset-dark: rgba(0, 0, 0, 0.3);
+    --kuro-bot-shadow: rgba(0, 0, 0, 0.4);
+    --kuro-bot-reflection: rgba(59, 130, 246, 0.2);
+    --kuro-bot-mouth: rgba(59, 130, 246, 0.4);
+    --kuro-bot-eye-highlight: rgba(255, 255, 255, 0.3);
+    --kuro-bot-antenna-top: #3b82f6;
+    --kuro-bot-antenna-bottom: #1e40af;
+    --kuro-bot-antenna-tip: #60a5fa;
+    --kuro-bot-side-panel: linear-gradient(180deg, #1e40af 0%, #1e3a5f 100%);
+    --kuro-bot-body-grad: linear-gradient(180deg, #1a1a2e 0%, #12122a 50%, #0a0a15 100%);
+    --kuro-bot-neck-grad: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    --kuro-bot-chest-grad: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(139, 92, 246, 0.1) 70%, transparent 100%);
+    --kuro-bot-shoulder: linear-gradient(135deg, #1e40af 0%, #1e3a5f 100%);
+
+    /* Kuro orb & avatar colors (dark theme — RGB channel values for dynamic alpha) */
+    --kuro-primary-r: 59;
+    --kuro-primary-g: 130;
+    --kuro-primary-b: 246;
+    --kuro-accent-r: 139;
+    --kuro-accent-g: 92;
+    --kuro-accent-b: 246;
+    --kuro-body-edge-r: 0;
+    --kuro-body-edge-g: 0;
+    --kuro-body-edge-b: 0;
+
     /* Chart colors */
     --chart-1: 195 90% 60%;
     --chart-2: 270 60% 55%;
@@ -95,38 +135,78 @@
   }
 
   .light {
-    --background: 40 30% 96%;
-    --foreground: 0 0% 10%;
-    --card: 40 20% 93%;
-    --card-foreground: 0 0% 10%;
-    --popover: 40 25% 95%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 0 75% 50%;
+    --background: 0 0% 97%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 217 80% 54%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 35 20% 88%;
-    --secondary-foreground: 0 0% 15%;
-    --muted: 35 15% 90%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 10 60% 50%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 240 6% 16%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 239 84% 67%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 70% 50%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 35 15% 85%;
-    --input: 35 15% 88%;
-    --ring: 0 75% 50%;
-    --orb-glow: 0 75% 50%;
-    --orb-core: 10 60% 50%;
-    --gradient-start: 40 30% 96%;
-    --gradient-mid: 35 20% 92%;
-    --gradient-end: 40 25% 94%;
-    --sidebar-background: 40 25% 94%;
-    --sidebar-foreground: 0 0% 15%;
-    --sidebar-primary: 0 75% 50%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 217 80% 54%;
+    --orb-glow: 217 80% 54%;
+    --orb-core: 239 84% 67%;
+    --gradient-start: 0 0% 97%;
+    --gradient-mid: 220 14% 96%;
+    --gradient-end: 0 0% 100%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 6% 16%;
+    --sidebar-primary: 217 80% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 35 20% 88%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 35 15% 85%;
-    --sidebar-ring: 0 75% 50%;
+    --sidebar-accent: 220 14% 94%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 240 6% 90%;
+    --sidebar-ring: 217 80% 54%;
+
+    /* Kuro bot light theme colors */
+    --kuro-bot-body: #e8eaed;
+    --kuro-bot-body-dark: #d1d5db;
+    --kuro-bot-body-deeper: #b0b5bc;
+    --kuro-bot-face: #f0f2f5;
+    --kuro-bot-face-deep: #e2e5ea;
+    --kuro-bot-glow-primary: rgba(37, 99, 235, 0.15);
+    --kuro-bot-glow-primary-2: rgba(37, 99, 235, 0.08);
+    --kuro-bot-glow-primary-3: rgba(37, 99, 235, 0.25);
+    --kuro-bot-glow-accent: rgba(99, 102, 241, 0.1);
+    --kuro-bot-glow-accent-2: rgba(99, 102, 241, 0.05);
+    --kuro-bot-border: rgba(37, 99, 235, 0.12);
+    --kuro-bot-border-strong: rgba(37, 99, 235, 0.2);
+    --kuro-bot-border-soft: rgba(37, 99, 235, 0.08);
+    --kuro-bot-inset-light: rgba(255, 255, 255, 0.6);
+    --kuro-bot-inset-dark: rgba(0, 0, 0, 0.05);
+    --kuro-bot-shadow: rgba(0, 0, 0, 0.06);
+    --kuro-bot-reflection: rgba(37, 99, 235, 0.06);
+    --kuro-bot-mouth: rgba(37, 99, 235, 0.2);
+    --kuro-bot-eye-highlight: rgba(255, 255, 255, 0.5);
+    --kuro-bot-antenna-top: #2563eb;
+    --kuro-bot-antenna-bottom: #1d4ed8;
+    --kuro-bot-antenna-tip: #60a5fa;
+    --kuro-bot-side-panel: linear-gradient(180deg, #e0e7ff 0%, #c7d2fe 100%);
+    --kuro-bot-body-grad: linear-gradient(180deg, #f0f2f5 0%, #e2e5ea 50%, #d1d5db 100%);
+    --kuro-bot-neck-grad: linear-gradient(180deg, #e8eaed 0%, #d1d5db 100%);
+    --kuro-bot-chest-grad: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(99, 102, 241, 0.05) 70%, transparent 100%);
+    --kuro-bot-shoulder: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+
+    /* Kuro orb & avatar colors (light theme — RGB channel values for dynamic alpha) */
+    --kuro-primary-r: 37;
+    --kuro-primary-g: 99;
+    --kuro-primary-b: 235;
+    --kuro-accent-r: 99;
+    --kuro-accent-g: 102;
+    --kuro-accent-b: 241;
+    --kuro-body-edge-r: 0;
+    --kuro-body-edge-g: 0;
+    --kuro-body-edge-b: 0;
   }
 }
 

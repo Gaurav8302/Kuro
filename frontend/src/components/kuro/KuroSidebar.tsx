@@ -2,7 +2,6 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
-import { useTheme } from 'next-themes';
 import {
   Plus,
   MessageSquare,
@@ -13,11 +12,10 @@ import {
   X,
   ChevronLeft,
   GripVertical,
-  Sun,
-  Moon
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useState } from 'react';
 import { sidebarVariants } from '@/utils/animations';
 import { useDraggable } from '@dnd-kit/core';
@@ -393,18 +391,5 @@ export const KuroSidebar = memo(function KuroSidebar({
     </motion.aside>
   );
 });
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <button
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="p-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-      title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-    >
-      {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </button>
-  );
-}
 
 export default KuroSidebar;
