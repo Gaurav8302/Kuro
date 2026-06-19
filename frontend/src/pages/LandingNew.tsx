@@ -96,14 +96,14 @@ const Landing = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: "easeOut" }}
-              className="relative z-10 -mb-4 shrink-0 min-h-[220px] md:min-h-[260px]"
+              className="relative z-10 -mb-12 shrink-0 min-h-[180px] md:min-h-[200px]"
             >
               <Suspense fallback={
-                <div className="w-72 h-72 md:w-80 md:h-80 flex items-center justify-center">
+                <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center">
                   <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
                 </div>
               }>
-                <KuroBot3D className="w-72 h-72 md:w-80 md:h-80" />
+                <KuroBot3D className="w-56 h-56 md:w-64 md:h-64" />
               </Suspense>
             </motion.div>
 
