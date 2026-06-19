@@ -2,6 +2,7 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { ClerkProvider } from '@clerk/clerk-react';
+import { ThemeProvider } from 'next-themes';
 // Import main styles (includes Tailwind and design system)
 import './index.css'
 
@@ -18,6 +19,8 @@ createRoot(document.getElementById("root")!).render(
   signInFallbackRedirectUrl="/chat"
   signUpFallbackRedirectUrl="/chat"
   >
-    <App />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="kuro-theme">
+      <App />
+    </ThemeProvider>
   </ClerkProvider>
 );

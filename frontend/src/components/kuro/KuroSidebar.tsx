@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 import {
   Plus,
   MessageSquare,
@@ -11,7 +12,9 @@ import {
   Check,
   X,
   ChevronLeft,
-  GripVertical
+  GripVertical,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -355,7 +358,12 @@ export const KuroSidebar = memo(function KuroSidebar({
       </div>
 
       {/* Sidebar Footer */}
-      <div className="p-3 border-t border-border/50">
+      <div className="p-3 border-t border-border/50 space-y-2">
+        {/* Theme Toggle */}
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <span className="text-xs text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
         {user && (
           <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-primary/5 transition-colors">
             <Avatar className="w-8 h-8 border border-border">
@@ -385,5 +393,18 @@ export const KuroSidebar = memo(function KuroSidebar({
     </motion.aside>
   );
 });
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="p-1.5 rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+      title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+    >
+      {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
+}
 
 export default KuroSidebar;
