@@ -41,7 +41,6 @@ class DatabaseConnection:
     _lock = threading.RLock()
     
     def __new__(cls):
-        # Use process ID to ensure per-process connections
         import os
         pid = os.getpid()
         
@@ -50,48 +49,53 @@ class DatabaseConnection:
                 cls._instances[pid] = super(DatabaseConnection, cls).__new__(cls)
                 cls._instances[pid]._client = None
                 cls._instances[pid]._initialized = False
-                logger.debug("🔧 Created new DatabaseConnection for PID %s", pid)
+                cls._instances[pid]._connection_failed = False
+                logger.debug("Created new DatabaseConnection for PID %s", pid)
             
             return cls._instances[pid]
     
     def _connect(self):
         """Establish connection to MongoDB with fork safety"""
+        if self._connection_failed:
+            raise ConnectionError("Previous MongoDB connection attempt failed; skipping retry")
+        
         if self._initialized and self._client is not None:
-            # Test existing connection
             try:
                 self._client.admin.command('ping')
-                return  # Connection still valid
+                return
             except Exception:
-                logger.warning("🔄 Existing connection failed, reconnecting...")
+                logger.warning("Existing connection failed, reconnecting...")
                 self._client = None
         
         try:
-            logger.info("🔌 Connecting to MongoDB (PID: %s)...", os.getpid())
+            logger.info("Connecting to MongoDB (PID: %s)...", os.getpid())
             self._client = MongoClient(
                 MONGO_URI,
-                serverSelectionTimeoutMS=5000,  # 5 second timeout
-                connectTimeoutMS=10000,         # 10 second connection timeout
-                socketTimeoutMS=20000,          # 20 second socket timeout
-                maxPoolSize=10,                 # Connection pool size
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=20000,
+                maxPoolSize=10,
                 minPoolSize=1,
-                maxIdleTimeMS=45000,           # Close connections after 45s idle
+                maxIdleTimeMS=45000,
             )
             
-            # Test the connection
             self._client.admin.command('ping')
             self._initialized = True
-            logger.info("✅ Successfully connected to MongoDB (PID: %s)", os.getpid())
+            self._connection_failed = False
+            logger.info("Successfully connected to MongoDB (PID: %s)", os.getpid())
             
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            logger.error("❌ Failed to connect to MongoDB (PID: %s): %s", os.getpid(), str(e))
+            logger.error("Failed to connect to MongoDB (PID: %s): %s", os.getpid(), str(e))
             self._client = None
             self._initialized = False
+            self._connection_failed = True
             raise ConnectionError(f"Database connection failed: {str(e)}")
         
         except Exception as e:
-            logger.error("❌ Unexpected database error (PID: %s): %s", os.getpid(), str(e))
+            logger.error("Unexpected database error (PID: %s): %s", os.getpid(), str(e))
             self._client = None
             self._initialized = False
+            self._connection_failed = True
             raise
     
     @property

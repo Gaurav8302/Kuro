@@ -629,17 +629,25 @@ async def chat_endpoint(chat_message: ChatInput):
       Model lock: same model reused throughout a session to prevent behavioural drift.
     """
     import time as _time
+    import asyncio as _asyncio
+    _loop = _asyncio.get_running_loop()
     request_start = _time.time()
     try:
         effective_session_id = chat_message.session_id
         if not effective_session_id:
             try:
-                effective_session_id = create_new_session(chat_message.user_id)
+                effective_session_id = await _loop.run_in_executor(None, lambda: create_new_session(chat_message.user_id))
             except Exception as create_err:
                 logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
                 effective_session_id = "default"
 
-        db_history = get_chat_by_session(effective_session_id)
+        try:
+            db_history = await _asyncio.wait_for(
+                _loop.run_in_executor(None, lambda: get_chat_by_session(effective_session_id)),
+                timeout=2.0,
+            )
+        except (_asyncio.TimeoutError, ConnectionError, Exception):
+            db_history = []
         chat_history: list[dict[str, str]] = []
         for turn in db_history[-20:]:
             user_msg = str(turn.get("user", "") or "").strip()
@@ -670,24 +678,15 @@ async def chat_endpoint(chat_message: ChatInput):
             chat_message.user_id, latency_ms, model_used, route_rule,
         )
 
-        # Persist chat exchange so sessions/history remain consistent across reloads.
-        try:
-            persisted_session_id = save_chat_to_db(
-                user_id=chat_message.user_id,
-                message=chat_message.message,
-                reply=response_text,
-                session_id=effective_session_id,
-            )
-            effective_session_id = persisted_session_id or effective_session_id
-            logger.debug(
-                "Saved chat exchange for user %s in session %s",
-                chat_message.user_id,
-                persisted_session_id,
-            )
-        except Exception as save_err:
-            logger.error("Failed to persist chat exchange: %s", save_err, exc_info=True)
+        # Persist chat exchange in background thread to avoid blocking the response.
+        task = _loop.run_in_executor(None, lambda: save_chat_to_db(
+            user_id=chat_message.user_id,
+            message=chat_message.message,
+            reply=response_text,
+            session_id=effective_session_id,
+        ))
+        task.add_done_callback(lambda f: f.exception() and logger.error("Background save failed: %s", f.exception()))
 
-        # Detect if the response is a safety-triggered browser suggestion
         _is_safety_response = route_rule and (
             "time_sensitive" in route_rule or "verified_blocked" in route_rule
         )

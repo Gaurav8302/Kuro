@@ -96,14 +96,13 @@ class ChatDatabase:
             logger.error(f"Error updating session metadata: {str(e)}")
 
     def save_chat_to_db(self, user_id: str, message: str, reply: str, session_id: Optional[str] = None) -> str:
-        # Ensure indexes are created (lazy initialization)
+        # Ensure indexes are created once on first call
         self._ensure_indexes()
         
         try:
             if not session_id:
                 session_id = f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 
-            # Prepare chat document with enhanced metadata
             chat_document = {
                 "user_id": user_id,
                 "session_id": session_id,
@@ -118,14 +117,9 @@ class ChatDatabase:
                 }
             }
             
-            # Insert with automatic expiry for old sessions
             result = self.chat_collection.insert_one(chat_document)
             
-            # Update session metadata
             self._update_session_metadata(session_id, user_id, message)
-            
-            # Index management - ensure we have proper indexes
-            self._ensure_indexes()
             
             logger.info(f"Chat saved: {result.inserted_id} for session {session_id}")
             return session_id
