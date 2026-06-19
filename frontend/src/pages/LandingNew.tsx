@@ -5,7 +5,6 @@ import { useUser, useAuth, SignedIn, SignedOut, UserButton } from "@clerk/clerk-
 import { ArrowRight, Sparkles, Zap, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import KuroBackground from "@/components/background/KuroBackground";
 
 const KuroBot3D = lazy(() => import("@/components/kuro/KuroBot3D"));
 
@@ -84,8 +83,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background kuro-gradient noise-overlay relative">
-      {/* Kuro premium interactive background — soft glowing blobs with physics */}
-      <KuroBackground />
+
       
       <Header />
 

@@ -39,20 +39,20 @@ const DARK_COLORS: BotColors = {
 };
 
 const LIGHT_COLORS: BotColors = {
-  body: "#e8eaed",
-  ring: "#2563eb",
-  chest: "#2563eb",
-  armJoint: "#6366f1",
-  head: "#e8eaed",
-  visor: "#818cf8",
-  eye: "#2563eb",
-  antenna: "#e8eaed",
-  antennaTip: "#2563eb",
-  ear: "#6366f1",
-  particle1: "#2563eb",
-  particle2: "#6366f1",
-  light1: "#2563eb",
-  light2: "#6366f1",
+  body: "#1a1a2e",
+  ring: "#ef4444",
+  chest: "#ffffff",
+  armJoint: "#ef4444",
+  head: "#1a1a2e",
+  visor: "#ef4444",
+  eye: "#ffffff",
+  antenna: "#1a1a2e",
+  antennaTip: "#3b82f6",
+  ear: "#3b82f6",
+  particle1: "#ef4444",
+  particle2: "#3b82f6",
+  light1: "#ef4444",
+  light2: "#3b82f6",
 };
 
 interface BotProps {
