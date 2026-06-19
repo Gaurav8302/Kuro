@@ -96,7 +96,7 @@ const Landing = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: "easeOut" }}
-              className="relative z-10 -mb-20 shrink-0 min-h-[160px] md:min-h-[180px]"
+              className="relative z-10 -mb-8 shrink-0 min-h-[160px] md:min-h-[180px]"
             >
               <Suspense fallback={
                 <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center">
@@ -108,7 +108,7 @@ const Landing = () => {
             </motion.div>
 
             <motion.div
-              className="relative z-10 mx-auto max-w-3xl text-center pt-8"
+              className="relative z-10 mx-auto max-w-3xl text-center pt-4"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
