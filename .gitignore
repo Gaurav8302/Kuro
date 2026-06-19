@@ -119,6 +119,10 @@ backend/temp/*
 !backend/storage/.gitkeep
 !backend/temp/.gitkeep
 
+# Reflection Engine test data
+backend/memory_v2/data/
+backend/backend/
+
 # Misc
 .DS_Store
 *.pem
