@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
+import asyncio
 import logging
 import signal
 import sys
@@ -50,6 +51,8 @@ import os
 # Import our custom modules
 # v3 memory system
 from memory.chat_manager_v3 import ChatManagerV3
+from memory_v2.integration import ReflectionIntegration
+reflection_integration = ReflectionIntegration()
 chat_manager_v3_instance = ChatManagerV3()
 from memory.chat_database import save_chat_to_db
 from memory.chat_database import (
@@ -59,7 +62,7 @@ from memory.chat_database import (
     delete_session_by_id,
     rename_session_title
 )
-# Keep legacy Pinecone manager for /store-memory, /retrieve-memory, /health endpoints
+# Legacy Pinecone manager kept for backward compat /store-memory, /retrieve-memory endpoints
 from memory.ultra_lightweight_memory import (
     store_memory,
     get_relevant_memories_detailed,
@@ -105,14 +108,24 @@ def graceful_shutdown(signum=None, frame=None):
         except Exception as e:
             logger.error(f"❌ Shutdown handler error: {e}")
     
+    # Stop background reflection scheduler
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(reflection_integration.stop_background())
+    except RuntimeError:
+        try:
+            asyncio.run(reflection_integration.stop_background())
+        except Exception as e:
+            logger.error(f"Reflection scheduler shutdown error: {e}")
+
     # Close database connections
     try:
         from database.db import get_database_connection
         db_conn = get_database_connection()
         db_conn.close_connection()
-        logger.info("✅ Database connections closed")
+        logger.info("Database connections closed")
     except Exception as e:
-        logger.error(f"❌ Database cleanup error: {e}")
+        logger.error(f"Database cleanup error: {e}")
     
     logger.info("👋 Shutdown complete")
 
@@ -132,7 +145,13 @@ setup_signal_handlers()
 # Fast startup signal
 @app.on_event("startup")
 async def _startup_log():
-    logger.info("🚀 FastAPI startup complete - readiness signal")
+    # Start the reflection engine background scheduler
+    try:
+        reflection_integration.start_background()
+        logger.info("Background reflection scheduler started on startup")
+    except Exception as e:
+        logger.warning("Failed to start background reflection scheduler: %s", e)
+    logger.info("FastAPI startup complete - readiness signal")
 
 # --- Observability / Instrumentation Registration (Step 1+) ---
 try:
@@ -270,24 +289,28 @@ async def security_headers_middleware(request: Request, call_next):
 # app.include_router(user_profile_router)
 
 # Session creation endpoint for new chat
-from fastapi import Query
+from fastapi import BackgroundTasks, Query
 from memory.chat_database import create_new_session
 @app.post("/session/create", tags=["Sessions"])
-def create_session(
+async def create_session(
     user_id: str = Query(...),
-    force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists")
+    force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     if not user_id:
         raise HTTPException(status_code=400, detail="Missing user_id")
 
-    # Before creating a new session, summarize the user's most recent non-empty
-    # session so its content is available for cross-session memory retrieval.
+    # Before creating a new session, trigger reflection on previous session
+    # and summarize it for cross-session memory retrieval.
     try:
         _auto_summarize_previous_session(user_id)
     except Exception as e:
         logger.warning("Auto-summarize of previous session failed (non-blocking): %s", e)
+    background_tasks.add_task(
+        reflection_integration.on_session_end, user_id
+    )
 
-    session_id = create_new_session(user_id, force_new=force_new)
+    session_id = await asyncio.to_thread(create_new_session, user_id, force_new=force_new)
     if session_id:
         return {"status": "success", "session_id": session_id, "reused": not force_new}
     else:
@@ -657,11 +680,19 @@ async def chat_endpoint(chat_message: ChatInput):
             if assistant_msg:
                 chat_history.append({"role": "assistant", "content": assistant_msg})
 
+        # Check for user corrections before processing chat
+        correction_handled = await reflection_integration.handle_correction(
+            chat_message.user_id, chat_message.message,
+        )
+        if correction_handled:
+            logger.info("Correction detected for user %s", chat_message.user_id)
+
         response_data = await chat_manager_v3_instance.handle_chat(
             user_id=chat_message.user_id,
             session_id=effective_session_id,
             user_input=chat_message.message,
             chat_history=chat_history,
+            insight_hook=reflection_integration.augment_context,
         )
         if isinstance(response_data, dict):
             response_text = response_data.get("response", str(response_data))

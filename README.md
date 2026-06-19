@@ -417,6 +417,18 @@ python demo_kuro_system.py
 5. **Routing / Orchestration**: See `/docs/ORCHESTRATION.md`
 6. **Memory Architecture**: See `/docs/MEMORY_ARCHITECTURE.md`
 
+### Documentation
+
+- [AGENTS.md](AGENTS.md) — AI agent instructions and engineering workflow
+- [onboarding.md](onboarding.md) — Project summary, setup, and feature list
+- [architecture.md](architecture.md) — System architecture and data flow
+- [conventions.md](conventions.md) — Coding and contribution conventions
+- [decisions.md](decisions.md) — Architecture Decision Records
+- [memory.md](memory.md) — Project memory and lessons learned
+- [roadmap.md](roadmap.md) — Development roadmap
+- [MEMORY_AND_AI_ARCHITECTURE.md](MEMORY_AND_AI_ARCHITECTURE.md) — Deep memory system technical doc
+- [CHANGELOG.md](CHANGELOG.md) — Version history
+
 ### Code Quality
 
 - **Linting**: ESLint (Frontend), Flake8 (Backend)

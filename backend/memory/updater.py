@@ -18,7 +18,7 @@ import re
 import json
 import os
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Awaitable, Callable, List, Dict, Optional, Tuple
 
 from db.mongo import insert_memory, find_similar_memory_semantic, update_memory, reinforce_memories
 
@@ -32,9 +32,15 @@ class MemoryUpdater:
     # Tuneable via env for faster memory capture (default 3)
     BATCH_SIZE = int(os.getenv("MEMORY_BATCH_SIZE", "3"))
 
-    def __init__(self):
+    def __init__(
+        self,
+        on_batch_processed: Optional[
+            Callable[[str, int], Awaitable[None]]
+        ] = None,
+    ):
         from llm.router import LLMRouter
         self.llm = LLMRouter().get_model("mid")
+        self._on_batch_processed = on_batch_processed
         # Per-user turn buffers: {user_id: [(user_msg, assistant_msg), ...]}
         self._buffers: Dict[str, List[Tuple[str, str]]] = {}
         self._buffer_timestamps: Dict[str, datetime] = {}
@@ -86,6 +92,7 @@ class MemoryUpdater:
             "fact": "fact", "preference": "preference", "event": "event",
         }
 
+        extracted_count = 0
         for mem_type, items in extracted.items():
             normalized_type = type_map.get(str(mem_type).lower())
             if not normalized_type:
@@ -93,6 +100,7 @@ class MemoryUpdater:
             for content in items:
                 if not isinstance(content, str) or not content.strip():
                     continue
+                extracted_count += 1
                 # Rule-based importance scoring — no LLM call
                 importance = self._score_importance_rule(content, normalized_type)
 
@@ -109,6 +117,12 @@ class MemoryUpdater:
                     await self._upsert(memory)
                 except Exception as e:
                     logger.error("Failed to upsert memory: %s", e)
+
+        if self._on_batch_processed and extracted_count > 0:
+            try:
+                await self._on_batch_processed(user_id, extracted_count)
+            except Exception as cb_err:
+                logger.error("on_batch_processed callback failed: %s", cb_err)
 
     async def _extract_memories_batch(
         self, batch: List[Tuple[str, str]]

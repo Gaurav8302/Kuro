@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from typing import List, Dict, Any, Optional
+from typing import Any, Awaitable, Callable, List, Dict, Optional
 
 from memory.controller import MemoryController
 from memory.retriever import MemoryRetriever
@@ -81,6 +81,9 @@ class ChatManagerV3:
         session_id: str,
         user_input: str,
         chat_history: List[Dict[str, str]],
+        insight_hook: Optional[
+            Callable[[str, str, List[Dict[str, Any]]], Awaitable[List[Dict[str, str]]]]
+        ] = None,
     ) -> Dict[str, Any]:
 
         # -----------------------------
@@ -156,6 +159,16 @@ class ChatManagerV3:
                 except Exception as rag_err:
                     logger.debug("RAG retrieval failed (non-blocking): %s", rag_err)
 
+            # -----------------------------
+            # 4c. INSIGHT RETRIEVAL (meta/decision queries only)
+            # -----------------------------
+            insight_entries: List[Dict[str, str]] = []
+            if insight_hook:
+                try:
+                    insight_entries = await insight_hook(user_id, user_input, retrieved_memories)
+                except Exception as insight_err:
+                    logger.debug("Insight hook failed (non-blocking): %s", insight_err)
+
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
@@ -168,6 +181,14 @@ class ChatManagerV3:
             system_prompt = f"{_SYSTEM_PROMPT}\n\n{skill_prompt}"
         if rag_context:
             system_prompt = f"{system_prompt}\n\nRelevant memory context:\n{rag_context}"
+        if insight_entries:
+            insight_text = "\n".join(
+                f"• {entry.get('content', '')}" for entry in insight_entries
+            )
+            system_prompt = (
+                f"{system_prompt}\n\n"
+                f"Insights about the user:\n{insight_text}"
+            )
 
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)

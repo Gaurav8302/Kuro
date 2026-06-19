@@ -261,6 +261,12 @@ frontend/
 - **Update API documentation** for new endpoints
 - **Include examples** in documentation
 - **Update CHANGELOG.md** for releases
+- **Update canonical docs** when making significant changes:
+  - [architecture.md](architecture.md) — Architecture changes
+  - [decisions.md](decisions.md) — New ADRs or decision changes
+  - [conventions.md](conventions.md) — Convention changes
+  - [memory.md](memory.md) — New lessons learned or pitfalls
+  - [roadmap.md](roadmap.md) — Roadmap priority changes
 
 ## 🚀 Release Process
 

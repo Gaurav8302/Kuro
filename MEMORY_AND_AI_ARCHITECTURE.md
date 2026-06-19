@@ -2,7 +2,9 @@
 
 > **Comprehensive Technical Documentation**
 > 
-> Last Updated: March 2026
+> Last Updated: June 2026
+> 
+> **Canonical references**: See [architecture.md](architecture.md) for the system overview, [decisions.md](decisions.md) for technical rationale, and [memory.md](memory.md) for lessons learned.
 
 ## Table of Contents
 

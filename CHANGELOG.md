@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-06-20 - **DOCUMENTATION SUITE & DEVELOPER EXPERIENCE** 📚
+
+### ✨ Added
+- **Structured Documentation Suite**: Created 7 canonical project docs to standardize developer onboarding and knowledge capture.
+  - `AGENTS.md` — AI agent engineering rules (docs-first workflow, verification requirements)
+  - `onboarding.md` — Project summary, tech stack, setup, folder structure, core features
+  - `architecture.md` — System architecture overview, module map, data flow, deployment
+  - `conventions.md` — Coding, testing, commit, and PR conventions
+  - `decisions.md` — Architecture Decision Records (6 ADRs covering model routing, memory, circuit breakers, UI framework, intent classification)
+  - `memory.md` — Persistent project knowledge, lessons learned, rejected approaches, pitfalls
+  - `roadmap.md` — Development vision, completed milestones, planned features, risks
+
+### 🔁 Changed
+- **README.md**: Added a centralized Documentation section linking to all new canonical docs
+- **CONTRIBUTING.md**: Added a Documentation subsection referencing conventions.md, decisions.md, architecture.md, etc.
+- **MEMORY_AND_AI_ARCHITECTURE.md**: Updated front matter to reference architecture.md and decisions.md as source-of-truth
+
+### 🛠️ Technical
+- All docs populated with production-accurate content derived from codebase analysis
+- Documents cross-reference each other to form a cohesive knowledge base
+- AGENTS.md enforces the "Documentation First" rule for all future contributions
+
 ## [1.4.0] - 2026-03-18 - **FRONTEND OPTIMIZATIONS & SYSTEM OVERHAUL** 🚀⚡
 
 ### ✨ Added
