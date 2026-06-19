@@ -125,6 +125,7 @@ class ChatManagerV3:
         # -----------------------------
         retrieved_memories = []
         rag_context = ""
+        insight_entries: List[Dict[str, str]] = []
         if use_memory and memory_types:
             retrieved_memories = await self.memory_retriever.retrieve(
                 user_id=user_id,
@@ -162,7 +163,6 @@ class ChatManagerV3:
             # -----------------------------
             # 4c. INSIGHT RETRIEVAL (meta/decision queries only)
             # -----------------------------
-            insight_entries: List[Dict[str, str]] = []
             if insight_hook:
                 try:
                     insight_entries = await insight_hook(user_id, user_input, retrieved_memories)
