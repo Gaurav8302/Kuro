@@ -1,210 +1,189 @@
 """
-Ultra-lightweight memory manager for Render's 512MB memory limit
-Uses Google Gemini embeddings (free) and Groq for chat
+Ultra-lightweight memory manager.
+Uses Gemini gemini-embedding-001 @ 768-d via db.pinecone.embed_text.
 """
 
 import os
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-import json
 import math
 
-# Google Gemini imports for embeddings only
-import google.generativeai as genai
+from config.embeddings import DEFAULT_PINECONE_INDEX, EMBEDDING_DIMENSION, EMBEDDING_MODEL
 
-# Configure logging
 logger = logging.getLogger(__name__)
+
 
 class UltraLightweightMemoryManager:
     """Memory manager optimized for minimal memory usage"""
-    
+
     def __init__(self):
-        # Initialize Google Gemini for embeddings (free tier)
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required for embeddings")
-        
-        genai.configure(api_key=api_key)
-        self.embedding_model = "models/text-embedding-004"
-        
-        # Initialize Pinecone (lightweight connection)
+
+        self.embedding_model = EMBEDDING_MODEL
+        self.embedding_dimension = EMBEDDING_DIMENSION
+
         from pinecone import Pinecone
+
         pc_api_key = os.getenv("PINECONE_API_KEY")
         if not pc_api_key:
             raise ValueError("PINECONE_API_KEY environment variable is required")
-        
+
         try:
             self.pc = Pinecone(api_key=pc_api_key)
-            index_name = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
-            logger.info(f"Connecting to Pinecone index: {index_name}")
+            index_name = os.getenv("PINECONE_INDEX_NAME", DEFAULT_PINECONE_INDEX)
+            logger.info("Connecting to Pinecone index: %s (%sd)", index_name, EMBEDDING_DIMENSION)
             self.index = self.pc.Index(index_name)
             logger.info("Ultra-lightweight memory manager initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize Pinecone connection: {e}")
+            logger.error("Failed to initialize Pinecone connection: %s", e)
             raise
-    
+
     def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """Calculate cosine similarity without numpy"""
         dot_product = sum(a * b for a, b in zip(vec1, vec2))
         norm1 = math.sqrt(sum(a * a for a in vec1))
         norm2 = math.sqrt(sum(a * a for a in vec2))
-        
         if norm1 == 0 or norm2 == 0:
             return 0.0
-        
         return dot_product / (norm1 * norm2)
-    
+
     def get_embedding(self, text: str) -> List[float]:
-        """Get embedding from Google Gemini (free tier)"""
-        try:
-            result = genai.embed_content(
-                model=self.embedding_model,
-                content=text,
-                task_type="retrieval_document"
-            )
-            embedding = result['embedding']
-            
-            # Pinecone index expects 384 dimensions, but Gemini returns 768
-            # We need to reduce dimensions to match the index
-            if len(embedding) > 384:
-                # Simple dimension reduction: take every 2nd element
-                embedding = embedding[::2][:384]
-            elif len(embedding) < 384:
-                # Pad with zeros if needed
-                embedding.extend([0.0] * (384 - len(embedding)))
-            
-            return embedding
-        except Exception as e:
-            logger.error(f"Error generating embedding: {e}")
-            # Return a default embedding vector of appropriate size
-            return [0.0] * 384  # Match Pinecone index dimension
+        """Get embedding from Gemini. Never returns a zero/padded fake vector."""
+        from db.pinecone import embed_text
+
+        return embed_text(text, task_type="retrieval_document")
 
     def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
-        """Store a memory with minimal processing"""
         try:
-            # Generate embedding
             embedding = self.get_embedding(text)
-            
-            # Create memory ID
             import uuid
-            memory_id = str(uuid.uuid4())
-            
-            # Enhanced metadata with defaults
-            # Always store UTC ISO timestamps to avoid timezone drift / comparison bugs
-            enhanced_metadata = {
-                "text": text,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "importance": importance if importance is not None else metadata.get("importance", 0.5),
-                "category": metadata.get("category", "general"),
-                "user": metadata.get("user", "unknown"),
-                **metadata
-            }
-            
-            # Store in Pinecone
-            self.index.upsert([(memory_id, embedding, enhanced_metadata)])
 
-            # Ingest into keyword index for hybrid retrieval (best-effort)
-            try:
-                from retrieval import ingest_document
-                ingest_document(memory_id, text, enhanced_metadata)
-            except Exception:
-                pass
-            
-            logger.info(f"Memory stored: {memory_id}")
-            return memory_id
-            
-        except Exception as e:
-            logger.error(f"Error storing memory: {e}")
-            raise
-    
-    def get_relevant_memories(self, query: str, user_filter: str = None, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Retrieve relevant memories"""
-        try:
-            # Generate query embedding
-            query_embedding = self.get_embedding(query)
-            
-            # Build filter
-            filter_dict = {}
-            if user_filter:
-                filter_dict["user"] = user_filter
-            
-            # Query Pinecone
-            query_kwargs = {
-                "vector": query_embedding,
-                "top_k": top_k,
-                "include_metadata": True
+            memory_id = str(uuid.uuid4())
+            memory_metadata = {
+                **(metadata or {}),
+                "text": text,
+                "importance": float(importance) if importance is not None else 0.5,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "embedding_model": EMBEDDING_MODEL,
+                "embedding_dim": EMBEDDING_DIMENSION,
             }
-            
-            if filter_dict:
-                query_kwargs["filter"] = filter_dict
-            
-            results = self.index.query(**query_kwargs)
-            
-            # Format results
+            self.index.upsert(vectors=[(memory_id, embedding, memory_metadata)])
+            logger.info("Stored memory %s", memory_id)
+            return memory_id
+        except Exception as e:
+            logger.error("Error storing memory: %s", e)
+            raise
+
+    def get_relevant_memories(self, query: str, user_filter: Optional[str] = None, top_k: int = 5) -> List[str]:
+        detailed = self.get_relevant_memories_detailed(query, user_filter, top_k)
+        return [m["text"] for m in detailed if m.get("text")]
+
+    def get_relevant_memories_detailed(
+        self, query: str, user_filter: Optional[str] = None, top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        try:
+            from db.pinecone import embed_text
+
+            query_embedding = embed_text(query, task_type="retrieval_query")
+            filter_dict = {"user_id": {"$eq": user_filter}} if user_filter else None
+            results = self.index.query(
+                vector=query_embedding,
+                top_k=top_k,
+                include_metadata=True,
+                filter=filter_dict,
+            )
             memories = []
             for match in results.matches:
-                memory = {
-                    "text": match.metadata.get("text", ""),
-                    "score": float(match.score),
-                    "importance": match.metadata.get("importance", 0.5),
-                    "category": match.metadata.get("category", "general"),
-                    "timestamp": match.metadata.get("timestamp", "")
-                }
-                memories.append(memory)
-            
-            logger.info(f"Retrieved {len(memories)} memories")
+                meta = dict(match.metadata or {})
+                memories.append(
+                    {
+                        "text": meta.get("text") or meta.get("content", ""),
+                        "score": float(match.score or 0.0),
+                        "importance": meta.get("importance", 0.5),
+                        "category": meta.get("category", "general"),
+                        "timestamp": meta.get("timestamp", ""),
+                    }
+                )
             return memories
-            
         except Exception as e:
-            logger.error(f"Error retrieving memories: {e}")
-            return []
-    
-    def get_user_context(self, user_id: str) -> Dict[str, Any]:
-        """Get basic user context"""
-        try:
-            # Get recent memories
-            memories = self.get_relevant_memories("user preferences goals name", user_filter=user_id, top_k=10)
-            
-            context = {
-                "recent_memories": len(memories),
-                "topics": list(set(m.get("category", "general") for m in memories)),
-                "last_interaction": max([m.get("timestamp", "") for m in memories]) if memories else ""
-            }
-            
-            return context
-            
-        except Exception as e:
-            logger.error(f"Error getting user context: {e}")
-            return {}
-    
+            logger.error("Error retrieving memories: %s", e)
+            raise
+
+    def get_user_context(self, user_id: str):
+        return {"recent_memories": 0, "topics": [], "last_interaction": ""}
+
     def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
-        """Basic cleanup - just log for now"""
-        logger.info(f"Cleanup requested for user {user_id} (threshold: {days_threshold} days)")
-        # Simplified - just return success for now
+        logger.info("Cleanup requested for user %s (threshold: %s days)", user_id, days_threshold)
         return True
 
-# Global instance (allow disabling heavy init for tests)
+
 if os.getenv("DISABLE_MEMORY_INIT") == "1":
+
     class _DummyMemoryManager:
-        def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
+        index = None
+
+        def store_memory(self, *args, **kwargs):
             import uuid
             return str(uuid.uuid4())
-        def get_relevant_memories(self, query: str, user_filter: str = None, top_k: int = 5):
+
+        def get_relevant_memories(self, *args, **kwargs):
             return []
+
+        def get_relevant_memories_detailed(self, *args, **kwargs):
+            return []
+
         def get_user_context(self, user_id: str):
             return {"recent_memories": 0, "topics": [], "last_interaction": ""}
+
         def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
             return True
+
+        def get_embedding(self, text: str):
+            return [0.0] * EMBEDDING_DIMENSION
+
     ultra_lightweight_memory_manager = _DummyMemoryManager()
     logger.info("Using dummy memory manager (DISABLE_MEMORY_INIT=1)")
 else:
-    ultra_lightweight_memory_manager = UltraLightweightMemoryManager()
+    try:
+        ultra_lightweight_memory_manager = UltraLightweightMemoryManager()
+    except Exception as e:
+        logger.error("Ultra-lightweight memory init failed: %s", e)
+
+        class _DummyMemoryManager:
+            index = None
+
+            def store_memory(self, *args, **kwargs):
+                raise RuntimeError("Memory manager unavailable")
+
+            def get_relevant_memories(self, *args, **kwargs):
+                return []
+
+            def get_relevant_memories_detailed(self, *args, **kwargs):
+                return []
+
+            def get_user_context(self, user_id: str):
+                return {"recent_memories": 0, "topics": [], "last_interaction": ""}
+
+            def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
+                return True
+
+            def get_embedding(self, text: str):
+                raise RuntimeError("Memory manager unavailable")
+
+        ultra_lightweight_memory_manager = _DummyMemoryManager()
+
 
 def store_memory(text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
-    """Store memory function"""
     return ultra_lightweight_memory_manager.store_memory(text, metadata, importance)
 
-def get_relevant_memories_detailed(query: str, user_filter: str = None, top_k: int = 5) -> List[Dict[str, Any]]:
-    """Get relevant memories function"""
+
+def get_relevant_memories(query: str, user_filter: Optional[str] = None, top_k: int = 5) -> List[str]:
     return ultra_lightweight_memory_manager.get_relevant_memories(query, user_filter, top_k)
+
+
+def get_relevant_memories_detailed(
+    query: str, user_filter: Optional[str] = None, top_k: int = 5
+) -> List[Dict[str, Any]]:
+    return ultra_lightweight_memory_manager.get_relevant_memories_detailed(query, user_filter, top_k)

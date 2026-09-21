@@ -1,125 +1,49 @@
-# ========================================
-# SIMPLIFIED FLAGSHIP MODEL REGISTRY
-# ========================================
-# Kuro AI - 4 Core Models Strategy
-# One model per skill: conversation, reasoning, code, summarization
-# Provider: Groq (low latency) + OpenRouter (quality/diversity)
-# ========================================
+# Kuro active model registry — keep in sync with config/active_models.py
+# Verified against https://console.groq.com/docs/models (2026-09-21)
 
 models:
-  # === CONVERSATION - Fast, Natural Chat ===
-  - id: llama-3.3-70b-versatile
-    label: kimmi-conversational
-    capabilities: [conversation, fast, low_latency, general, casual]
-    fallback: ["moonshotai/kimi-dev-72b:free"]
-    max_context_tokens: 16384
-    avg_latency_ms: 800
-    quality_tier: high
-    cost_score: 3
-
-  # === REASONING - Complex, Chain-of-Thought ===
-  - id: deepseek-r1-distill-llama-70b
-    label: deepseek-reasoning
-    capabilities: [complex_reasoning, long_context, math, analysis]
-    fallback: ["llama-3.3-70b-versatile"]
-    max_context_tokens: 32768
-    avg_latency_ms: 2000
-    quality_tier: high
-    cost_score: 5
-
-  # === CODE - Programming, Debugging, Explain ===
-  - id: llama-3.1-8b-instant
-    label: groq-code
-    capabilities: [code, explain_code, run_thought, debugging]
-    fallback: ["deepseek-r1-distill-llama-70b"]
-    max_context_tokens: 16384
-    avg_latency_ms: 1000
+  - id: openai/gpt-oss-120b
+    label: primary-chat
+    capabilities: [conversation, reasoning, code, summarization, general]
+    fallback: ["openai/gpt-oss-20b"]
+    max_context_tokens: 131072
+    avg_latency_ms: 1200
     quality_tier: high
     cost_score: 4
 
-  # === SUMMARIZATION - Memory, Compression ===
-  - id: mixtral-8x7b-32k
-    label: summarizer-memory
-    capabilities: [summarization, memory, compression, long_context]
-    fallback: ["llama-3.3-70b-versatile"]
-    max_context_tokens: 32768
-    avg_latency_ms: 1200
+  - id: openai/gpt-oss-20b
+    label: fast-fallback
+    capabilities: [conversation, fast, code, general]
+    fallback: []
+    max_context_tokens: 131072
+    avg_latency_ms: 600
     quality_tier: medium
     cost_score: 2
 
-# ========================================
-# ARCHIVED MODELS (commented for reference)
-# ========================================
-# Uncomment these if you need to restore old routing behavior
-#
-# - id: meta-llama/llama-3.3-8b-instruct:free
-#   label: fast_chat_openrouter
-#   capabilities: [general, fast, casual]
-#   fallback: ["llama-3.1-8b-instant"]
-#
-# - id: deepseek/deepseek-r1:free
-#   label: reasoning_openrouter
-#   capabilities: [reasoning, complex]
-#   fallback: ["deepseek-r1-distill-llama-70b"]
-#
-# - id: mistralai/mistral-small-3.2-24b-instruct:free
-#   label: long_context_openrouter
-#   capabilities: [long_context, summarization]
-#   fallback: ["mixtral-8x7b-32k"]
-
-
-# ========================================
-# SIMPLIFIED ROUTING RULES
-# ========================================
-# Maps intents and conditions to flagship models
-# Priority: forced override → skill mapping → these rules → score-based fallback
-# ========================================
-
 routing_rules:
-  # === CONVERSATION SKILL ===
-  - name: casual_greeting
-    intent: "casual_chat"
-    choose: "llama-3.3-70b-versatile"
-  
+  - name: default
+    choose: "openai/gpt-oss-120b"
+
   - name: short_query
     condition: "context_tokens < 2000 and message_len_chars < 300"
-    choose: "llama-3.3-70b-versatile"
+    choose: "openai/gpt-oss-20b"
 
-  # === REASONING SKILL ===
-  - name: reasoning_tasks
-    intent: "math_solver"
-    choose: "deepseek-r1-distill-llama-70b"
-  
-  - name: complex_reasoning
-    intent: "complex_reasoning"
-    choose: "deepseek-r1-distill-llama-70b"
-  
-  - name: fact_checking
-    intent: "fact_check"
-    choose: "deepseek-r1-distill-llama-70b"
+  - name: casual_greeting
+    intent: "casual_chat"
+    choose: "openai/gpt-oss-120b"
 
-  # === CODE SKILL ===
   - name: code_generation
     intent: "code_generation"
-    choose: "llama-3.1-8b-instant"
-  
+    choose: "openai/gpt-oss-20b"
+
   - name: debugging
     intent: "debugging"
-    choose: "llama-3.1-8b-instant"
+    choose: "openai/gpt-oss-20b"
 
-  # === SUMMARIZATION SKILL ===
-  - name: long_document
-    condition: "context_tokens > 20000"
-    choose: "mixtral-8x7b-32k"
-  
-  - name: medium_long_content
-    condition: "context_tokens > 10000"
-    choose: "mixtral-8x7b-32k"
-  
-  - name: summarization
-    intent: "long_context_summary"
-    choose: "mixtral-8x7b-32k"
+  - name: reasoning_tasks
+    intent: "math_solver"
+    choose: "openai/gpt-oss-120b"
 
-  # === DEFAULT FALLBACK ===
-  - name: default
-    choose: "llama-3.3-70b-versatile"
+  - name: complex_reasoning
+    intent: "complex_reasoning"
+    choose: "openai/gpt-oss-120b"

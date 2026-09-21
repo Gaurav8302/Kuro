@@ -11,30 +11,30 @@ from config.model_config import normalize_model_id, KIMMI_CONVERSATIONAL
 
 def test_route_model_basic():
     """Test basic model routing returns a valid model."""
+    from config.active_models import FALLBACK_CHAT_MODEL, PRIMARY_CHAT_MODEL
+
     r = route_model("short hi", context_tokens=100, intent=None)
     assert 'model_id' in r and r['model_id']
-    # Should route to one of our flagship models
     normalized = normalize_model_id(r['model_id'])
-    assert normalized in [
-        'llama-3.3-70b-versatile',  # conversation
-        'deepseek-r1-distill-llama-70b',  # reasoning
-        'llama-3.1-8b-instant',  # code
-        'mixtral-8x7b-32k',  # summarization
-    ]
+    assert normalized in [PRIMARY_CHAT_MODEL, FALLBACK_CHAT_MODEL]
 
 
 def test_route_model_conversation():
     """Test routing for conversational queries."""
+    from config.active_models import FALLBACK_CHAT_MODEL, PRIMARY_CHAT_MODEL
+
     r = route_model("hello, how are you?", context_tokens=50, intent="casual_chat")
     assert 'model_id' in r
-    # Should route to conversation model
     normalized = normalize_model_id(r['model_id'])
-    assert normalized == normalize_model_id(KIMMI_CONVERSATIONAL)
+    # Short casual messages may hit either the conversation or short-query rule.
+    assert normalized in {PRIMARY_CHAT_MODEL, FALLBACK_CHAT_MODEL, normalize_model_id(KIMMI_CONVERSATIONAL)}
 
 
 def test_circuit_breaker_opens():
     """Test circuit breaker opens after repeated failures."""
-    model = normalize_model_id('llama-3.3-70b-versatile')
+    from config.active_models import PRIMARY_CHAT_MODEL
+
+    model = normalize_model_id(PRIMARY_CHAT_MODEL)
     reset(model)
     for _ in range(6):
         record_failure(model)

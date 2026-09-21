@@ -1,268 +1,166 @@
 """
-Groq API Client for LLaMA 3 70B Model
+Groq API Client — OpenAI-compatible chat completions.
 
-This module provides a clean interface to interact with Groq's LLaMA 3 70B model
-using OpenAI-compatible chat completions API.
+Uses the central active_models configuration for primary → fallback attempts.
+Retired model ids are remapped before any network call.
 """
 
-import os
-import json
+from __future__ import annotations
+
 import logging
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
 import requests
-from typing import Optional, Dict, Any, List, Tuple
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+from config.active_models import (
+    FALLBACK_CHAT_MODEL,
+    PRIMARY_CHAT_MODEL,
+    fallback_chain,
+    resolve_model_id,
+)
+from llm.errors import LLMProviderError
+from reliability.circuit_breaker import allow_request, record_failure, record_success
+from utils.token_estimator import estimate_tokens, trim_messages
 
-# Configure logging
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-from routing.model_router import route_model
-from reliability.circuit_breaker import allow_request, record_failure, record_success
-from reliability.fallback_router import choose_fallback
-from utils.token_estimator import estimate_tokens, trim_messages
-from config.config_loader import get_model
 
 class GroqClient:
-    """
-    Groq API client for LLaMA 3 70B model
-    
-    Provides a simple interface to generate chat completions using
-    Groq's fast inference API with LLaMA 3 70B model.
-    """
-    
+    """Groq OpenAI-compatible chat client with primary → fallback attempts."""
+
     def __init__(self):
-        """Initialize the Groq client"""
         self.api_key = os.getenv("GROQ_API_KEY")
         if not self.api_key:
             raise ValueError("GROQ_API_KEY environment variable is required")
-        
+
         self.base_url = "https://api.groq.com/openai/v1"
-        self.model = "llama-3.1-8b-instant"  # Default fast Groq model
-        
-        # Model ID mapping for router compatibility (router ID -> actual Groq model ID)
-        self.groq_model_map = {
-            # === New registry models (Groq only) ===
-            "llama-3.1-8b-instant": "llama-3.1-8b-instant",
-            "llama-3.3-70b-versatile": "llama-3.3-70b-versatile", 
-            "mixtral-8x7b-32k": "mixtral-8x7b-32768",  # Groq API uses 32768 suffix
-            "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
-            
-            # === Legacy router IDs ===
-            "llama3-8b-8192": "llama-3.1-8b-instant", 
-            "llama3-70b-8192": "llama-3.3-70b-versatile",
-            "llama-3.3-70B-versatile": "llama-3.3-70b-versatile",
-            "llama-3.1-8B-instant": "llama-3.1-8b-instant",
-            "mixtral-8x7b-groq": "mixtral-8x7b-32768",
-            "mixtral-8x7b-32768": "mixtral-8x7b-32768",
-            "mixtral-8x7B-32k": "mixtral-8x7b-32768",
-            
-            # === Alternative names ===
-            "llama-3-8b-groq": "llama-3.1-8b-instant",
-            "llama-3-70b-groq": "llama-3.3-70b-versatile", 
-            "deepseek-r1": "deepseek-r1-distill-llama-70b",
-            "deepseek-r1-groq": "deepseek-r1-distill-llama-70b",
-            "gemma2-9b": "gemma2-9b-it",
-            "gemma2-9b-it": "gemma2-9b-it",
-        }
-        
-        # Default parameters
+        self.model = PRIMARY_CHAT_MODEL
         self.default_params = {
             "temperature": 0.7,
             "max_tokens": 1024,
             "top_p": 1,
-            "stream": False
+            "stream": False,
         }
-        
-        logger.info("✅ Groq client initialized successfully")
-    
-    def _prepare_messages(self, prompt: str, system_instruction: Optional[str]) -> List[Dict[str,str]]:
-        messages: List[Dict[str,str]] = []
+        logger.info("Groq client initialized (primary=%s fallback=%s)", PRIMARY_CHAT_MODEL, FALLBACK_CHAT_MODEL)
+
+    def _prepare_messages(self, prompt: str, system_instruction: Optional[str]) -> List[Dict[str, str]]:
+        messages: List[Dict[str, str]] = []
         if system_instruction:
             messages.append({"role": "system", "content": system_instruction})
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _select_model(self, messages: List[Dict[str,str]], intent: Optional[str]) -> Tuple[str,str]:
-        est_tokens = estimate_tokens(" ".join(m["content"] for m in messages))
-        routing = route_model(messages[-1]["content"], est_tokens, intent)
-        model_id = routing["model_id"]
-        rule = routing["rule"]
-        return model_id, rule
-
-    def _call_api(self, model: str, messages: List[Dict[str,str]], params: Dict[str,Any]) -> Dict[str,Any]:
+    def _call_api(self, model: str, messages: List[Dict[str, str]], params: Dict[str, Any]) -> Dict[str, Any]:
         payload = {"model": model, "messages": messages, **params}
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-        response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=30)
-        # Error classification reused
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
         if response.status_code == 429:
-            retry_after = response.headers.get('retry-after', '60')
-            raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
-        elif response.status_code == 401:
-            raise Exception("AUTHENTICATION_ERROR:Invalid API key")
-        elif response.status_code == 403:
-            raise Exception("QUOTA_EXCEEDED:API quota exceeded")
-        elif response.status_code >= 500:
-            raise Exception("SERVER_ERROR:Groq server error")
+            retry_after = response.headers.get("retry-after", "60")
+            raise LLMProviderError(
+                f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds",
+                model=model,
+                status_code=429,
+            )
+        if response.status_code == 401:
+            raise LLMProviderError("AUTHENTICATION_ERROR:Invalid API key", model=model, status_code=401)
+        if response.status_code == 403:
+            raise LLMProviderError("QUOTA_EXCEEDED:API quota exceeded", model=model, status_code=403)
+        if response.status_code == 404:
+            raise LLMProviderError(
+                f"MODEL_NOT_FOUND:{model}",
+                model=model,
+                status_code=404,
+            )
+        if response.status_code >= 500:
+            raise LLMProviderError("SERVER_ERROR:Groq server error", model=model, status_code=502)
         response.raise_for_status()
         return response.json()
 
-    def generate_content(self, prompt: str, system_instruction: Optional[str] = None, intent: Optional[str] = None, model_id: Optional[str] = None) -> str:
-        """
-        Generate content using Groq's LLaMA 3 70B model
-        
-        This method maintains compatibility with the Gemini interface while
-        using Groq's OpenAI-compatible chat completions API.
-        
-        Args:
-            prompt (str): User prompt/message
-            system_instruction (str, optional): System instruction for the model
-            
-        Returns:
-            str: Generated response text
-            
-        Raises:
-            Exception: If API call fails or returns invalid response
-        """
-        try:
-            messages = self._prepare_messages(prompt, system_instruction)
-            # Routing selection
-            selected_model, rule = self._select_model(messages, intent)
-            if model_id:
-                selected_model = model_id
-                
-            # Map router model IDs to actual Groq model IDs
-            groq_model = self.groq_model_map.get(selected_model, selected_model)
-            
-            model_cfg = get_model(selected_model) or {}
-            max_ctx = int(model_cfg.get("max_context_tokens", 8192))
-            messages = trim_messages(messages, max_ctx - 1024)  # leave headroom for completion
-            attempt_model = groq_model  # Use actual Groq model ID
-            attempts = 0
-            last_error = None
-            while attempts < 3 and attempt_model:
-                attempts += 1
-                if not allow_request(attempt_model):
-                    attempt_model = choose_fallback(attempt_model)
-                    continue
-                try:
-                    logger.debug(f"Groq routed model={attempt_model} rule={rule} attempt={attempts}")
-                    response_data = self._call_api(attempt_model, messages, self.default_params)
-                    record_success(attempt_model)
-                    break
-                except Exception as e:  # classify recoverable
-                    record_failure(attempt_model)
-                    last_error = e
-                    attempt_model = choose_fallback(attempt_model)
-                    continue
-            else:
-                # exhausted
-                if last_error:
-                    raise last_error
-                raise Exception("MODEL_ROUTING_FAILED:No model succeeded")
-            
-            # Extract generated text
-            if response_data and "choices" in response_data and len(response_data["choices"]) > 0:
-                content = response_data["choices"][0]["message"]["content"]
-                logger.debug(f"Groq API response generated: {len(content)} characters")
-                return content
-            else:
-                raise Exception("No choices in Groq API response")
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Groq API request failed: {str(e)}")
-            raise Exception(f"Groq API request failed: {str(e)}")
-        except Exception as e:
-            logger.error(f"Groq content generation failed: {str(e)}")
-            raise
-    
-    def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
-        """
-        Direct chat completions API call
-        
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            **kwargs: Additional parameters to override defaults
-            
-        Returns:
-            dict: Full API response
-        """
-        try:
-            # Merge parameters
-            params = {**self.default_params, **kwargs}
-            
-            # Prepare request payload
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                **params
-            }
-            
-            # Make API request
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
+    def generate_content(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        intent: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> str:
+        """Generate text. Tries primary then fallback. Raises LLMProviderError on total failure."""
+        del intent  # Intent-based re-routing removed; caller chooses the model.
+        messages = self._prepare_messages(prompt, system_instruction)
+        est_tokens = estimate_tokens(" ".join(m["content"] for m in messages))
+        # Leave headroom for completion; default context for gpt-oss models is large.
+        messages = trim_messages(messages, max(2048, 32000 - est_tokens - 1024))
+
+        chain = fallback_chain(model_id)
+        last_error: Optional[Exception] = None
+        response_data = None
+        used_model = chain[0]
+
+        for attempt_model in chain:
+            used_model = attempt_model
+            if not allow_request(attempt_model):
+                logger.warning("Circuit open for %s; trying next model", attempt_model)
+                continue
+            try:
+                logger.info("Groq attempt model=%s", attempt_model)
+                response_data = self._call_api(attempt_model, messages, self.default_params)
+                record_success(attempt_model)
+                break
+            except Exception as exc:
+                record_failure(attempt_model)
+                last_error = exc
+                logger.error("Groq attempt failed model=%s error=%s", attempt_model, exc)
+                continue
+
+        if response_data is None:
+            if isinstance(last_error, LLMProviderError):
+                raise last_error
+            raise LLMProviderError(
+                str(last_error) if last_error else "MODEL_ROUTING_FAILED:No model succeeded",
+                model=used_model,
+                status_code=502,
             )
-            
-            # Enhanced error handling
-            if response.status_code == 429:
-                retry_after = response.headers.get('retry-after', '60')
-                raise Exception(f"RATE_LIMIT_EXCEEDED:Retry after {retry_after} seconds")
-            elif response.status_code == 401:
-                raise Exception("AUTHENTICATION_ERROR:Invalid API key")
-            elif response.status_code == 403:
-                raise Exception("QUOTA_EXCEEDED:API quota exceeded")
-            elif response.status_code >= 500:
-                raise Exception("SERVER_ERROR:Groq server error")
-            
-            response.raise_for_status()
-            return response.json()
-            
-        except Exception as e:
-            logger.error(f"Groq chat completion failed: {str(e)}")
-            raise Exception(f"Groq chat completion failed: {str(e)}")
+
+        choices = response_data.get("choices") or []
+        if not choices:
+            raise LLMProviderError("No choices in Groq API response", model=used_model, status_code=502)
+
+        content = choices[0].get("message", {}).get("content")
+        if content is None or not str(content).strip():
+            raise LLMProviderError("Empty content in Groq API response", model=used_model, status_code=502)
+        return str(content).strip()
+
+    def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
+        params = {**self.default_params, **kwargs}
+        model = resolve_model_id(params.pop("model", None) or self.model)
+        return self._call_api(model, messages, params)
 
 
-# Create a mock response object to maintain compatibility with Gemini interface
 class GroqResponse:
-    """Mock response object to maintain compatibility with Gemini interface"""
-    
     def __init__(self, text: str):
         self.text = text
 
 
-# Initialize global Groq client
 try:
     groq_client = GroqClient()
-    logger.info("✅ Global Groq client initialized")
+    logger.info("Global Groq client initialized")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize Groq client: {str(e)}")
+    logger.error("Failed to initialize Groq client: %s", e)
     groq_client = None
 
 
 def generate_with_groq(prompt: str, system_instruction: Optional[str] = None) -> GroqResponse:
-    """
-    Convenience function to generate content with Groq
-    
-    This function provides a Gemini-compatible interface for easy migration.
-    
-    Args:
-        prompt (str): User prompt
-        system_instruction (str, optional): System instruction
-        
-    Returns:
-        GroqResponse: Response object with .text property
-    """
     if not groq_client:
-        raise Exception("Groq client not initialized")
-    
+        raise LLMProviderError("Groq client not initialized", status_code=503)
     content = groq_client.generate_content(prompt, system_instruction)
     return GroqResponse(content)

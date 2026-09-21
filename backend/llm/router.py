@@ -1,75 +1,102 @@
-from utils.groq_client import GroqClient
+"""Live LLM router for ChatManagerV3.
+
+Uses the central active_models configuration:
+  primary  -> openai/gpt-oss-120b
+  fallback -> openai/gpt-oss-20b
+
+Provider failures raise LLMProviderError. Callers must not treat those as
+successful assistant replies.
+"""
+from __future__ import annotations
+
+import asyncio
 import logging
+from typing import Optional
+
+from config.active_models import (
+    FALLBACK_CHAT_MODEL,
+    PRIMARY_CHAT_MODEL,
+    fallback_chain,
+    get_role_model,
+    resolve_model_id,
+)
+from llm.errors import LLMProviderError
+
 logger = logging.getLogger(__name__)
+
 
 class GenericModel:
     def __init__(self, model_name: str):
-        self.model_name = model_name
+        self.model_name = resolve_model_id(model_name)
         self.client = None
         try:
+            from utils.groq_client import GroqClient
+
             self.client = GroqClient()
-        except:
-            pass
+        except Exception as exc:
+            logger.error("Failed to initialize GroqClient: %s", exc)
+            self.client = None
 
     async def generate(self, prompt: str) -> str:
         if not self.client:
-            return ""
+            raise LLMProviderError(
+                "Groq client is not configured (missing GROQ_API_KEY?)",
+                model=self.model_name,
+                status_code=503,
+            )
+
         try:
-            import asyncio
+            text = await asyncio.to_thread(
+                self.client.generate_content,
+                prompt,
+                model_id=self.model_name,
+            )
+        except LLMProviderError:
+            raise
+        except Exception as exc:
+            logger.error("Error generating from model %s: %s", self.model_name, exc)
+            raise LLMProviderError(
+                str(exc),
+                model=self.model_name,
+                status_code=502,
+            ) from exc
 
-            # Prefer native async method when available.
-            if hasattr(self.client, 'generate_chat_response_async'):
-                return await self.client.generate_chat_response_async(self.model_name, [{"role": "user", "content": prompt}], max_tokens=1000, temperature=0.7)
+        if text is None or not str(text).strip():
+            raise LLMProviderError(
+                "Provider returned an empty response",
+                model=self.model_name,
+                status_code=502,
+            )
+        return str(text).strip()
 
-            # Current GroqClient implementation is sync; run it in a thread so callers stay async.
-            if hasattr(self.client, 'generate_content'):
-                try:
-                    return await asyncio.to_thread(
-                        self.client.generate_content,
-                        prompt,
-                        model_id=self.model_name,
-                    )
-                except TypeError:
-                    # Backward-compatible fallback for older generate_content signatures.
-                    return await asyncio.to_thread(self.client.generate_content, prompt)
-
-            if hasattr(self.client, 'generate_text'):
-                return await asyncio.to_thread(self.client.generate_text, prompt)
-
-            logger.warning("No compatible generation method found on GroqClient")
-            return "I'm ready to help. Could you share a bit more detail so I can give a precise answer?"
-        except Exception as e:
-            logger.error(f"Error generating from model {self.model_name}: {e}")
-            return "I ran into a temporary issue while generating that response. Please try again."
 
 class FastModel(GenericModel):
     def __init__(self):
-        super().__init__("llama-3.1-8b-instant")
+        super().__init__(get_role_model("fast"))
+
 
 class MidModel(GenericModel):
     def __init__(self):
-        super().__init__("llama-3.3-70b-versatile")
+        super().__init__(get_role_model("mid"))
 
-class MainModel:
-    async def generate(self, prompt: str) -> str:
-        # Instead of wrapping the complex orchestrator here for the main response,
-        # we can just use the versatile model or delegator
-        m = GenericModel("llama-3.3-70b-versatile")
-        return await m.generate(prompt)
+
+class MainModel(GenericModel):
+    def __init__(self):
+        super().__init__(get_role_model("main"))
+
 
 class LLMRouter:
     def get_model(self, model_type: str):
-        if model_type == "fast":
-            return FastModel()
-        elif model_type == "mid":
-            return MidModel()
-        elif model_type in ("main", "conversation"):
-            return MainModel()
-        elif model_type == "code":
-            return GenericModel("llama-3.1-8b-instant")
-        elif model_type == "reasoning":
-            return GenericModel("deepseek-r1-distill-llama-70b")
-        elif model_type == "summarization":
-            return GenericModel("mixtral-8x7b-32k")
-        else:
-            return MainModel()
+        role = model_type if model_type in {
+            "fast", "mid", "main", "conversation", "code", "reasoning", "summarization"
+        } else "main"
+        return GenericModel(get_role_model(role))
+
+    def get_primary_model_id(self) -> str:
+        return PRIMARY_CHAT_MODEL
+
+    def get_fallback_model_id(self) -> str:
+        return FALLBACK_CHAT_MODEL
+
+    def get_attempt_chain(self, primary: Optional[str] = None):
+        return fallback_chain(primary)

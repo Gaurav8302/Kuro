@@ -1,5 +1,5 @@
-"""
-Chat Manager v2 — Refactored for minimal, deterministic memory.
+﻿"""
+Chat Manager v2 â€” Refactored for minimal, deterministic memory.
 
 Replaces the old ChatManager that used:
   - RollingMemoryManager / progressive summarization
@@ -10,7 +10,7 @@ Replaces the old ChatManager that used:
 
 New design:
   Layer 1  Active session: last N raw messages from MongoDB (no compression).
-  Layer 2  Post-session:  ONE summary stored in Pinecone when session ≥ 50 msgs or closes.
+  Layer 2  Post-session:  ONE summary stored in Pinecone when session â‰¥ 50 msgs or closes.
 
 v3 router integration:
   - LLM-based router classifier (model_router_v3)
@@ -143,7 +143,7 @@ def _strip_redundant_search_warning(response_text: str) -> str:
 
 
 class ChatManager:
-    """Memory-aware chat manager (v2 — minimal & deterministic)."""
+    """Memory-aware chat manager (v2 â€” minimal & deterministic)."""
 
     def __init__(self):
         try:
@@ -232,7 +232,7 @@ class ChatManager:
         """
         request_start = time.time()
         session_id = session_id or "default"
-        model_id = "llama-3.1-8b-instant"
+        model_id = "openai/gpt-oss-20b"
         route_rule = "default"
 
         logger.info(
@@ -313,7 +313,7 @@ class ChatManager:
                         session_id=session_id,
                         search_mode=search_mode,
                     )
-                    router_pick = v3_decision.get("chosen_model", "llama-3.1-8b-instant")
+                    router_pick = v3_decision.get("chosen_model", "openai/gpt-oss-20b")
                     research_required = v3_decision.get("research_required", False)
                     task_type = v3_decision.get("task_type", "conversation")
                     confidence_escalated = v3_decision.get("confidence_escalated", False)
@@ -414,7 +414,7 @@ class ChatManager:
                     session_id=session_id,
                 )
 
-            # --- Stage 2 verification (BORDERLINE only: 0.40 ≤ conf < 0.85) ---
+            # --- Stage 2 verification (BORDERLINE only: 0.40 â‰¤ conf < 0.85) ---
             if (
                 SAFETY_CLASSIFIER_AVAILABLE
                 and not search_mode
@@ -423,7 +423,7 @@ class ChatManager:
                 and time_sensitivity.get("is_time_sensitive")
                 and 0.40 <= time_sensitivity["confidence"] < 0.85
             ):
-                verification = verify_response(message, response_text, model_id="llama-3.1-8b-instant")
+                verification = verify_response(message, response_text, model_id="openai/gpt-oss-20b")
                 if verification == REQUIRES_BROWSER:
                     logger.info("2-stage verifier blocked response for query: %.80s", message)
                     response_text = get_verification_safe_response()
@@ -477,7 +477,7 @@ class ChatManager:
     # ------------------------------------------------------------------
     def _fallback_to_v2(self, message: str, session_id: str) -> str:
         """Use v2 router as fallback when v3 is unavailable."""
-        router_pick = "llama-3.3-70b-versatile"
+        router_pick = "openai/gpt-oss-120b"
         try:
             from routing.model_router_v2 import get_best_model as get_best_model_v2
             import asyncio
@@ -516,7 +516,7 @@ class ChatManager:
                 import asyncio
                 try:
                     asyncio.get_running_loop()
-                    # In async context — skip orchestrator to avoid nested loop
+                    # In async context â€” skip orchestrator to avoid nested loop
                     logger.debug("Async context detected, using direct generation")
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
@@ -584,7 +584,7 @@ class ChatManager:
         """Generate a response with research context injected.
 
         Structures the prompt per spec:
-          User Question → Research Context → Conversation Memory → Instructions
+          User Question â†’ Research Context â†’ Conversation Memory â†’ Instructions
         """
         # Build memory context from conversation history
         research_system_prompt = system_prompt + "\n\n" + _LIVE_RESEARCH_SYSTEM_OVERRIDE
@@ -716,3 +716,4 @@ def chat_with_memory(
         search_mode=search_mode,
         skill=skill,
     )
+

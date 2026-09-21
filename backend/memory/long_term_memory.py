@@ -41,8 +41,7 @@ RECALL_PHRASES: List[re.Pattern] = [
     re.compile(r"\bmy\s+(name|trip|plan|goal|project|job|work)\b", re.IGNORECASE),
 ]
 
-# Similarity threshold — lowered from 0.85 to account for lossy dimension reduction
-# (Gemini 768-dim → 384-dim via [::2][:384] downsimpling)
+# Similarity threshold for long-term retrieval
 SIMILARITY_THRESHOLD = float(os.getenv("LTM_SIMILARITY_THRESHOLD", "0.75"))
 TOP_K_RESULTS = 3
 
@@ -84,34 +83,11 @@ class LongTermMemory:
         if self._index is not None:
             return
 
-        import os
+        from config.embeddings import DEFAULT_PINECONE_INDEX, EMBEDDING_MODEL
+        from db.pinecone import embed_text
 
-        # --- Gemini embeddings ---
-        import google.generativeai as genai
+        self._embedding_fn = lambda text: embed_text(text, task_type="retrieval_document")
 
-        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY required for long-term memory embeddings")
-        genai.configure(api_key=api_key)
-        embedding_model = "models/text-embedding-004"
-
-        def _embed(text: str) -> List[float]:
-            result = genai.embed_content(
-                model=embedding_model,
-                content=text,
-                task_type="retrieval_document",
-            )
-            vec = result["embedding"]
-            # Pinecone index expects 384 dims; Gemini returns 768 — downsample
-            if len(vec) > 384:
-                vec = vec[::2][:384]
-            elif len(vec) < 384:
-                vec.extend([0.0] * (384 - len(vec)))
-            return vec
-
-        self._embedding_fn = _embed
-
-        # --- Pinecone ---
         from pinecone import Pinecone
 
         pc_api_key = os.getenv("PINECONE_API_KEY")
@@ -119,9 +95,13 @@ class LongTermMemory:
             raise RuntimeError("PINECONE_API_KEY required for long-term memory")
 
         pc = Pinecone(api_key=pc_api_key)
-        index_name = os.getenv("PINECONE_INDEX_NAME", "my-chatbot-memory")
+        index_name = os.getenv("PINECONE_INDEX_NAME", DEFAULT_PINECONE_INDEX)
         self._index = pc.Index(index_name)
-        logger.info("LongTermMemory: Pinecone index '%s' connected", index_name)
+        logger.info(
+            "LongTermMemory: Pinecone index '%s' connected (embedding=%s)",
+            index_name,
+            EMBEDDING_MODEL,
+        )
 
     # ------------------------------------------------------------------
     # Post-session summarization (Layer 2)

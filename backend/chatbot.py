@@ -27,7 +27,7 @@ from contextlib import asynccontextmanager
 required_env_vars = ["GROQ_API_KEY", "GEMINI_API_KEY", "PINECONE_API_KEY", "MONGODB_URI"]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
-    print(f"❌ Missing environment variables: {missing_vars}")
+    print(f"Missing environment variables: {missing_vars}")
     # Allow test and memory-disabled modes to import app without full env setup.
     is_test_mode = (
         "pytest" in sys.modules
@@ -546,24 +546,26 @@ def retrieve_memories(payload: QueryInput):
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatInput):
     """
-    Send a message to the AI chatbot.
+    Send a message to the AI chatbot (ChatManagerV3).
 
-    Architecture (v2 — minimal deterministic memory):
-      Layer 1: Last N raw messages from MongoDB (no compression during active session).
-      Layer 2: Post-session summary in Pinecone (only when session ≥ 50 msgs or closes).
-      Model lock: same model reused throughout a session to prevent behavioural drift.
+    Successful HTTP 200 means a real model response was generated.
+    Provider failures return an HTTP error and do NOT persist an assistant message.
     """
     import time as _time
-    request_start = _time.time()
-    try:
-        effective_session_id = chat_message.session_id
-        if not effective_session_id:
-            try:
-                effective_session_id = create_new_session(chat_message.user_id)
-            except Exception as create_err:
-                logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
-                effective_session_id = "default"
+    from llm.errors import LLMProviderError
+    from config.active_models import PRIMARY_CHAT_MODEL
 
+    request_start = _time.time()
+    effective_session_id = chat_message.session_id
+    if not effective_session_id:
+        try:
+            from memory.chat_database import create_new_session
+            effective_session_id = create_new_session(chat_message.user_id)
+        except Exception as create_err:
+            logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
+            effective_session_id = "default"
+
+    try:
         if os.getenv("DISABLE_MEMORY_INIT") == "1":
             # Legacy compatibility path used by lightweight tests that monkeypatch chat manager.
             from memory import chat_manager as legacy_chat_manager
@@ -584,8 +586,8 @@ async def chat_endpoint(chat_message: ChatInput):
             db_history = get_chat_by_session(effective_session_id)
             chat_history: list[dict[str, str]] = []
             for turn in db_history[-20:]:
-                user_msg = str(turn.get("user", "") or "").strip()
-                assistant_msg = str(turn.get("assistant", "") or "").strip()
+                user_msg = str(turn.get("user", "") or turn.get("message", "") or "").strip()
+                assistant_msg = str(turn.get("assistant", "") or turn.get("reply", "") or "").strip()
                 if user_msg:
                     chat_history.append({"role": "user", "content": user_msg})
                 if assistant_msg:
@@ -597,9 +599,17 @@ async def chat_endpoint(chat_message: ChatInput):
                 user_input=chat_message.message,
                 chat_history=chat_history,
             )
-            response_text = response_data if isinstance(response_data, str) else str(response_data)
-            model_used = "v3_model"
-            route_rule = "v3_rule"
+            if isinstance(response_data, dict):
+                response_text = str(response_data.get("reply", ""))
+                model_used = str(response_data.get("model", PRIMARY_CHAT_MODEL))
+                route_rule = str(response_data.get("route_rule", "v3_primary"))
+            else:
+                response_text = str(response_data)
+                model_used = PRIMARY_CHAT_MODEL
+                route_rule = "v3_primary"
+
+        if not response_text or not response_text.strip():
+            raise LLMProviderError("Empty model response", model=model_used, status_code=502)
 
         latency_ms = int((_time.time() - request_start) * 1000)
         logger.info(
@@ -607,7 +617,7 @@ async def chat_endpoint(chat_message: ChatInput):
             chat_message.user_id, latency_ms, model_used, route_rule,
         )
 
-        # Persist chat exchange so sessions/history remain consistent across reloads.
+        # Persist only after a successful model response.
         try:
             persisted_session_id = save_chat_to_db(
                 user_id=chat_message.user_id,
@@ -616,18 +626,8 @@ async def chat_endpoint(chat_message: ChatInput):
                 session_id=effective_session_id,
             )
             effective_session_id = persisted_session_id or effective_session_id
-            logger.debug(
-                "Saved chat exchange for user %s in session %s",
-                chat_message.user_id,
-                persisted_session_id,
-            )
         except Exception as save_err:
             logger.error("Failed to persist chat exchange: %s", save_err, exc_info=True)
-
-        # Detect if the response is a safety-triggered browser suggestion
-        _is_safety_response = route_rule and (
-            "time_sensitive" in route_rule or "verified_blocked" in route_rule
-        )
 
         return ChatResponse(
             reply=response_text,
@@ -635,17 +635,32 @@ async def chat_endpoint(chat_message: ChatInput):
             route_rule=route_rule,
             latency_ms=latency_ms,
             intents=None,
-            suggest_search=bool(_is_safety_response),
+            suggest_search=False,
             session_id=effective_session_id,
         )
 
+    except LLMProviderError as e:
+        logger.error("Chat provider failure for user %s: %s", chat_message.user_id, e)
+        # Do NOT persist an assistant message for provider failures.
+        raise HTTPException(
+            status_code=getattr(e, "status_code", 502) or 502,
+            detail={
+                "error": "llm_provider_error",
+                "message": getattr(e, "public_message", "The AI provider failed to generate a response."),
+                "model": getattr(e, "model", None),
+            },
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error in chat endpoint: %s", e, exc_info=True)
-        from memory.hardcoded_responses import get_fallback_response
-        return ChatResponse(
-            reply=get_fallback_response("generic_error"),
-            model="fallback",
-            route_rule="error_fallback",
+        # Do NOT persist a fake assistant reply.
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "chat_internal_error",
+                "message": "Chat failed due to an internal error. Please try again.",
+            },
         )
 
 # Session management endpoints
@@ -968,9 +983,17 @@ def inline_query_endpoint(payload: InlineQueryInput):
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions"""
+    """Handle HTTP exceptions without wrapping structured details twice."""
     logger.warning(f"HTTP {exc.status_code} error: {exc.detail}")
-    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail, "status_code": exc.status_code})
+    if isinstance(exc.detail, dict):
+        content = {**exc.detail, "status_code": exc.status_code}
+        if "error" not in content:
+            content["error"] = "http_error"
+        return JSONResponse(status_code=exc.status_code, content=content)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": "http_error", "message": str(exc.detail), "status_code": exc.status_code},
+    )
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):

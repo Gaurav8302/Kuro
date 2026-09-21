@@ -3,7 +3,7 @@
 Execution order:
   1. Forced override (if provided)
   2. Cache check (128-char key, 300s TTL)
-  3. Router classifier (LLM call via llama-3.1-8b-instant)
+  3. Router classifier (LLM call via openai/gpt-oss-20b)
   4. Research decision (router output or manual search_mode)
   5. Compound research (optional, via groq/compound-mini)
   6. Final model execution (selected model + research context + memory)
@@ -34,17 +34,19 @@ from routing.routing_logger import log_routing_decision as _log_decision
 
 logger = logging.getLogger(__name__)
 
+from config.active_models import FALLBACK_CHAT_MODEL, PRIMARY_CHAT_MODEL
+
 # ---------------------------------------------------------------------------
-# Model constants (matching the spec)
+# Model constants (synced with config.active_models)
 # ---------------------------------------------------------------------------
-CONVERSATION_MODEL = "llama-3.1-8b-instant"
-REASONING_MODEL = "deepseek-r1-distill-llama-70b"
-CODE_MODEL = "llama-3.1-8b-instant"
-SUMMARIZATION_MODEL = "mixtral-8x7b-32k"
-RESEARCH_SYSTEM = "groq/compound-mini"
+CONVERSATION_MODEL = PRIMARY_CHAT_MODEL
+REASONING_MODEL = PRIMARY_CHAT_MODEL
+CODE_MODEL = FALLBACK_CHAT_MODEL
+SUMMARIZATION_MODEL = PRIMARY_CHAT_MODEL
+RESEARCH_SYSTEM = "groq/compound-mini"  # retired 2026-09-21; research path disabled by default
 
 # The lightweight model used for the router classifier itself
-_ROUTER_MODEL = "llama-3.1-8b-instant"
+_ROUTER_MODEL = FALLBACK_CHAT_MODEL
 
 _GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 _GROQ_BASE_URL = "https://api.groq.com/openai/v1"
@@ -100,19 +102,19 @@ You do NOT answer the user question.
 AVAILABLE MODELS
 
 conversation_model
-* llama-3.1-8b-instant (Groq)
+* openai/gpt-oss-120b (Groq)
 
 reasoning_model
-* deepseek-r1-distill-llama-70b (Groq)
+* openai/gpt-oss-120b (Groq)
 
 code_model
-* llama-3.1-8b-instant (Groq)
+* openai/gpt-oss-20b (Groq)
 
 summarization_model
-* mixtral-8x7b-32k (Groq)
+* openai/gpt-oss-120b (Groq)
 
 research_system
-* groq/compound-mini
+* (disabled — groq/compound-mini retired)
 
 ---
 
@@ -377,14 +379,10 @@ def execute_final_model(
 
     user_content = "\n\n".join(parts)
 
-    # Map model IDs to Groq API names
-    groq_model_map = {
-        "llama-3.1-8b-instant": "llama-3.1-8b-instant",
-        "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
-        "mixtral-8x7b-32k": "mixtral-8x7b-32768",
-        "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
-    }
-    groq_model = groq_model_map.get(model, model)
+    # Map model IDs through the active-model resolver (remaps retired ids)
+    from config.active_models import resolve_model_id
+
+    groq_model = resolve_model_id(model)
 
     messages: List[Dict[str, str]] = []
     if system_prompt:

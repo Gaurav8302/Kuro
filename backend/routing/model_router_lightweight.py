@@ -17,6 +17,7 @@ import logging
 import time
 from typing import Optional, Dict, Any, Set, List, Tuple
 from config.config_loader import get_routing_rules, list_models, get_model
+from config.active_models import PRIMARY_CHAT_MODEL, resolve_model_id
 from config.model_config import normalize_model_id
 from routing.regex_intent_detector import get_regex_intent_detector
 from routing.latency_tracker import get_latency_tracker
@@ -24,7 +25,7 @@ from routing.session_tracker import get_session_manager
 
 logger = logging.getLogger(__name__)
 
-SAFE_DEFAULT = normalize_model_id("llama-3.3-70B-versatile")
+SAFE_DEFAULT = resolve_model_id(PRIMARY_CHAT_MODEL)
 CRITICAL_INTENTS = {"complex_reasoning", "debugging", "long_context_summary"}
 CONFIDENCE_THRESHOLD = 0.5  # If top 2 models differ by less than this, pick faster one
 

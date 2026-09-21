@@ -19,18 +19,20 @@ MODEL_NORMALIZATION: Dict[str, str] = {
     # canonical -> provider ID (expand as needed)
     "deepseek-r1": "deepseek/r1",
     "deepseek-r1-distill": "deepseek/r1-distill-qwen-14b",
-    "deepseek-r1-distill-llama-70b": "deepseek-r1-distill-llama-70b",
+    "deepseek-r1-distill-llama-70b": "openai/gpt-oss-120b",
     "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct",
     "llama-3.2-3b": "meta-llama/llama-3.2-3b-instruct",
     "llama-3.1-405b": "meta-llama/llama-3.1-405b-instruct",
     "qwen3-coder": "qwen/qwen-3-coder-480b-a35b",
-    "qwen/qwen3-32b": "qwen/qwen3-32b",
+    "qwen/qwen3-32b": "openai/gpt-oss-120b",
     "gemini-2.0-flash": "google/gemini-2.0-flash-exp:free",
     "gemini-2.5-pro": "google/gemini-2.5-pro-exp:free",
     "mistral-nemo": "mistralai/mistral-nemo",
-    "llama-3.1-8b-instant": "llama-3.1-8b-instant",
-    "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
-    "gemma2-9b-it": "gemma2-9b-it",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+    "gemma2-9b-it": "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b": "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b": "openai/gpt-oss-20b",
     # legacy compatibility
     "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet",
     "claude-3-opus": "anthropic/claude-3-opus",
@@ -48,6 +50,13 @@ def normalize_model_id(model_id: str) -> str:
     """Normalize model ID to provider-ready format"""
     if not model_id:
         return model_id
+    from config.active_models import resolve_model_id
+
+    # Prefer active-model remapping for retired Groq ids
+    remapped = resolve_model_id(model_id)
+    if remapped != model_id:
+        logger.debug("Normalized model_id %s -> %s", model_id, remapped)
+        return remapped
     key = model_id.strip().lower()
     normalized = MODEL_NORMALIZATION.get(key, model_id)
     if normalized != model_id:
@@ -63,16 +72,22 @@ def normalize_model_id(model_id: str) -> str:
 # ========================================
 
 # === CONVERSATION - Fast, Natural Chat ===
-KIMMI_CONVERSATIONAL = "llama-3.3-70b-versatile"  # Groq - Low latency, high quality
+# Live models come from config.active_models (Groq gpt-oss).
+from config.active_models import (
+    FALLBACK_CHAT_MODEL as _FALLBACK,
+    PRIMARY_CHAT_MODEL as _PRIMARY,
+)
+
+KIMMI_CONVERSATIONAL = _PRIMARY
 
 # === REASONING - Complex, Chain-of-Thought ===
-DEEPSEEK_REASONING = "deepseek-r1-distill-llama-70b"  # Groq - Best reasoning
+DEEPSEEK_REASONING = _PRIMARY
 
 # === CODE - Programming, Debugging, Explain ===
-GROQ_CODE = "llama-3.1-8b-instant"  # Groq - Fast code generation
+GROQ_CODE = _FALLBACK
 
 # === SUMMARIZATION - Memory, Compression ===
-SUMMARIZER_MEMORY = "mixtral-8x7b-32k"  # Groq - Long context summarization
+SUMMARIZER_MEMORY = _PRIMARY
 
 # ========================================
 # FLAGSHIP MODEL CONFIGURATION
@@ -87,12 +102,12 @@ SKILL_TO_MODEL: Dict[str, str] = {
     "research": DEEPSEEK_REASONING,
 }
 
-# Simplified fallback chains (max 2 backups per model)
+# Simplified fallback chains (primary → fallback only)
 FLAGSHIP_FALLBACK_CHAINS: Dict[str, List[str]] = {
-    KIMMI_CONVERSATIONAL: [KIMMI_CONVERSATIONAL, "moonshotai/kimi-dev-72b:free"],
-    DEEPSEEK_REASONING: [DEEPSEEK_REASONING, KIMMI_CONVERSATIONAL],
-    GROQ_CODE: [GROQ_CODE, DEEPSEEK_REASONING],
-    SUMMARIZER_MEMORY: [SUMMARIZER_MEMORY, KIMMI_CONVERSATIONAL],
+    KIMMI_CONVERSATIONAL: [KIMMI_CONVERSATIONAL, _FALLBACK],
+    DEEPSEEK_REASONING: [DEEPSEEK_REASONING, _FALLBACK],
+    GROQ_CODE: [GROQ_CODE, _PRIMARY],
+    SUMMARIZER_MEMORY: [SUMMARIZER_MEMORY, _FALLBACK],
 }
 
 # Model source registry for flagship models
@@ -101,8 +116,8 @@ FLAGSHIP_MODEL_SOURCES: Dict[str, str] = {
     DEEPSEEK_REASONING: "Groq",
     GROQ_CODE: "Groq",
     SUMMARIZER_MEMORY: "Groq",
-    "moonshotai/kimi-dev-72b:free": "OpenRouter",
-    "mixtral-8x7b-32k": "Groq",  # Add explicit mapping
+    _FALLBACK: "Groq",
+    _PRIMARY: "Groq",
 }
 
 # ========================================
@@ -144,19 +159,19 @@ LLAMA3_70B_OR = "llama-3-70b-openrouter"
 GEMINI_15_PRO = "gemini-1.5-pro"
 GEMINI_15_FLASH = "gemini-1.5-flash"
 
-# Groq-optimized (using actual available Groq model names)
-LLAMA3_8B_GROQ = "llama-3.1-8b-instant"  # Fast 8B model
-LLAMA3_70B_GROQ = "llama-3.3-70b-versatile"  # 70B versatile model  
-GEMMA2_9B = "gemma2-9b-it"  # Alternative fast model
-DEEPSEEK_R1_GROQ = "deepseek-r1-distill-llama-70b"  # Reasoning model (Groq)
-QWEN3_32B = "qwen/qwen3-32b"  # Alternative to Mixtral
+# Groq-optimized (current production models — aliases of active_models)
+LLAMA3_8B_GROQ = _FALLBACK
+LLAMA3_70B_GROQ = _PRIMARY
+GEMMA2_9B = LLAMA3_8B_GROQ
+DEEPSEEK_R1_GROQ = LLAMA3_70B_GROQ
+QWEN3_32B = LLAMA3_70B_GROQ
 
 # Compatibility aliases
-MIXTRAL_8x7B_GROQ = QWEN3_32B  # Use Qwen as Mixtral alternative
-LLAMA3_VERSATILE = LLAMA3_70B_GROQ  # Alias for 70B versatile
+MIXTRAL_8x7B_GROQ = QWEN3_32B
+LLAMA3_VERSATILE = LLAMA3_70B_GROQ
 
 # Safe default model for fallbacks
-SAFE_DEFAULT_MODEL = LLAMA3_8B_GROQ  # Fast, reliable Groq model as ultimate fallback
+SAFE_DEFAULT_MODEL = LLAMA3_8B_GROQ
 
 # Source registry (optimized for best available free models)
 MODEL_SOURCES: Dict[str, str] = {
@@ -196,12 +211,11 @@ MODEL_SOURCES: Dict[str, str] = {
     GEMINI_15_FLASH: "OpenRouter",
     
     # === Direct model name mappings ===
-    # Groq models
-    "llama-3.1-8b-instant": "Groq",
-    "llama-3.3-70b-versatile": "Groq", 
-    "gemma2-9b-it": "Groq",
-    "deepseek-r1-distill-llama-70b": "Groq",
-    "qwen/qwen3-32b": "Groq",
+    # Current Groq production models
+    _PRIMARY: "Groq",
+    _FALLBACK: "Groq",
+    "openai/gpt-oss-120b": "Groq",
+    "openai/gpt-oss-20b": "Groq",
     
     # OpenRouter models (free tier)
     "deepseek/r1": "OpenRouter",

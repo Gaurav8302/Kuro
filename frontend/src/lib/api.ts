@@ -24,7 +24,21 @@ export async function apiRequest<T>(endpoint: string, method: 'get' | 'post' | '
     return response.data;
   } catch (error: any) {
     if (error.response) {
-      throw new Error(error.response.data.detail || error.response.data.message || 'Server error');
+      const data = error.response.data;
+      const detail = data?.detail;
+      if (typeof detail === 'string') {
+        throw new Error(detail);
+      }
+      if (detail && typeof detail === 'object') {
+        throw new Error(detail.message || detail.error || 'Server error');
+      }
+      if (typeof data?.message === 'string') {
+        throw new Error(data.message);
+      }
+      if (typeof data?.error === 'string') {
+        throw new Error(data.error);
+      }
+      throw new Error('Server error');
     }
     throw new Error('Network error');
   }

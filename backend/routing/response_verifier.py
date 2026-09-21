@@ -81,7 +81,7 @@ def _is_browser_search_recommendation_only(draft_answer: str) -> bool:
 def verify_response(
     question: str,
     draft_answer: str,
-    model_id: str = "llama-3.1-8b-instant",
+    model_id: str = "openai/gpt-oss-20b",
 ) -> str:
     """Verify a draft LLM response for hallucination risk.
 

@@ -1,12 +1,14 @@
 import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from memory.controller import MemoryController
 from memory.retriever import MemoryRetriever
 from memory.updater import MemoryUpdater
 from llm.router import LLMRouter
 from llm.prompts import PromptBuilder
+from llm.errors import LLMProviderError
+from config.active_models import get_role_model
 
 
 logger = logging.getLogger(__name__)
@@ -27,50 +29,49 @@ class ChatManagerV3:
         session_id: str,
         user_input: str,
         chat_history: List[Dict[str, str]],
-    ) -> str:
+    ) -> Dict[str, Any]:
+        # 1. INTENT ANALYSIS (best-effort; do not fail the chat turn)
+        try:
+            intent_data = await self._analyze_intent(user_input)
+        except Exception as exc:
+            logger.warning("Intent analysis failed; using defaults: %s", exc)
+            intent_data = {"intent": "general", "needs_memory": False, "memory_types": []}
 
-        # -----------------------------
-        # 1. INTENT ANALYSIS
-        # -----------------------------
-        intent_data = await self._analyze_intent(user_input)
+        # 2. MEMORY DECISION (best-effort)
+        try:
+            decision = await self.memory_controller.decide(intent_data, user_input)
+        except Exception as exc:
+            logger.warning("Memory decision failed; skipping retrieval: %s", exc)
+            decision = {"use_memory": False, "types": [], "top_k": 0}
 
-        # -----------------------------
-        # 2. MEMORY DECISION
-        # -----------------------------
-        decision = await self.memory_controller.decide(intent_data, user_input)
-        
         use_memory = decision.get("use_memory", False)
         memory_types = decision.get("types", [])
         top_k = decision.get("top_k", 5)
 
-        # -----------------------------
-        # 3. MEMORY RETRIEVAL
-        # -----------------------------
+        # 3–4. MEMORY RETRIEVAL + RERANK (best-effort)
         retrieved_memories = []
         if use_memory and memory_types:
-            retrieved_memories = await self.memory_retriever.retrieve(
-                user_id=user_id,
-                query=user_input,
-                memory_types=memory_types,
-                top_k=min(top_k * 4, 20),
-            )
-
-            # -----------------------------
-            # 4. MEMORY RERANKING
-            # -----------------------------
-            retrieved_memories = await self.memory_retriever.rerank(
-                query=user_input,
-                memories=retrieved_memories,
-                top_k=5,
-            )
-            self.memory_updater.reinforce_memories(retrieved_memories)
+            try:
+                retrieved_memories = await self.memory_retriever.retrieve(
+                    user_id=user_id,
+                    query=user_input,
+                    memory_types=memory_types,
+                    top_k=min(top_k * 4, 20),
+                )
+                retrieved_memories = await self.memory_retriever.rerank(
+                    query=user_input,
+                    memories=retrieved_memories,
+                    top_k=5,
+                )
+                self.memory_updater.reinforce_memories(retrieved_memories)
+            except Exception as exc:
+                logger.warning("Memory retrieval failed; continuing without memories: %s", exc)
+                retrieved_memories = []
 
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
-        # -----------------------------
         # 5. BUILD PROMPT
-        # -----------------------------
         prompt = self.prompt_builder.build(
             user_input=user_input,
             chat_history=chat_history,
@@ -79,10 +80,9 @@ class ChatManagerV3:
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)
         styled_prompt = self._apply_turn_style(prompt, user_input, intent_data)
+        model_id = get_role_model(model_type)
 
-        # -----------------------------
-        # 6. GENERATE RESPONSE
-        # -----------------------------
+        # 6. GENERATE RESPONSE — provider failures must propagate
         response = await self._generate_response(styled_prompt, model_type=model_type)
         response = self._normalize_response(response)
         response = self._polish_length(response, user_input)
@@ -96,15 +96,20 @@ class ChatManagerV3:
                 "- Avoid repeating previous opening lines.\n"
                 "- Keep the same meaning while sounding natural."
             )
-            varied = await self._generate_response(variation_prompt, model_type=model_type)
-            response = self._normalize_response(varied)
-            response = self._polish_length(response, user_input)
+            try:
+                varied = await self._generate_response(variation_prompt, model_type=model_type)
+                response = self._normalize_response(varied)
+                response = self._polish_length(response, user_input)
+            except LLMProviderError:
+                # Keep the first successful response rather than failing the turn.
+                logger.warning("Variation regeneration failed; keeping original response")
+
+        if not response or not str(response).strip():
+            raise LLMProviderError("Empty model response", model=model_id, status_code=502)
 
         self._store_response(user_id, response)
 
-        # -----------------------------
-        # 7. UPDATE MEMORY (ASYNC)
-        # -----------------------------
+        # 7. UPDATE MEMORY (ASYNC) — failures are logged, never persisted as chat
         task = asyncio.create_task(
             self.memory_updater.process(
                 user_id=user_id,
@@ -115,7 +120,12 @@ class ChatManagerV3:
         task.add_done_callback(self._on_updater_done)
 
         logger.debug("FINAL RESPONSE: %s", response)
-        return response
+        return {
+            "reply": response,
+            "model": model_id,
+            "route_rule": f"v3_{model_type}",
+            "session_id": session_id,
+        }
 
     # =====================================================
     # INTERNAL METHODS
@@ -138,7 +148,6 @@ class ChatManagerV3:
 
         model = self.llm_router.get_model("fast")
         result = await model.generate(prompt)
-
         return self._safe_json_parse(result)
 
     async def _generate_response(self, prompt: str, model_type: str = "main") -> str:
@@ -148,7 +157,7 @@ class ChatManagerV3:
     def _normalize_response(self, text: str) -> str:
         cleaned = (text or "").strip()
         if not cleaned:
-            return "I'm here with you. Could you share a little more detail so I can help better?"
+            return ""
         return "\n\n".join(part.strip() for part in cleaned.split("\n\n") if part.strip())
 
     def _apply_turn_style(self, base_prompt: str, user_input: str, intent_data: Dict[str, Any]) -> str:

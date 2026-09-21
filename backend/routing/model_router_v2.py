@@ -1,14 +1,14 @@
-"""Advanced model router with hybrid intent detection and fallbacks.
+﻿"""Advanced model router with hybrid intent detection and fallbacks.
 
 Simplified to use skill-based routing with 4 flagship models:
-- conversation: llama-3.3-70b-versatile (Groq - fast chat)
-- reasoning: deepseek-r1-distill-llama-70b (Groq - complex reasoning)
-- code: llama-3.1-8b-instant (Groq - code generation)
-- summarization: mixtral-8x7b-32k (Groq - long context)
+- conversation: openai/gpt-oss-120b (Groq - fast chat)
+- reasoning: openai/gpt-oss-120b (Groq - complex reasoning)
+- code: openai/gpt-oss-20b (Groq - code generation)
+- summarization: openai/gpt-oss-120b (Groq - long context)
 
 Routing priority:
 1. Forced override (developer/user specified model)
-2. Skill-based mapping (deterministic intent → model)
+2. Skill-based mapping (deterministic intent â†’ model)
 3. Score-based routing (optional, env-controlled)
 
 Exports:
@@ -156,7 +156,7 @@ def rule_based_router(query: str, intent: Optional[str] = None) -> Tuple[Optiona
         skill = INTENT_TO_SKILL[intent]
         model = SKILL_TO_MODEL[skill]
         model = normalize_model_id(model)
-        logger.debug(f"Intent '{intent}' → skill '{skill}' → model '{model}'")
+        logger.debug(f"Intent '{intent}' â†’ skill '{skill}' â†’ model '{model}'")
         return model, 0.95, f"skill_map:intent={intent}:skill={skill}"
     
     # Try keyword pattern detection
@@ -164,7 +164,7 @@ def rule_based_router(query: str, intent: Optional[str] = None) -> Tuple[Optiona
     if skill:
         model = SKILL_TO_MODEL[skill]
         model = normalize_model_id(model)
-        logger.debug(f"Query pattern → skill '{skill}' → model '{model}'")
+        logger.debug(f"Query pattern â†’ skill '{skill}' â†’ model '{model}'")
         return model, 0.90, f"skill_map:pattern:skill={skill}"
     
     # Default to conversation skill
@@ -210,7 +210,7 @@ async def get_best_model(
     # PRIORITY 1: Forced override
     if forced_model:
         forced_model = normalize_model_id(forced_model)
-        logger.info(f"🎯 Forced model override: {forced_model}")
+        logger.info(f"ðŸŽ¯ Forced model override: {forced_model}")
         return {
             "chosen_model": forced_model,
             "source": get_model_source(forced_model),
@@ -225,7 +225,7 @@ async def get_best_model(
         mapped_skill = UI_SKILL_TO_ROUTER_SKILL.get(normalized_skill)
         if mapped_skill:
             manual_model = normalize_model_id(SKILL_TO_MODEL[mapped_skill])
-            logger.info("🎯 Manual skill override: %s -> %s", normalized_skill, manual_model)
+            logger.info("ðŸŽ¯ Manual skill override: %s -> %s", normalized_skill, manual_model)
             return {
                 "chosen_model": manual_model,
                 "source": get_model_source(manual_model),
@@ -244,7 +244,7 @@ async def get_best_model(
             model, ts = _route_cache[key]
             if now - ts < _CACHE_TTL:
                 model = normalize_model_id(model)
-                logger.debug("🔄 Cache hit for query fragment: %s -> %s", key[:50], model)
+                logger.debug("ðŸ”„ Cache hit for query fragment: %s -> %s", key[:50], model)
                 return {
                     "chosen_model": model,
                     "source": get_model_source(model),
@@ -254,7 +254,7 @@ async def get_best_model(
                 }
             else:
                 _route_cache.pop(key, None)
-                logger.debug("🗑️ Expired cache entry removed for query: %s", key[:50])
+                logger.debug("ðŸ—‘ï¸ Expired cache entry removed for query: %s", key[:50])
 
     # PRIORITY 4: Rule-based skill routing
     rb_model, rb_conf, rb_reason = rule_based_router(query, intent=intent)
@@ -264,7 +264,7 @@ async def get_best_model(
         with _cache_lock:
             _route_cache[key] = (rb_model_norm, now)
         
-        logger.debug("✅ Skill-based selection: %s (confidence: %.2f)", rb_model_norm, rb_conf)
+        logger.debug("âœ… Skill-based selection: %s (confidence: %.2f)", rb_model_norm, rb_conf)
         
         result = {
             "chosen_model": rb_model_norm,
@@ -287,7 +287,7 @@ async def get_best_model(
 
     # PRIORITY 5: Score-based routing (optional, env-controlled)
     if ENABLE_SCORE_ROUTING and ROUTING_STRATEGY == "score":
-        logger.warning("⚠️ Score-based routing not fully implemented yet, falling back to conversation")
+        logger.warning("âš ï¸ Score-based routing not fully implemented yet, falling back to conversation")
         # TODO: Implement score-based routing if needed
         # For now, fall through to default
     
@@ -295,7 +295,7 @@ async def get_best_model(
     model = normalize_model_id(KIMMI_CONVERSATIONAL)
     reason = "default:conversation"
     conf = 0.6
-    logger.debug("🔻 No high-confidence match, defaulting to conversation model: %s", model)
+    logger.debug("ðŸ”» No high-confidence match, defaulting to conversation model: %s", model)
 
     # Sticky last model per session for stability (thread-safe)
     if session_id:
@@ -304,7 +304,7 @@ async def get_best_model(
             if last and last == model:
                 reason += ":sticky_session"
                 conf = max(conf, 0.7)
-                logger.debug("📌 Sticky session model: %s", model)
+                logger.debug("ðŸ“Œ Sticky session model: %s", model)
             _last_model_per_session[session_id] = model
 
     # Update cache thread-safely
@@ -340,14 +340,14 @@ async def execute_with_fallbacks(model_chain: List[str], query: str, system: Opt
     # Limit chain to max 3 models (primary + 2 backups)
     model_chain = model_chain[:3]
     
-    logger.debug("🔄 Starting fallback execution chain: %s", model_chain)
+    logger.debug("ðŸ”„ Starting fallback execution chain: %s", model_chain)
     
     last_err: Optional[Exception] = None
     for idx, model in enumerate(model_chain):
         try:
             # Normalize model ID for consistency
             model = normalize_model_id(model)
-            logger.debug("🎯 Trying model %d/%d: %s", idx + 1, len(model_chain), model)
+            logger.debug("ðŸŽ¯ Trying model %d/%d: %s", idx + 1, len(model_chain), model)
             
             if model.startswith("fail:"):
                 raise RuntimeError("simulated failure")
@@ -357,27 +357,27 @@ async def execute_with_fallbacks(model_chain: List[str], query: str, system: Opt
             
             # Log fallback usage if not the first model
             if idx > 0:
-                logger.warning("⚠️ Fallback used: model %d succeeded (%s)", idx + 1, model)
+                logger.warning("âš ï¸ Fallback used: model %d succeeded (%s)", idx + 1, model)
                 try:
                     await update_llm_call({
                         "fallback_hop": idx,
                         "model_selected": model,
                     })
                 except Exception as telemetry_err:
-                    logger.error("❌ Telemetry error: %s", telemetry_err)
+                    logger.error("âŒ Telemetry error: %s", telemetry_err)
             else:
-                logger.debug("✅ Primary model succeeded: %s", model)
+                logger.debug("âœ… Primary model succeeded: %s", model)
             
             return reply, model, idx > 0
             
         except Exception as e:
             last_err = e
-            logger.warning("❌ Model %s failed: %s", model, e)
+            logger.warning("âŒ Model %s failed: %s", model, e)
             continue
     
     # All models failed
     error_msg = f"All {len(model_chain)} models failed; last_error={last_err}"
-    logger.error("💥 %s", error_msg)
+    logger.error("ðŸ’¥ %s", error_msg)
     raise RuntimeError(error_msg)
 
 
@@ -398,3 +398,4 @@ __all__ = [
     "SKILL_TO_MODEL",
     "INTENT_TO_SKILL",
 ]
+

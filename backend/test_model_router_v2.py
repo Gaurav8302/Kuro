@@ -71,7 +71,9 @@ def test_rule_based_summarization():
 @pytest.mark.asyncio
 async def test_get_best_model_forced_override():
     """Test forced model override takes priority."""
-    forced = "deepseek-r1-distill-llama-70b"
+    from config.active_models import PRIMARY_CHAT_MODEL
+
+    forced = PRIMARY_CHAT_MODEL
     res = await get_best_model("hello", forced_model=forced)
     assert res["chosen_model"] == normalize_model_id(forced)
     assert res["reason"] == "forced_override"
