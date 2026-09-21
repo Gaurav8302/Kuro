@@ -77,6 +77,33 @@ export async function setIntroShown(userId: string): Promise<{ status: string; u
   return apiRequest(`/user/${userId}/intro-shown`, 'post', { shown: true });
 }
 
+// Memory (existing endpoints) — used by onboarding and the Memory view
+export interface StoredMemory {
+  text: string;
+  score: number;
+  importance: number;
+  category: string;
+  timestamp: string;
+}
+
+export async function storeMemory(
+  userId: string,
+  text: string,
+  metadata: Record<string, unknown> = {},
+  token?: string
+): Promise<{ status: string; memory_id: string }> {
+  return apiRequest('/store-memory', 'post', { user_id: userId, text, metadata }, undefined, token);
+}
+
+export async function retrieveMemory(
+  userId: string,
+  query: string,
+  topK = 12,
+  token?: string
+): Promise<{ query: string; results: StoredMemory[] }> {
+  return apiRequest('/retrieve-memory', 'post', { user_id: userId, query, top_k: topK }, undefined, token);
+}
+
 // Inline Ask - ephemeral side-question with read-only session context
 export async function inlineQuery(
   selectedText: string,

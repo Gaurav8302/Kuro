@@ -21,10 +21,13 @@ export default {
     },
     extend: {
       fontFamily: {
-        orbitron: ['Orbitron', 'monospace'],
-        space: ['Space Grotesk', 'sans-serif'],
-        rajdhani: ['Rajdhani', 'sans-serif'],
-        inter: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        // Legacy aliases — all resolve to the two Kuro faces so old components stay coherent.
+        orbitron: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        space: ['Inter', 'ui-sans-serif', 'sans-serif'],
+        rajdhani: ['Inter', 'ui-sans-serif', 'sans-serif'],
+        inter: ['Inter', 'ui-sans-serif', 'sans-serif'],
       },
       colors: {
         // Base system colors
@@ -34,69 +37,19 @@ export default {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         
-        // Holographic color system
-        holo: {
-          cyan: {
-            50: '#e0fffe',
-            100: '#b3fffc',
-            200: '#80fff9',
-            300: '#4dfff6',
-            400: '#1afff3',
-            500: '#00e6d6',
-            600: '#00b3a6',
-            700: '#008075',
-            800: '#004d45',
-            900: '#001a16',
-          },
-          blue: {
-            50: '#e6f3ff',
-            100: '#b3d9ff',
-            200: '#80bfff',
-            300: '#4da6ff',
-            400: '#1a8cff',
-            500: '#0073e6',
-            600: '#005ab3',
-            700: '#004080',
-            800: '#00264d',
-            900: '#000d1a',
-          },
-          purple: {
-            50: '#f3e6ff',
-            100: '#d9b3ff',
-            200: '#bf80ff',
-            300: '#a64dff',
-            400: '#8c1aff',
-            500: '#7300e6',
-            600: '#5a00b3',
-            700: '#400080',
-            800: '#26004d',
-            900: '#0d001a',
-          },
-          magenta: {
-            50: '#ffe6f7',
-            100: '#ffb3e6',
-            200: '#ff80d4',
-            300: '#ff4dc3',
-            400: '#ff1ab1',
-            500: '#e6009f',
-            600: '#b3007c',
-            700: '#800059',
-            800: '#4d0036',
-            900: '#1a0013',
-          },
-          green: {
-            50: '#e6ffe6',
-            100: '#b3ffb3',
-            200: '#80ff80',
-            300: '#4dff4d',
-            400: '#1aff1a',
-            500: '#00e600',
-            600: '#00b300',
-            700: '#008000',
-            800: '#004d00',
-            900: '#001a00',
-          },
-        },
+        // Legacy "holo" scale. Remapped to the single Kuro hue so any component
+        // that still references it renders quietly instead of neon.
+        holo: (() => {
+          const cool = {
+            50: '#f2f7f8', 100: '#dfeaed', 200: '#c3d8dd', 300: '#a9c6cd', 400: '#95b9c1',
+            500: '#7fa5ad', 600: '#65868d', 700: '#4d666c', 800: '#36474b', 900: '#1f2a2d',
+          };
+          const neutral = {
+            50: '#f3f4f6', 100: '#e2e5ea', 200: '#c9ced6', 300: '#adb4c0', 400: '#98a0ad',
+            500: '#7f8794', 600: '#646b77', 700: '#4c525c', 800: '#343942', 900: '#1e2127',
+          };
+          return { cyan: cool, blue: cool, purple: neutral, magenta: neutral, green: cool };
+        })(),
         
         // Theme colors
         primary: {
@@ -144,13 +97,14 @@ export default {
         sm: 'calc(var(--radius) - 4px)'
       },
       boxShadow: {
-        'holo-glow': '0 0 12px rgba(0, 230, 214, 0.5), 0 0 24px rgba(0, 230, 214, 0.25)',
-        'holo-blue': '0 0 12px rgba(26, 140, 255, 0.5), 0 0 24px rgba(26, 140, 255, 0.25)',
-        'holo-purple': '0 0 12px rgba(140, 26, 255, 0.5), 0 0 24px rgba(140, 26, 255, 0.25)',
-        'holo-magenta': '0 0 12px rgba(255, 26, 177, 0.5), 0 0 24px rgba(255, 26, 177, 0.25)',
-        'holo-green': '0 0 12px rgba(26, 255, 26, 0.5), 0 0 24px rgba(26, 255, 26, 0.25)',
-        'glass': '0 4px 16px 0 rgba(31, 38, 135, 0.25)',
-        'glass-strong': '0 4px 20px 0 rgba(31, 38, 135, 0.4)',
+        // Glows retired: legacy utilities resolve to no shadow.
+        'holo-glow': 'none',
+        'holo-blue': 'none',
+        'holo-purple': 'none',
+        'holo-magenta': 'none',
+        'holo-green': 'none',
+        'glass': '0 8px 30px -12px rgba(0, 0, 0, 0.6)',
+        'glass-strong': '0 12px 40px -12px rgba(0, 0, 0, 0.7)',
       },
       backdropBlur: {
         'xs': '2px',
@@ -300,22 +254,17 @@ export default {
     function({ addUtilities, theme }) {
       const newUtilities = {
         '.glass-panel': {
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+          background: 'hsl(var(--card) / 0.7)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid hsl(var(--border) / 0.5)',
         },
         '.glass-panel-dark': {
-          background: 'rgba(0, 0, 0, 0.2)',
-          backdropFilter: 'blur(15px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+          background: 'hsl(var(--background) / 0.8)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid hsl(var(--border) / 0.5)',
         },
         '.holo-border': {
-          border: '1px solid transparent',
-          backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05)), linear-gradient(45deg, #00e6d6, #8c1aff, #1a8cff, #ff1ab1)',
-          backgroundOrigin: 'border-box',
-          backgroundClip: 'content-box, border-box',
+          border: '1px solid hsl(var(--border))',
         },
         '.scan-lines': {
           position: 'relative',
@@ -332,11 +281,11 @@ export default {
           }
         },
         '.text-holo-glow': {
-          textShadow: '0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor',
+          textShadow: 'none',
         },
         '.border-holo-glow': {
-          borderColor: 'rgba(0, 230, 214, 0.5)',
-          boxShadow: '0 0 10px rgba(0, 230, 214, 0.3), inset 0 0 10px rgba(0, 230, 214, 0.1)',
+          borderColor: 'hsl(var(--border))',
+          boxShadow: 'none',
         }
       }
       addUtilities(newUtilities)

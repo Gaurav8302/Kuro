@@ -1,6 +1,14 @@
 // Type definitions for the AI Chatbot
 
 export interface Message {
+  /**
+   * Stable identity for React keys. Local messages get a client id at
+   * creation; loaded history gets a deterministic id. Never derived from
+   * timestamps, which differ between client and server for the same turn.
+   */
+  id?: string;
+  /** True while Kuro is generating this (assistant) message. */
+  pending?: boolean;
   message: string;
   reply: string;
   timestamp?: string;

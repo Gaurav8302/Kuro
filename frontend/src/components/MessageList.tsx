@@ -1,85 +1,41 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useRef } from 'react';
 import { Message } from '@/types';
-import { OptimizedChatBubble } from '@/components/OptimizedChatBubble';
-import { TypingIndicator } from '@/components/TypingIndicator';
+import { KuroMessage } from '@/components/chat/KuroMessage';
 import { SearchSuggestion } from '@/components/SearchSuggestion';
-import { useOptimizedAnimations } from '@/hooks/use-performance';
 
 interface MessageListProps {
   messages: Message[];
-  userAvatar: string;
-  isTyping: boolean;
+  userAvatar?: string;
+  isTyping?: boolean;
   onRetry: () => void;
   onSearchRequest?: (userMessage: string) => void;
 }
 
 /**
- * Memoized individual message item to prevent unnecessary re-renders.
- * Only re-renders if the specific message changes.
+ * MessageList — stable geometry.
+ *
+ *   • Keys are message ids (never timestamps or indexes).
+ *   • Entrance motion is applied ONLY to messages that appear after the list
+ *     has already been shown once. Loaded history and re-renders never
+ *     animate, so nothing "flickers back in".
+ *   • The pending assistant row is a normal list item that later receives its
+ *     content — completion is an in-place update.
  */
-interface MessageItemProps {
-  message: Message;
-  index: number;
-  userAvatar: string;
-  shouldReduceAnimations: boolean;
-  onRetry: () => void;
-}
-
-const MessageItem = memo<MessageItemProps>(({
-  message,
-  index,
-  userAvatar,
-  shouldReduceAnimations,
-  onRetry
-}) => (
-  <div
-    className="transform-gpu animate-fade-in-up"
-    data-message-index={index}
-    style={{
-      animationDelay: shouldReduceAnimations ? '0ms' : `${Math.min(index * 30, 150)}ms`,
-      animationFillMode: 'both'
-    }}
-  >
-    <OptimizedChatBubble
-      message={message}
-      userAvatar={userAvatar}
-      onRetry={onRetry}
-    />
-  </div>
-), (prevProps, nextProps) => {
-  // Custom comparison: only re-render if message content changes
-  return (
-    prevProps.message.message === nextProps.message.message &&
-    prevProps.message.timestamp === nextProps.message.timestamp &&
-    prevProps.message.role === nextProps.message.role &&
-    prevProps.userAvatar === nextProps.userAvatar &&
-    prevProps.shouldReduceAnimations === nextProps.shouldReduceAnimations
-  );
-});
-
-MessageItem.displayName = 'MessageItem';
-
-/**
- * Memoized message list component.
- * Separates message list rendering from typing indicator to prevent
- * isTyping state changes from triggering full list re-renders.
- */
-export const MessageList: React.FC<MessageListProps> = memo(({ 
-  messages, 
-  userAvatar, 
-  isTyping, 
+export const MessageList: React.FC<MessageListProps> = memo(function MessageList({
+  messages,
   onRetry,
   onSearchRequest,
-}) => {
-  const { shouldReduceAnimations } = useOptimizedAnimations();
+}) {
+  const seen = useRef<Set<string>>(new Set());
+  const initialised = useRef(false);
 
-  // Memoize the message keys to detect actual message changes
-  const messageKeys = useMemo(() => 
-    messages.map((m, i) => `${m.timestamp}-${i}`).join(','),
-    [messages]
-  );
+  // A session switch empties the list first; treat the next fill as a load
+  // (no entrance motion), not as new messages.
+  if (messages.length === 0) {
+    initialised.current = false;
+    seen.current.clear();
+  }
 
-  // Find the user message that preceded a suggest_search response
   const findPrecedingUserMessage = (idx: number): string => {
     for (let i = idx - 1; i >= 0; i--) {
       if (messages[i].role === 'user') return messages[i].message;
@@ -87,40 +43,27 @@ export const MessageList: React.FC<MessageListProps> = memo(({
     return '';
   };
 
-  return (
-    <div className="space-y-6">
-      {messages.map((message, idx) => (
-        <React.Fragment key={message.timestamp + idx}>
-          <MessageItem
-            message={message}
-            index={idx}
-            userAvatar={userAvatar}
-            shouldReduceAnimations={shouldReduceAnimations}
-            onRetry={onRetry}
-          />
-          {message.suggest_search && message.role === 'assistant' && onSearchRequest && (
-            <SearchSuggestion
-              onSearchClick={() => onSearchRequest(findPrecedingUserMessage(idx))}
-            />
-          )}
-        </React.Fragment>
-      ))}
-      <TypingIndicator isTyping={isTyping} />
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // Only re-render if messages array actually changed (by length or content)
-  if (prevProps.messages.length !== nextProps.messages.length) return false;
-  if (prevProps.userAvatar !== nextProps.userAvatar) return false;
-  if (prevProps.isTyping !== nextProps.isTyping) return false;
-  
-  // Check if last message changed (most common case for new messages)
-  const prevLast = prevProps.messages[prevProps.messages.length - 1];
-  const nextLast = nextProps.messages[nextProps.messages.length - 1];
-  if (prevLast?.message !== nextLast?.message) return false;
-  if (prevLast?.timestamp !== nextLast?.timestamp) return false;
-  
-  return true;
+  const items = messages.map((message, idx) => {
+    const key = message.id ?? `fallback-${idx}`;
+    const fresh = initialised.current && !seen.current.has(key);
+    return (
+      <React.Fragment key={key}>
+        <div className={fresh ? 'k-enter' : undefined}>
+          <KuroMessage message={message} onRetry={onRetry} />
+        </div>
+        {message.suggest_search && message.role === 'assistant' && !message.pending && onSearchRequest && (
+          <SearchSuggestion onSearchClick={() => onSearchRequest(findPrecedingUserMessage(idx))} />
+        )}
+      </React.Fragment>
+    );
+  });
+
+  // Mark everything rendered so far as seen. After the first non-empty
+  // render, new ids are "fresh" and get the entrance motion.
+  messages.forEach((m, idx) => seen.current.add(m.id ?? `fallback-${idx}`));
+  if (messages.length > 0) initialised.current = true;
+
+  return <div className="flex flex-col gap-7 py-6">{items}</div>;
 });
 
 MessageList.displayName = 'MessageList';

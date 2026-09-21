@@ -1,11 +1,11 @@
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PanelPosition, ChatSession } from '@/types';
 import { useChatPanel, ClerkApiRequestFn, ChatSkill } from '@/hooks/use-chat-panel';
 import { useSplitView } from '@/contexts/SplitViewContext';
 import { useTextSelection } from '@/hooks/use-text-selection';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useExperience } from '@/experience/ExperienceContext';
 import { KuroChatHeader } from '@/components/kuro/KuroChatHeader';
 import { KuroChatContent } from '@/components/kuro/KuroChatContent';
 import { KuroChatInput } from '@/components/kuro/KuroChatInput';
@@ -21,184 +21,167 @@ interface ChatPanelProps {
   panelPosition: PanelPosition;
   isSplitMode: boolean;
   onSessionsChanged: () => void;
-  onToggleSidebar?: () => void;
+  /** Lets the parent (top bar) show/rename this panel's title in single view. */
+  onSessionTitle?: (title: string | null, sessionId: string | null) => void;
 }
 
 /**
- * ChatPanel - Self-contained chat panel component.
+ * ChatPanel — one conversation.
  *
- * Each instance manages its own messages, loading, typing, and scroll state
- * via the useChatPanel hook. In split mode, it includes close/expand buttons.
+ * Owns its messages via useChatPanel. Reports thinking/response to the
+ * environment so the Core carries the state instead of a "typing…" label.
  */
-export const ChatPanel: React.FC<ChatPanelProps> = memo(({
-  sessionId,
-  sessions,
-  userId,
-  userAvatar,
-  clerkApiRequest,
-  panelPosition,
-  isSplitMode,
-  onSessionsChanged,
-  onToggleSidebar,
-}) => {
-  const isMobile = useIsMobile();
-  const splitView = useSplitView();
+export const ChatPanel: React.FC<ChatPanelProps> = memo(
+  ({ sessionId, sessions, userId, userAvatar, clerkApiRequest, panelPosition, isSplitMode, onSessionsChanged, onSessionTitle }) => {
+    const splitView = useSplitView();
+    const { setCoreMode, pulse, profile, reducedMotion } = useExperience();
 
-  const panel = useChatPanel({
-    sessionId,
-    sessions,
-    userId,
-    clerkApiRequest,
-    onSessionsChanged,
-  });
+    const onThinking = useCallback(
+      (thinking: boolean) => {
+        if (thinking) setCoreMode('thinking');
+      },
+      [setCoreMode]
+    );
+    const onResponded = useCallback(() => pulse(), [pulse]);
 
-  // Text selection / inline ask (per-panel)
-  const { selection, clearSelection } = useTextSelection(panel.messagesContainerRef);
-  const [inlineAsk, setInlineAsk] = useState<{
-    selectedText: string;
-    context: string;
-    parentMessage: string;
-    messageIndex: number;
-    initialQuestion?: string;
-  } | null>(null);
-  const [selectedSkill, setSelectedSkill] = useState<ChatSkill>('auto');
+    const panel = useChatPanel({
+      sessionId,
+      sessions,
+      userId,
+      clerkApiRequest,
+      onSessionsChanged,
+      onThinking,
+      onResponded,
+    });
 
-  // Handle search request from SearchSuggestion button
-  const handleSearchRequest = useCallback(
-    (userMessage: string) => {
-      if (userMessage) {
-        panel.sendMessage(userMessage, true, selectedSkill);
-      }
-    },
-    [panel.sendMessage, selectedSkill]
-  );
+    // If a request fails (no reply), return the Core to idle.
+    useEffect(() => {
+      if (!panel.isTyping && panel.lastFailedMessage) setCoreMode('idle');
+    }, [panel.isTyping, panel.lastFailedMessage, setCoreMode]);
 
-  const showSidebarToggle = panelPosition === 'left' || panelPosition === 'top' || !isSplitMode;
+    useEffect(() => {
+      onSessionTitle?.(panel.currentSession?.title ?? null, panel.currentSession?.session_id ?? null);
+    }, [panel.currentSession?.title, panel.currentSession?.session_id, onSessionTitle]);
 
-  return (
-    <div className="flex flex-col h-full min-h-0 w-full">
-      {/* Header */}
-      <header className="flex-shrink-0">
-        <KuroChatHeader
-          title={panel.currentSession?.title || 'New Chat'}
-          onToggleSidebar={onToggleSidebar || (() => {})}
-          onRename={(newTitle) => {
-            if (panel.currentSession) {
-              panel.renameSession(panel.currentSession.session_id, newTitle);
-            }
-          }}
-          hasSession={!!panel.currentSession}
-          isSplitMode={isSplitMode}
-          showSidebarToggle={showSidebarToggle}
-          onClose={
-            isSplitMode
-              ? () => splitView.closePanel(panelPosition)
-              : undefined
-          }
-          onExpand={
-            isSplitMode
-              ? () => splitView.expandPanel(panelPosition)
-              : undefined
-          }
-        />
-      </header>
+    // Text selection / inline ask (per-panel)
+    const { selection, clearSelection } = useTextSelection(panel.messagesContainerRef);
+    const [inlineAsk, setInlineAsk] = useState<{
+      selectedText: string;
+      context: string;
+      parentMessage: string;
+      messageIndex: number;
+      initialQuestion?: string;
+    } | null>(null);
+    const [selectedSkill, setSelectedSkill] = useState<ChatSkill>('auto');
 
-      {/* Scrollable messages area */}
-      <main
-        ref={panel.scrollContainerRef}
-        className={cn(
-          'flex-1 overflow-y-auto min-h-0 relative scroll-smooth',
-          isMobile && 'pb-4 px-1'
-        )}
-      >
-        <div ref={panel.messagesContainerRef} className="h-full">
-          <KuroChatContent
-            messages={panel.messages}
-            userAvatar={userAvatar}
-            isTyping={panel.isTyping}
-            isLoading={panel.isLoading}
-            onRetry={panel.retryMessage}
-            onSearchRequest={handleSearchRequest}
-            onSelectSkill={setSelectedSkill}
-            messagesEndRef={panel.messagesEndRef}
+    const handleSearchRequest = useCallback(
+      (userMessage: string) => {
+        if (userMessage) panel.sendMessage(userMessage, true, selectedSkill);
+      },
+      [panel.sendMessage, selectedSkill]
+    );
+
+    const shorten = (s: string) => (s.length > 80 ? s.slice(0, 77) + '...' : s);
+
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col">
+        {isSplitMode && (
+          <KuroChatHeader
+            title={panel.currentSession?.title || 'New conversation'}
+            onRename={(t) => panel.currentSession && panel.renameSession(panel.currentSession.session_id, t)}
+            hasSession={!!panel.currentSession}
+            onClose={() => splitView.closePanel(panelPosition)}
+            onExpand={() => splitView.expandPanel(panelPosition)}
           />
-        </div>
+        )}
 
-        {/* Inline Ask: selection popup */}
-        <AnimatePresence>
-          {selection && !inlineAsk && (
-            <SelectionPopup
-              text={selection.text}
-              x={selection.x}
-              y={selection.y}
-              onCopy={clearSelection}
-              onAskKuro={() => {
-                setInlineAsk({
-                  selectedText: selection.text,
-                  context: selection.context,
-                  parentMessage: selection.parentMessage,
-                  messageIndex: selection.messageIndex,
-                });
-                clearSelection();
-              }}
-              onExplain={() => {
-                setInlineAsk({
-                  selectedText: selection.text,
-                  context: selection.context,
-                  parentMessage: selection.parentMessage,
-                  messageIndex: selection.messageIndex,
-                  initialQuestion: `Explain what "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}" means in this context.`,
-                });
-                clearSelection();
-              }}
-              onExample={() => {
-                setInlineAsk({
-                  selectedText: selection.text,
-                  context: selection.context,
-                  parentMessage: selection.parentMessage,
-                  messageIndex: selection.messageIndex,
-                  initialQuestion: `Give me a clear example of "${selection.text.length > 80 ? selection.text.slice(0, 77) + '...' : selection.text}".`,
-                });
-                clearSelection();
-              }}
+        {/* Scrollable conversation. `scroll-behavior: auto` — no smooth scroll
+            competing with layout. */}
+        <main ref={panel.scrollContainerRef} className={cn('relative flex min-h-0 flex-1 flex-col overflow-y-auto')}>
+          <div ref={panel.messagesContainerRef} className="flex flex-1 flex-col">
+            <KuroChatContent
+              messages={panel.messages}
+              userAvatar={userAvatar}
+              isTyping={panel.isTyping}
+              isLoading={panel.isLoading}
+              onRetry={panel.retryMessage}
+              onSearchRequest={handleSearchRequest}
+              onSelectSkill={setSelectedSkill}
+              messagesEndRef={panel.messagesEndRef}
+              name={profile.name}
+              reducedMotion={reducedMotion}
             />
-          )}
-        </AnimatePresence>
+          </div>
 
-        {/* Inline Ask: mini-chat panel */}
-        <AnimatePresence>
-          {inlineAsk && (
-            <InlineChatPanel
-              selectedText={inlineAsk.selectedText}
-              context={inlineAsk.context}
-              parentMessage={inlineAsk.parentMessage}
-              sessionId={panel.currentSession?.session_id}
-              userId={userId}
-              messageIndex={inlineAsk.messageIndex}
-              initialQuestion={inlineAsk.initialQuestion}
-              onClose={() => setInlineAsk(null)}
-            />
-          )}
-        </AnimatePresence>
-      </main>
+          <AnimatePresence>
+            {selection && !inlineAsk && (
+              <SelectionPopup
+                text={selection.text}
+                x={selection.x}
+                y={selection.y}
+                onCopy={clearSelection}
+                onAskKuro={() => {
+                  setInlineAsk({
+                    selectedText: selection.text,
+                    context: selection.context,
+                    parentMessage: selection.parentMessage,
+                    messageIndex: selection.messageIndex,
+                  });
+                  clearSelection();
+                }}
+                onExplain={() => {
+                  setInlineAsk({
+                    selectedText: selection.text,
+                    context: selection.context,
+                    parentMessage: selection.parentMessage,
+                    messageIndex: selection.messageIndex,
+                    initialQuestion: `Explain what "${shorten(selection.text)}" means in this context.`,
+                  });
+                  clearSelection();
+                }}
+                onExample={() => {
+                  setInlineAsk({
+                    selectedText: selection.text,
+                    context: selection.context,
+                    parentMessage: selection.parentMessage,
+                    messageIndex: selection.messageIndex,
+                    initialQuestion: `Give me a clear example of "${shorten(selection.text)}".`,
+                  });
+                  clearSelection();
+                }}
+              />
+            )}
+          </AnimatePresence>
 
-      {/* Input - fixed at bottom */}
-      <footer className="flex-shrink-0">
-        <KuroChatInput
-          onSendMessage={panel.sendMessage}
-          selectedSkill={selectedSkill}
-          onSkillChange={setSelectedSkill}
-          sending={panel.isTyping || panel.isLoading}
-          placeholder={
-            panel.isTyping || panel.isLoading
-              ? 'Kuro is responding...'
-              : 'Type a message...'
-          }
-        />
-      </footer>
-    </div>
-  );
-});
+          <AnimatePresence>
+            {inlineAsk && (
+              <InlineChatPanel
+                selectedText={inlineAsk.selectedText}
+                context={inlineAsk.context}
+                parentMessage={inlineAsk.parentMessage}
+                sessionId={panel.currentSession?.session_id}
+                userId={userId}
+                messageIndex={inlineAsk.messageIndex}
+                initialQuestion={inlineAsk.initialQuestion}
+                onClose={() => setInlineAsk(null)}
+              />
+            )}
+          </AnimatePresence>
+        </main>
+
+        <footer className="flex-shrink-0">
+          <KuroChatInput
+            onSendMessage={panel.sendMessage}
+            selectedSkill={selectedSkill}
+            onSkillChange={setSelectedSkill}
+            sending={panel.isTyping}
+            reducedMotion={reducedMotion}
+          />
+        </footer>
+      </div>
+    );
+  }
+);
 
 ChatPanel.displayName = 'ChatPanel';
 

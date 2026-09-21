@@ -59,66 +59,34 @@ const CodeBlock = memo(({ raw, language, className = '' }: CodeBlockProps) => {
   };
 
   return (
-    <div className="group/code relative border border-holo-cyan-400/30 rounded-lg bg-black/60 overflow-hidden">
+    <div className="group/code relative my-3 overflow-hidden rounded-md border border-border bg-secondary/60">
       {/* Code block header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-holo-cyan-500/10 border-b border-holo-cyan-400/20">
-        <span className="text-xs text-holo-cyan-400 font-orbitron tracking-wider">
-          {language ? language.toUpperCase() : 'CODE'}
-        </span>
-        <div className="flex gap-1 opacity-0 group-hover/code:opacity-100 transition-opacity duration-150">
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="px-2 h-6 text-[10px] rounded bg-holo-cyan-500/20 hover:bg-holo-cyan-500/30 text-holo-cyan-300 border border-holo-cyan-400/30 font-orbitron tracking-wide hover:shadow-holo-glow transition-all duration-150 transform-gpu hover:scale-105 active:scale-95"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 mr-1 inline" />
-                COPIED
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3 mr-1 inline" />
-                COPY
-              </>
-            )}
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+        <span className="k-label !text-[10px]">{language ? language : 'code'}</span>
+        <div className="flex gap-3 opacity-0 transition-opacity duration-150 group-hover/code:opacity-100 focus-within:opacity-100">
+          <button type="button" onClick={handleCopy} className="k-quiet inline-flex items-center gap-1 !text-[10px]">
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : 'Copy'}
           </button>
           {isLong && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(c => !c)}
-              className="px-2 h-6 text-[10px] rounded bg-holo-blue-500/20 hover:bg-holo-blue-500/30 text-holo-blue-300 border border-holo-blue-400/30 font-orbitron tracking-wide hover:shadow-holo-blue transition-all duration-150 transform-gpu hover:scale-105 active:scale-95"
-            >
-              {collapsed ? (
-                <>
-                  <ChevronDown className="w-3 h-3 mr-1 inline" />
-                  EXPAND ({hiddenCount})
-                </>
-              ) : (
-                <>
-                  <ChevronUp className="w-3 h-3 mr-1 inline" />
-                  COLLAPSE
-                </>
-              )}
+            <button type="button" onClick={() => setCollapsed((c) => !c)} className="k-quiet inline-flex items-center gap-1 !text-[10px]">
+              {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+              {collapsed ? `Expand (${hiddenCount})` : 'Collapse'}
             </button>
           )}
         </div>
       </div>
-      
-      <pre className="p-4 overflow-auto max-h-[32rem] text-xs with-line-numbers bg-black/20 font-orbitron" aria-live="polite">
-        <code className={cn(className, "text-holo-cyan-300")}>
+
+      <pre className="max-h-[32rem] overflow-auto p-4 font-mono text-[12.5px] leading-relaxed" aria-live="polite">
+        <code className={cn(className, 'text-foreground/90')}>
           {visibleLines.map((l, i) => (
-            <span 
-              key={i} 
-              className="code-line block hover:bg-holo-cyan-500/10 transition-colors duration-150" 
-              dangerouslySetInnerHTML={{ __html: l || ' ' }}
-            />
+            <span key={i} className="code-line block" dangerouslySetInnerHTML={{ __html: l || ' ' }} />
           ))}
         </code>
       </pre>
       {collapsed && (
-        <div className="text-[10px] px-4 pb-2 text-holo-cyan-400/50 font-orbitron tracking-wide bg-holo-cyan-500/5">
-          TRUNCATED ({hiddenCount} MORE LINE{hiddenCount === 1 ? '' : 'S'})
+        <div className="k-label px-4 pb-2 !text-[10px] !text-muted-foreground/60">
+          {hiddenCount} more line{hiddenCount === 1 ? '' : 's'}
         </div>
       )}
     </div>
@@ -195,7 +163,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = memo(({ content }
   }, [content]);
 
   return (
-    <div className="markdown-body prose prose-invert max-w-none text-sm leading-relaxed font-space">
+    <div className="markdown-body max-w-none leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
   // Note: we intentionally do NOT use rehype-highlight here because we
@@ -203,14 +171,8 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = memo(({ content }
   // Using both results in children becoming React elements instead of a
   // raw string, which leads to "[object Object]" appearing.
         components={{
-          p: ({ node, ...props }: any) => <p className="mb-3 last:mb-0 text-holo-cyan-100 whitespace-pre-line" {...props} />,
-          h1: (props: any) => <h1 className="mt-4 mb-2 text-2xl font-bold border-b border-holo-cyan-500/30 pb-1 text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
-          h2: (props: any) => <h2 className="mt-4 mb-2 text-xl font-bold text-holo-cyan-300 text-holo-glow font-orbitron" {...props} />,
-          h3: (props: any) => <h3 className="mt-3 mb-2 text-lg font-semibold text-holo-cyan-300 font-rajdhani" {...props} />,
-          ul: (props: any) => <ul className="list-disc ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
-          ol: (props: any) => <ol className="list-decimal ml-5 mb-3 space-y-1 marker:text-holo-cyan-400" {...props} />,
-          li: (props: any) => <li className="marker:text-holo-cyan-400/60 text-holo-cyan-100" {...props} />,
-          strong: (props: any) => <strong className="font-semibold text-holo-cyan-200 text-holo-glow" {...props} />,
+          p: ({ node, ...props }: any) => <p className="whitespace-pre-line" {...props} />,
+          strong: (props: any) => <strong className="font-medium text-foreground" {...props} />,
           code(codeProps: any) {
             const { inline, className = '', children, node, ...props } = codeProps;
             // Safely extract raw text from children which may be a string, array, or elements
@@ -235,10 +197,7 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = memo(({ content }
             const raw = extractRaw(children).replace(/\n+$/, '');
             if (inline) {
               return (
-                <code 
-                  className="px-2 py-1 rounded bg-holo-cyan-500/20 text-holo-cyan-300 font-orbitron border border-holo-cyan-400/30 text-holo-glow" 
-                  {...props}
-                >
+                <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[0.88em] text-foreground/90" {...props}>
                   {raw}
                 </code>
               );
@@ -251,18 +210,8 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = memo(({ content }
             // Use extracted CodeBlock component (properly manages useState)
             return <CodeBlock raw={raw} language={language} className={className} />;
           },
-          blockquote: (p) => (
-            <blockquote 
-              className="border-l-4 border-holo-purple-400/50 pl-4 italic opacity-90 mb-3 bg-holo-purple-500/10 py-2 rounded-r-lg text-holo-purple-200" 
-              {...p} 
-            />
-          ),
-          hr: (p: any) => (
-            <hr 
-              className="my-6 border-holo-cyan-500/30 border-t-2 animate-[shimmer_0.5s_ease-out]"
-              {...p} 
-            />
-          )
+          blockquote: (p) => <blockquote className="my-3 border-l border-foreground/25 pl-4 text-muted-foreground" {...p} />,
+          hr: (p: any) => <hr className="my-6 border-border" {...p} />,
         }}
       >
         {prepared}

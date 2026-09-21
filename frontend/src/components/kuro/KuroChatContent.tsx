@@ -1,22 +1,9 @@
-import React, { memo, Suspense, lazy } from 'react';
+import React, { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Message } from '@/types';
 import { ChatSkill } from '@/hooks/use-chat-panel';
 import { MessageList } from '@/components/MessageList';
-import { useOptimizedAnimations } from '@/hooks/use-performance';
-import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Sparkles } from 'lucide-react';
-
-// Lazy load the 3D bot for better performance
-const KuroBot3D = lazy(() => import('@/components/kuro/KuroBot3D'));
-
-// Fallback while 3D bot loads
-const BotFallback = () => (
-  <div className="w-64 h-64 flex items-center justify-center">
-    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent animate-pulse" />
-  </div>
-);
+import { lineVariants, lineVariantsReduced } from '@/experience/motion';
 
 interface KuroChatContentProps {
   messages: Message[];
@@ -27,141 +14,77 @@ interface KuroChatContentProps {
   onSearchRequest?: (userMessage: string) => void;
   onSelectSkill?: (skill: ChatSkill) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  /** Person's name, if Kuro knows it */
+  name?: string | null;
+  reducedMotion?: boolean;
 }
 
+const SKILLS: Array<{ id: ChatSkill; label: string }> = [
+  { id: 'code', label: 'Write code' },
+  { id: 'explain', label: 'Explain something' },
+  { id: 'creative', label: 'Write with me' },
+  { id: 'problem', label: 'Work through a problem' },
+];
+
 /**
- * EmptyState - Professional empty state with 3D Kuro Bot
- * The bot's head follows the cursor
+ * EmptyState — a question, not a landing page.
+ * The Core is already on screen (top-left); nothing else needs to announce Kuro.
  */
-const EmptyState = memo<{ isLoading: boolean; onSelectSkill?: (skill: ChatSkill) => void }>(({ isLoading, onSelectSkill }) => {
-  const { shouldReduceAnimations } = useOptimizedAnimations();
+const EmptyState = memo<{
+  isLoading: boolean;
+  name?: string | null;
+  reducedMotion?: boolean;
+  onSelectSkill?: (skill: ChatSkill) => void;
+}>(({ isLoading, name, reducedMotion, onSelectSkill }) => {
+  const lv = reducedMotion ? lineVariantsReduced : lineVariants;
 
   if (isLoading) {
     return (
-      <div className="text-center py-16">
-        <div className="max-w-md mx-auto">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ 
-              duration: shouldReduceAnimations ? 1 : 2, 
-              repeat: Infinity, 
-              ease: 'linear' 
-            }}
-            className="w-16 h-16 mx-auto mb-6"
-          >
-            <div className="w-full h-full rounded-full border-4 border-primary/30 border-t-primary" />
-          </motion.div>
-          <h3 className="text-xl font-semibold mb-2 text-foreground">
-            Loading...
-          </h3>
-        </div>
+      <div className="flex flex-1 items-center justify-center">
+        <span className="k-label">Opening conversation</span>
       </div>
     );
   }
 
   return (
-    <div className="text-center py-8 px-4">
-      <div className="max-w-md mx-auto">
-        {/* 3D Kuro Bot with head following cursor */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="flex justify-center mb-4"
-        >
-          <Suspense fallback={<BotFallback />}>
-            <KuroBot3D className="w-48 h-48 md:w-56 md:h-56" />
-          </Suspense>
+    <div className="flex flex-1 items-center justify-center px-6">
+      <motion.div className="flex w-[min(92vw,560px)] flex-col items-center text-center" initial="hidden" animate="show">
+        <motion.p className="k-voice text-[clamp(1.35rem,2.6vw,1.9rem)]" variants={lv} custom={0}>
+          {name ? `What are we working on, ${name}?` : 'What are we working on?'}
+        </motion.p>
+        <motion.div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3" variants={lv} custom={1}>
+          {SKILLS.map((s) => (
+            <button key={s.id} type="button" className="k-quiet" onClick={() => onSelectSkill?.(s.id)}>
+              {s.label}
+            </button>
+          ))}
         </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="text-center"
-        >
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            Hello, I'm Kuro
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Your personal AI assistant. Ask me anything and I'll help you find answers.
-          </p>
-          
-          {/* Quick action suggestions */}
-          <div className="flex flex-wrap justify-center gap-2">
-            {[
-              { id: 'code' as ChatSkill, label: 'Write code' },
-              { id: 'explain' as ChatSkill, label: 'Explain concepts' },
-              { id: 'creative' as ChatSkill, label: 'Creative writing' },
-              { id: 'problem' as ChatSkill, label: 'Problem solving' },
-            ].map((action, i) => (
-              <motion.button
-                key={action.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.5 + i * 0.1 }}
-                className="px-4 py-2 rounded-full glass border border-primary/20 text-sm text-foreground flex items-center gap-2 cursor-pointer hover:border-primary/40 hover:bg-primary/10 transition-colors"
-                onClick={() => onSelectSkill?.(action.id)}
-              >
-                <Sparkles className="w-3 h-3 text-primary" />
-                {action.label}
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 });
-
 EmptyState.displayName = 'EmptyState';
 
 /**
- * KuroChatContent - Professional chat content area
- * Clean design with 3D Kuro Bot empty state
+ * KuroChatContent — either the empty question or the conversation.
+ * Both live inside the same scroll container; the container never changes.
  */
-export const KuroChatContent: React.FC<KuroChatContentProps> = memo(({
-  messages,
-  userAvatar,
-  isTyping,
-  isLoading,
-  onRetry,
-  onSearchRequest,
-  onSelectSkill,
-  messagesEndRef
-}) => {
-  const { shouldReduceAnimations } = useOptimizedAnimations();
-  const isMobile = useIsMobile();
-  const hasMessages = messages.length > 0;
+export const KuroChatContent: React.FC<KuroChatContentProps> = memo(
+  ({ messages, isLoading, onRetry, onSearchRequest, onSelectSkill, messagesEndRef, name, reducedMotion }) => {
+    const hasMessages = messages.length > 0;
 
-  return (
-    <div className={cn(
-      "flex-1 relative overflow-auto",
-      "transition-opacity duration-300",
-    )}>
-      {/* Empty State - shown when no messages */}
-      {!hasMessages && (
-        <div className="h-full flex items-center justify-center py-12">
-          <EmptyState isLoading={isLoading && !hasMessages} onSelectSkill={onSelectSkill} />
-        </div>
-      )}
+    if (!hasMessages) {
+      return <EmptyState isLoading={isLoading} name={name} reducedMotion={reducedMotion} onSelectSkill={onSelectSkill} />;
+    }
 
-      {/* Messages Container */}
-      {hasMessages && (
-        <div className="h-full">
-          <MessageList
-            messages={messages}
-            userAvatar={userAvatar}
-            isTyping={isTyping}
-            onRetry={onRetry}
-            onSearchRequest={onSearchRequest}
-          />
-          <div ref={messagesEndRef} className="h-4" />
-        </div>
-      )}
-    </div>
-  );
-});
+    return (
+      <div className="w-full">
+        <MessageList messages={messages} onRetry={onRetry} onSearchRequest={onSearchRequest} />
+        <div ref={messagesEndRef} className="h-2" />
+      </div>
+    );
+  }
+);
 
 KuroChatContent.displayName = 'KuroChatContent';
 

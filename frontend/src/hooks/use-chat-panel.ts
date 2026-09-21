@@ -20,10 +20,13 @@ interface UseChatPanelOptions {
   userId: string | undefined;
   clerkApiRequest: ClerkApiRequestFn;
   onSessionsChanged: () => void;
+  /** Kuro is generating (drives the Core's `thinking` state). */
+  onThinking?: (thinking: boolean) => void;
+  /** A reply arrived (drives the Core's one-shot `responding` state). */
+  onResponded?: () => void;
 }
 
 interface UseChatPanelReturn {
-  // State
   messages: Message[];
   currentSession: ChatSession | null;
   isLoading: boolean;
@@ -33,18 +36,21 @@ interface UseChatPanelReturn {
   isGeneratingTitle: boolean;
   hasUserEditedTitle: boolean;
 
-  // Refs
   messagesEndRef: React.RefObject<HTMLDivElement>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   messagesContainerRef: React.RefObject<HTMLDivElement>;
 
-  // Handlers
   sendMessage: (message: string, searchMode?: boolean, skill?: ChatSkill) => Promise<void>;
   loadSession: (id: string) => Promise<void>;
   renameSession: (sessionId: string, newTitle: string) => Promise<void>;
   generateTitle: () => Promise<void>;
   retryMessage: () => Promise<void>;
   setError: (error: string | null) => void;
+}
+
+function newId(prefix = 'm'): string {
+  const c = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  return `${prefix}-${c}`;
 }
 
 /**
@@ -78,15 +84,18 @@ function detectSystemMessage(messageText: string): {
 }
 
 /**
- * Map raw backend history to Message[].
+ * Map raw backend history to Message[] with deterministic ids.
+ * The API has no message ids, so ids are derived from session + turn index +
+ * role — stable across reloads of the same session.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapHistory(history: any[]): Message[] {
+function mapHistory(sessionId: string, history: any[]): Message[] {
   const mapped: Message[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  history.forEach((item: any) => {
+  history.forEach((item: any, turn: number) => {
     if (item.user) {
       mapped.push({
+        id: `h-${sessionId}-${turn}-u`,
         message: item.user,
         reply: '',
         timestamp: item.timestamp,
@@ -96,6 +105,7 @@ function mapHistory(history: any[]): Message[] {
     if (item.assistant) {
       const systemInfo = detectSystemMessage(item.assistant);
       mapped.push({
+        id: `h-${sessionId}-${turn}-a`,
         message: item.assistant,
         reply: '',
         timestamp: item.timestamp,
@@ -108,10 +118,15 @@ function mapHistory(history: any[]): Message[] {
 }
 
 /**
- * useChatPanel - Encapsulates all per-session chat state and handlers.
+ * useChatPanel — per-session chat state.
  *
- * Each ChatPanel instance calls this hook with its own sessionId to get
- * fully isolated state: messages, loading, typing, scroll, etc.
+ * Flicker fix (see KURO_FLICKER_DIAGNOSIS.md):
+ *   • Messages have stable ids; keys never change for the same turn.
+ *   • The reply is written INTO a pending assistant row that already exists,
+ *     so completion updates one node in place — no unmount, no remount.
+ *   • There is NO post-send history refetch/replace. /chat already persisted.
+ *   • One scroll path: an effect on `messages`, using instant scroll when the
+ *     person is already near the bottom.
  */
 export function useChatPanel({
   sessionId,
@@ -119,10 +134,11 @@ export function useChatPanel({
   userId,
   clerkApiRequest,
   onSessionsChanged,
+  onThinking,
+  onResponded,
 }: UseChatPanelOptions): UseChatPanelReturn {
   const { toast } = useToast();
 
-  // Per-panel state
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -132,13 +148,11 @@ export function useChatPanel({
   const [hasUserEditedTitle, setHasUserEditedTitle] = useState(false);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
 
-  // Scroll refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isUserNearBottomRef = useRef(true);
 
-  // Dev mode
   const isDev = import.meta.env.DEV;
   const maintenanceMessage = 'Maintenance in progress. Please try again later.';
 
@@ -153,24 +167,19 @@ export function useChatPanel({
     [toast, isDev]
   );
 
-  // Scroll helpers
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    requestAnimationFrame(() => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior });
-      }
-    });
-  }, []);
+  // Report thinking state outward (Core).
+  useEffect(() => {
+    onThinking?.(isTyping);
+  }, [isTyping, onThinking]);
 
+  // --- Scroll: a single path ---
   const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return;
     const el = scrollContainerRef.current;
-    const threshold = 160;
+    if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    isUserNearBottomRef.current = distanceFromBottom < threshold;
+    isUserNearBottomRef.current = distanceFromBottom < 160;
   }, []);
 
-  // Attach scroll listener
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -178,45 +187,36 @@ export function useChatPanel({
     return () => el.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  // Auto-scroll on new messages
   useEffect(() => {
-    if (isUserNearBottomRef.current || messages.length <= 2) {
-      scrollToBottom(messages.length <= 2 ? 'auto' : 'smooth');
-    }
-  }, [messages, scrollToBottom]);
-
-  // Auto-scroll on typing indicator
-  useEffect(() => {
-    if (isTyping && isUserNearBottomRef.current) {
-      scrollToBottom('smooth');
-    }
-  }, [isTyping, scrollToBottom]);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    if (!isUserNearBottomRef.current && messages.length > 2) return;
+    // Instant, geometry-stable scroll. Smooth scrolling competing with layout
+    // was one of the visible "jumps" in the old implementation.
+    el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   // Loading failsafe timer
   useEffect(() => {
+    if (!isLoading) return;
     const failsafe = setTimeout(() => {
-      if (isLoading) {
-        console.log('\u26A0\uFE0F Failsafe: Resetting stuck loading state');
-        setIsLoading(false);
-        setIsTyping(false);
-      }
-    }, 30000);
+      console.warn('[useChatPanel] failsafe: resetting stuck loading state');
+      setIsLoading(false);
+      setIsTyping(false);
+      setMessages((prev) => prev.filter((m) => !m.pending));
+    }, 45000);
     return () => clearTimeout(failsafe);
   }, [isLoading]);
 
-  // Load session messages
+  // --- Load session ---
   const loadSession = useCallback(
     async (id: string) => {
       setIsLoading(true);
       setError(null);
-      setMessages([]); // Instantly clear old messages to make UI feel responsive
-
+      setMessages([]);
       try {
-        console.log('[useChatPanel] Loading session:', id);
         const data = await clerkApiRequest<{ history: any[] }>(`/chat/${id}`, 'get');
-        const mappedMessages = mapHistory(data.history);
-        setMessages(mappedMessages);
-
+        setMessages(mapHistory(id, data.history));
         const session = sessions.find((s) => s.session_id === id);
         if (session) {
           setCurrentSession(session);
@@ -242,30 +242,24 @@ export function useChatPanel({
     [clerkApiRequest, sessions, isDev, showErrorToast]
   );
 
-  // Load session when sessionId changes
-  // Use a ref to track sessions availability without re-triggering the effect
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
   useEffect(() => {
     if (sessionId && userId) {
-      // Wait for sessions to be available (initial load)
       if (sessionsRef.current.length === 0) return;
       const exists = sessionsRef.current.find((s) => s.session_id === sessionId);
-      if (exists) {
-        if (currentSession?.session_id !== sessionId) {
-          loadSession(sessionId);
-        }
+      if (exists && currentSession?.session_id !== sessionId) {
+        loadSession(sessionId);
       }
     } else if (!sessionId) {
       setMessages([]);
       setCurrentSession(null);
       setHasUserEditedTitle(false);
     }
-    // Only re-run when sessionId or userId actually changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, userId]);
 
-  // One-time: load session after sessions first become available
   const hasLoadedInitialRef = useRef(false);
   useEffect(() => {
     if (hasLoadedInitialRef.current) return;
@@ -276,21 +270,21 @@ export function useChatPanel({
         loadSession(sessionId);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions.length]);
 
-  // Rename session
+  // --- Rename ---
   const renameSession = useCallback(
-    async (sid: string, newTitle: string) => {
+    async (sid: string, newTitle: string, quiet = false) => {
       try {
         await clerkApiRequest(`/session/${sid}`, 'put', { new_title: newTitle });
         onSessionsChanged();
         if (currentSession?.session_id === sid) {
           setCurrentSession((prev) => (prev ? { ...prev, title: newTitle } : null));
         }
-        toast({
-          title: 'Session renamed',
-          description: 'Chat session title has been updated successfully.',
-        });
+        if (!quiet) {
+          toast({ title: 'Renamed', description: 'The conversation title was updated.' });
+        }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         showErrorToast('Error', 'Failed to rename session: ' + errorMessage);
@@ -299,19 +293,20 @@ export function useChatPanel({
     [clerkApiRequest, currentSession, onSessionsChanged, toast, showErrorToast]
   );
 
-  // Send message
+  // --- Send ---
   const sendMessage = useCallback(
     async (message: string, searchMode?: boolean, skill: ChatSkill = 'auto') => {
+      if (!userId) return;
       setIsLoading(true);
       setIsTyping(true);
       setError(null);
 
-      try {
-        if (!userId) return;
+      const userMsgId = newId('u');
+      const assistantMsgId = newId('a');
 
+      try {
         let sessionToUse = currentSession;
         if (!sessionToUse) {
-          // Create a session if none exists
           const data = await clerkApiRequest<{ session_id: string }>(
             '/session/create',
             'post',
@@ -323,19 +318,15 @@ export function useChatPanel({
           onSessionsChanged();
         }
 
-        // Optimistic user message
+        // The user's message and a pending row for Kuro's reply are added
+        // together. The reply will fill the pending row in place.
+        const now = new Date().toISOString();
         setMessages((prev) => [
           ...prev,
-          {
-            message,
-            reply: '',
-            timestamp: new Date().toISOString(),
-            role: 'user',
-          },
+          { id: userMsgId, message, reply: '', timestamp: now, role: 'user' },
+          { id: assistantMsgId, message: '', reply: '', timestamp: now, role: 'assistant', pending: true },
         ]);
-        scrollToBottom();
 
-        // Send to backend
         const response = await clerkApiRequest<{
           reply: string;
           model?: string;
@@ -351,78 +342,43 @@ export function useChatPanel({
           skill,
         });
 
-        const isRateLimitReply =
-          response.reply.includes('Rate Limit') ||
-          response.reply.includes('rate limit') ||
-          response.reply.includes('\u23F0') ||
-          response.reply.includes('Quota') ||
-          response.reply.includes('quota') ||
-          response.reply.includes('Service Configuration') ||
-          response.reply.includes('Server Error') ||
-          response.reply.includes('Temporarily Down');
+        const systemInfo = detectSystemMessage(response.reply);
 
-        const getMessageType = (
-          msg: string
-        ): 'normal' | 'rate_limit' | 'error' | 'warning' => {
-          if (msg.includes('Rate Limit') || msg.includes('\u23F0')) return 'rate_limit';
-          if (msg.includes('Quota') || msg.includes('\uD83D\uDCCA')) return 'rate_limit';
-          if (msg.includes('Configuration') || msg.includes('\uD83D\uDD10')) return 'error';
-          if (msg.includes('Server Error') || msg.includes('\uD83D\uDD27')) return 'warning';
-          return 'normal';
-        };
-
-        // Add AI response
-        setMessages((prev) => [
-          ...prev,
-          {
-            message: response.reply,
-            reply: '',
-            timestamp: new Date().toISOString(),
-            role: isRateLimitReply ? 'system' : 'assistant',
-            messageType: isRateLimitReply ? getMessageType(response.reply) : 'normal',
-            model: response.model,
-            route_rule: response.route_rule,
-            latency_ms: response.latency_ms,
-            intents: response.intents,
-            suggest_search: response.suggest_search || false,
-          },
-        ]);
-        setIsTyping(false);
-        scrollToBottom();
-
-        // Refresh from backend to ensure sync
-        const data = await clerkApiRequest<{ history: any[] }>(
-          `/chat/${sessionToUse.session_id}`,
-          'get'
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  pending: false,
+                  message: response.reply,
+                  timestamp: new Date().toISOString(),
+                  role: systemInfo.isSystem ? 'system' : 'assistant',
+                  messageType: systemInfo.messageType,
+                  model: response.model,
+                  route_rule: response.route_rule,
+                  latency_ms: response.latency_ms,
+                  intents: response.intents,
+                  suggest_search: response.suggest_search || false,
+                }
+              : m
+          )
         );
-        const mappedMessages = mapHistory(data.history);
-        setMessages(mappedMessages);
+        setIsTyping(false);
+        onResponded?.();
 
-        // Auto-naming
+        // Auto-title on the first exchange (quiet — no toast).
         if (sessionToUse.title === 'New Chat' && !hasUserEditedTitle) {
           try {
-            const firstUserMsg =
-              mappedMessages.find((m) => m.role === 'user')?.message || message;
-            const firstAssistantMsg =
-              mappedMessages.find((m) => m.role === 'assistant')?.message || response.reply;
-
-            if (firstUserMsg && firstAssistantMsg) {
-              const base = firstUserMsg
-                .replace(
-                  /^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i,
-                  ''
-                )
-                .trim();
-              let candidate = base || firstAssistantMsg.split('\n')[0];
-              candidate = candidate.replace(/[*#`>_~]/g, '').trim();
-              candidate = candidate.replace(/\s{2,}/g, ' ');
-              candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
-              if (candidate.length > 48)
-                candidate = candidate.substring(0, 45).trimEnd() + '\u2026';
-              if (candidate.length < 3) candidate = 'Chat Session';
-              await renameSession(sessionToUse.session_id, candidate);
-              setHasUserEditedTitle(true);
-            }
+            const base = message
+              .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
+              .trim();
+            let candidate = base || response.reply.split('\n')[0];
+            candidate = candidate.replace(/[*#`>_~]/g, '').trim().replace(/\s{2,}/g, ' ');
+            candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+            if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '\u2026';
+            if (candidate.length < 3) candidate = 'Conversation';
+            await renameSession(sessionToUse.session_id, candidate, true);
+            setHasUserEditedTitle(true);
           } catch (err) {
             console.log('Auto-naming failed:', err);
           }
@@ -430,46 +386,33 @@ export function useChatPanel({
       } catch (err: unknown) {
         setIsTyping(false);
         setLastFailedMessage(message);
+        // Remove the pending row; the person's message stays so they can retry.
+        setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         showErrorToast('Error', errorMessage);
       } finally {
         setIsLoading(false);
       }
     },
-    [
-      userId,
-      currentSession,
-      hasUserEditedTitle,
-      clerkApiRequest,
-      onSessionsChanged,
-      renameSession,
-      scrollToBottom,
-      showErrorToast,
-    ]
+    [userId, currentSession, hasUserEditedTitle, clerkApiRequest, onSessionsChanged, renameSession, showErrorToast, onResponded]
   );
 
-  // Generate title
+  // --- Generate title ---
   const generateTitle = useCallback(async () => {
     if (!currentSession || isGeneratingTitle) return;
     setIsGeneratingTitle(true);
     try {
       const userMessages = messages.filter((m) => m.role === 'user');
-      const assistantMessages = messages.filter((m) => m.role === 'assistant');
+      const assistantMessages = messages.filter((m) => m.role === 'assistant' && !m.pending);
       const lastUser = userMessages[userMessages.length - 1]?.message || '';
       const firstUser = userMessages[0]?.message || '';
       const firstAssistant = assistantMessages[0]?.message || '';
-      let base = lastUser || firstUser || firstAssistant || 'Chat Session';
-      base = base
-        .replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '')
-        .trim();
-      let candidate = base.split('\n')[0];
-      candidate = candidate.replace(/[*#`>_~]/g, '').trim();
-      candidate = candidate.replace(/\s{2,}/g, ' ');
-      if (candidate) {
-        candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
-      }
+      let base = lastUser || firstUser || firstAssistant || 'Conversation';
+      base = base.replace(/^(please|hey|hi|hello|can you|could you|explain|write|generate)\b/i, '').trim();
+      let candidate = base.split('\n')[0].replace(/[*#`>_~]/g, '').trim().replace(/\s{2,}/g, ' ');
+      if (candidate) candidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
       if (candidate.length > 48) candidate = candidate.substring(0, 45).trimEnd() + '\u2026';
-      if (candidate.length < 3) candidate = 'Chat Session';
+      if (candidate.length < 3) candidate = 'Conversation';
       await renameSession(currentSession.session_id, candidate);
       setHasUserEditedTitle(true);
     } catch (err: unknown) {
@@ -483,11 +426,15 @@ export function useChatPanel({
     }
   }, [currentSession, isGeneratingTitle, messages, renameSession, toast]);
 
-  // Retry last failed message
   const retryMessage = useCallback(async () => {
     if (lastFailedMessage) {
       const messageToRetry = lastFailedMessage;
       setLastFailedMessage(null);
+      // Drop the unanswered user row before re-sending so it isn't duplicated.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        return last?.role === 'user' && last.message === messageToRetry ? prev.slice(0, -1) : prev;
+      });
       await sendMessage(messageToRetry);
     }
   }, [lastFailedMessage, sendMessage]);
@@ -506,7 +453,7 @@ export function useChatPanel({
     messagesContainerRef,
     sendMessage,
     loadSession,
-    renameSession,
+    renameSession: (sid: string, title: string) => renameSession(sid, title),
     generateTitle,
     retryMessage,
     setError,

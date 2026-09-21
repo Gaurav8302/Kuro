@@ -1,25 +1,22 @@
-import { memo, useState, useRef, KeyboardEvent } from 'react';
+import { memo, useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { ArrowUp } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Send, Loader2, Sparkles, X, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SearchButton } from '@/components/kuro/SearchButton';
 import { ChatSkill } from '@/hooks/use-chat-panel';
+import { DUR, EASE } from '@/experience/motion';
 
 const SKILLS: Array<{ id: ChatSkill; name: string }> = [
   { id: 'auto', name: 'Auto' },
-  { id: 'code', name: 'Write Code' },
-  { id: 'explain', name: 'Explain Concepts' },
-  { id: 'creative', name: 'Creative Writing' },
-  { id: 'problem', name: 'Problem Solving' },
+  { id: 'code', name: 'Code' },
+  { id: 'explain', name: 'Explain' },
+  { id: 'creative', name: 'Creative' },
+  { id: 'problem', name: 'Problem solving' },
 ];
 
-const SKILL_LABELS: Record<ChatSkill, string> = {
-  auto: 'Auto',
-  code: 'Write Code',
-  explain: 'Explain Concepts',
-  creative: 'Creative Writing',
-  problem: 'Problem Solving',
-};
+const SKILL_NAME: Record<ChatSkill, string> = Object.fromEntries(SKILLS.map((s) => [s.id, s.name])) as Record<
+  ChatSkill,
+  string
+>;
 
 interface KuroChatInputProps {
   onSendMessage: (message: string, searchMode?: boolean, skill?: ChatSkill) => void;
@@ -29,12 +26,16 @@ interface KuroChatInputProps {
   sending?: boolean;
   placeholder?: string;
   className?: string;
+  reducedMotion?: boolean;
 }
 
+const MAX_HEIGHT = 168;
+
 /**
- * KuroChatInput - Professional chat input component
- * Fixed at bottom with glass effect and smooth animations.
- * Includes a search toggle button for manual web search.
+ * KuroChatInput — one hairline, one field, two quiet modifiers, one action.
+ *
+ * The field grows with what is typed (up to ~6 lines) and never resizes on
+ * its own: completion of a reply does not touch it.
  */
 export const KuroChatInput = memo(function KuroChatInput({
   onSendMessage,
@@ -42,25 +43,52 @@ export const KuroChatInput = memo(function KuroChatInput({
   onSkillChange,
   disabled = false,
   sending = false,
-  placeholder = 'Message Kuro...',
+  placeholder = 'Message Kuro',
   className,
+  reducedMotion = false,
 }: KuroChatInputProps) {
   const [message, setMessage] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = () => {
+  // Auto-size the field to its content.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = Math.min(el.scrollHeight, MAX_HEIGHT) + 'px';
+    el.style.overflowY = el.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
+  }, [message]);
+
+  // Close the skill list on outside click / escape.
+  useEffect(() => {
+    if (!showSkills) return;
+    const onDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowSkills(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSkills(false);
+    };
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showSkills]);
+
+  const submit = () => {
     const trimmed = message.trim();
+    // Typing stays possible while Kuro thinks; sending waits for the reply.
     if (!trimmed || disabled || sending) return;
 
     let finalSkill = selectedSkill;
     let finalMessage = trimmed;
-
-    const slashMatch = trimmed.match(/^\/(auto|code|explain|creative|problem)\b/i);
-    if (slashMatch) {
-      finalSkill = slashMatch[1].toLowerCase() as ChatSkill;
+    const slash = trimmed.match(/^\/(auto|code|explain|creative|problem)\b/i);
+    if (slash) {
+      finalSkill = slash[1].toLowerCase() as ChatSkill;
       onSkillChange(finalSkill);
       finalMessage = trimmed.replace(/^\/(auto|code|explain|creative|problem)\b\s*/i, '').trim();
       if (!finalMessage) {
@@ -71,134 +99,120 @@ export const KuroChatInput = memo(function KuroChatInput({
 
     onSendMessage(finalMessage, searchMode, finalSkill);
     setMessage('');
-    // Reset search mode after sending
     setSearchMode(false);
+    // Keep focus so the person can continue; the reply fills in above.
+    requestAnimationFrame(() => ref.current?.focus());
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      submit();
     }
   };
 
-  const isDisabled = disabled || sending;
-  const canSend = message.trim().length > 0 && !isDisabled;
+  const canSend = message.trim().length > 0 && !disabled && !sending;
+  const t = reducedMotion ? { duration: 0 } : { duration: DUR.micro + 0.06, ease: EASE.out };
 
   return (
-    <div className={cn('p-4 border-t border-border/50 glass', className)}>
-      <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-foreground">
-            <Sparkles className="h-3 w-3 text-primary" />
-            <span>{SKILL_LABELS[selectedSkill]}</span>
-            {selectedSkill !== 'auto' && (
-              <button
-                type="button"
-                onClick={() => onSkillChange('auto')}
-                className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Reset skill to auto"
-              >
-                <X className="h-3 w-3" />
-              </button>
+    <div className={cn('mx-auto w-full max-w-[760px] px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 md:px-6', className)}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+        className="relative"
+      >
+        <div className="k-hairline mb-3 h-px w-full" />
+
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={ref}
+            rows={1}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={searchMode ? 'Search the web, then answer' : placeholder}
+            disabled={disabled}
+            aria-label="Message Kuro"
+            className={cn(
+              'k-field min-h-[28px] flex-1 resize-none bg-transparent py-1 text-[15px] leading-[1.5] text-foreground',
+              'placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-60'
             )}
-          </div>
+          />
+          <button
+            type="submit"
+            disabled={!canSend}
+            aria-label="Send"
+            className={cn(
+              'mb-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors [transition-duration:180ms]',
+              canSend ? 'bg-foreground text-background' : 'bg-foreground/10 text-muted-foreground/50'
+            )}
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div className={cn(
-          'relative rounded-2xl overflow-visible',
-          'bg-secondary/50 border',
-          'transition-all duration-200',
-          isFocused
-            ? 'border-primary/50 shadow-lg shadow-primary/10'
-            : 'border-border/50'
-        )}>
-          {showSkills && (
-            <div className="absolute bottom-14 left-2 z-20 w-56 rounded-xl border border-border/70 bg-background/95 p-2 shadow-xl backdrop-blur">
-              <p className="px-2 py-1 text-xs text-muted-foreground">Select Skill</p>
-              {SKILLS.map((skill) => (
-                <button
-                  type="button"
-                  key={skill.id}
-                  onClick={() => {
-                    onSkillChange(skill.id);
-                    setShowSkills(false);
-                  }}
-                  className={cn(
-                    'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
-                    selectedSkill === skill.id
-                      ? 'bg-primary/20 text-foreground'
-                      : 'hover:bg-secondary text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {skill.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 p-2">
+        <div className="mt-3 flex items-center gap-5">
+          <div ref={menuRef} className="relative">
             <button
               type="button"
-              onClick={() => setShowSkills((prev) => !prev)}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border/70 bg-background/40 px-3 text-sm text-foreground transition-colors hover:bg-secondary/60"
+              onClick={() => setShowSkills((v) => !v)}
+              className={cn('k-quiet', selectedSkill !== 'auto' && '!text-foreground/85')}
+              aria-haspopup="listbox"
               aria-expanded={showSkills}
-              aria-label="Open skill selector"
             >
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span>Skills</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              {selectedSkill === 'auto' ? 'Auto' : SKILL_NAME[selectedSkill]}
             </button>
-
-            <input
-              ref={inputRef}
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={searchMode ? 'Search the web...' : placeholder}
-              disabled={isDisabled}
-              className={cn(
-                'min-w-0 flex-1 bg-transparent px-2 py-3',
-                'text-sm text-foreground',
-                'placeholder:text-muted-foreground',
-                'focus:outline-none',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
+            <AnimatePresence>
+              {showSkills && (
+                <motion.ul
+                  role="listbox"
+                  className="k-surface absolute bottom-7 left-0 z-20 flex min-w-[180px] flex-col py-2"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={t}
+                >
+                  {SKILLS.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedSkill === s.id}
+                        onClick={() => {
+                          onSkillChange(s.id);
+                          setShowSkills(false);
+                        }}
+                        className={cn(
+                          'k-quiet w-full px-4 py-1.5 text-left',
+                          selectedSkill === s.id && '!text-foreground'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    </li>
+                  ))}
+                </motion.ul>
               )}
-            />
-
-            <SearchButton
-              active={searchMode}
-              loading={false}
-              onClick={() => setSearchMode((prev) => !prev)}
-              disabled={isDisabled}
-            />
-            <Button
-              type="submit"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                'h-10 w-10 rounded-xl',
-                'transition-all duration-200',
-                canSend
-                  ? 'bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90'
-                  : 'hover:bg-primary/10'
-              )}
-              disabled={!canSend}
-            >
-              {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className={cn('h-4 w-4', !canSend && 'text-muted-foreground')} />
-              )}
-            </Button>
+            </AnimatePresence>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setSearchMode((v) => !v)}
+            disabled={disabled}
+            className={cn('k-quiet', searchMode && '!text-foreground/85')}
+            aria-pressed={searchMode}
+            title={searchMode ? 'Web search on' : 'Search the web for this message'}
+          >
+            {searchMode ? 'Web · on' : 'Web'}
+          </button>
+
+          <span className="ml-auto k-label !text-[10px] !text-muted-foreground/40">
+            {sending ? 'Kuro is thinking' : 'Enter to send'}
+          </span>
         </div>
-        <p className="text-xs text-center text-muted-foreground/70 mt-3">
-          Kuro can make mistakes. Consider checking important information.
-        </p>
       </form>
     </div>
   );

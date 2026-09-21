@@ -20,29 +20,13 @@ const DropZoneArea: React.FC<DropZoneAreaProps> = ({ id, label, icon, className 
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed transition-all duration-200',
-        isOver
-          ? 'border-primary bg-primary/10 scale-[1.02]'
-          : 'border-muted-foreground/30 bg-background/50',
+        'flex flex-col items-center justify-center gap-3 rounded-md border border-dashed transition-colors [transition-duration:180ms]',
+        isOver ? 'border-primary/70 bg-primary/[0.06]' : 'border-border',
         className
       )}
     >
-      <div
-        className={cn(
-          'p-3 rounded-xl transition-colors',
-          isOver ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'
-        )}
-      >
-        {icon}
-      </div>
-      <span
-        className={cn(
-          'text-sm font-medium transition-colors',
-          isOver ? 'text-primary' : 'text-muted-foreground'
-        )}
-      >
-        {label}
-      </span>
+      <div className={cn('transition-colors', isOver ? 'text-primary' : 'text-muted-foreground/70')}>{icon}</div>
+      <span className={cn('k-label !text-[10px]', isOver ? '!text-primary' : '!text-muted-foreground/70')}>{label}</span>
     </div>
   );
 };
@@ -84,7 +68,7 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
           transition={{ duration: 0.2 }}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-lg" />
+          <div className="absolute inset-0 bg-background/80" />
 
           {/* Drop zones */}
           <div className={cn(

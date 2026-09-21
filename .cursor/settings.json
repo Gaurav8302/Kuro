@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "pinecone": {
+      "enabled": true
+    },
+    "mongodb": {
+      "enabled": true
+    }
+  }
+}
