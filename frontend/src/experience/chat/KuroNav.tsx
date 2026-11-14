@@ -188,7 +188,7 @@ const Conversations: React.FC<Pick<KuroNavProps, 'sessions' | 'currentSessionId'
         ))}
       </ul>
     )}
-    <p className="k-label mt-auto pt-6 !text-[10px] !text-muted-foreground/40">Drag a conversation into the view to open two side by side</p>
+    <p className="k-label mt-auto pt-6 !text-[10px] !text-muted-foreground/40">Drag a conversation into the view to split screen (up to 3 panels)</p>
   </div>
 );
 

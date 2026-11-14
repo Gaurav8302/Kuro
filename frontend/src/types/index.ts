@@ -56,7 +56,7 @@ export interface MemoryContext {
 }
 
 // Split-view layout types
-export type PanelPosition = 'left' | 'right' | 'top' | 'bottom';
+export type PanelPosition = 'left' | 'center' | 'right' | 'top' | 'bottom';
 export type LayoutMode = 'single' | 'split';
 export type DropZone = 'left' | 'right' | 'center' | 'top' | 'bottom';
 

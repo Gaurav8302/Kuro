@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -91,12 +91,13 @@ const ChatInner = () => {
     try {
       const data = await clerkApiRequest<{ session_id: string }>('/session/create', 'post', null, { user_id: user.id });
       await fetchSessions();
+      splitView.closePanel('left');
       navigate(`/chat/${data.session_id}`);
       setNavOpen(false);
     } catch (err) {
       showErrorToast('Error', err instanceof Error ? err.message : 'Could not start a conversation.');
     }
-  }, [user, clerkApiRequest, fetchSessions, navigate, setNavOpen, showErrorToast]);
+  }, [user, clerkApiRequest, fetchSessions, navigate, setNavOpen, showErrorToast, splitView]);
 
   // First visit with no conversations: open one (unchanged behaviour).
   useEffect(() => {
@@ -210,9 +211,10 @@ const ChatInner = () => {
     const zone = map[zoneId];
     if (!zone) return;
 
+    const wasSingle = splitView.layout.mode === 'single' || splitView.layout.panels.length <= 1;
     splitView.openSessionInPanel(dropped, zone, primarySessionId);
 
-    if (zone === 'center') {
+    if (zone === 'center' && wasSingle) {
       navigate(`/chat/${dropped}`);
     } else {
       // Keep URL synced to the primary (left/top) panel
@@ -249,44 +251,41 @@ const ChatInner = () => {
 
   // --- Layout ---
   const { layout } = splitView;
-  const isSplit = layout.mode === 'split' && layout.panels.length >= 2 && !!layout.panels[1]?.sessionId;
+  const isSplit = layout.mode === 'split' && layout.panels.length >= 2;
+  const numPanels = layout.panels.length;
+  // In single mode with no sessionId in route, primarySessionId is null so a fresh new chat is opened
   const primarySessionId = isSplit
     ? layout.panels[0]?.sessionId || null
-    : sessionId || layout.panels[0]?.sessionId || null;
-  const secondarySessionId = isSplit
-    ? layout.panels[1]?.sessionId || null
-    : null;
+    : sessionId || null;
 
   const onPrimaryTitle = useCallback((title: string | null, id: string | null) => setPrimaryTitle({ title, id }), []);
 
   const mainContent = isSplit ? (
-    <ResizablePanelGroup direction={isMobile ? 'vertical' : 'horizontal'} onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}>
-      <ResizablePanel defaultSize={layout.panelSizes?.[0] ?? 50} minSize={20}>
-        <ChatPanel
-          sessionId={primarySessionId}
-          sessions={sessions}
-          userId={user?.id}
-          userAvatar={user?.imageUrl || ''}
-          clerkApiRequest={clerkApiRequest}
-          panelPosition={isMobile ? 'top' : 'left'}
-          isSplitMode
-          onSessionsChanged={fetchSessions}
-          onSessionTitle={onPrimaryTitle}
-        />
-      </ResizablePanel>
-      <ResizableHandle className="bg-border/60" />
-      <ResizablePanel defaultSize={layout.panelSizes?.[1] ?? 50} minSize={20}>
-        <ChatPanel
-          sessionId={secondarySessionId}
-          sessions={sessions}
-          userId={user?.id}
-          userAvatar={user?.imageUrl || ''}
-          clerkApiRequest={clerkApiRequest}
-          panelPosition={isMobile ? 'bottom' : 'right'}
-          isSplitMode
-          onSessionsChanged={fetchSessions}
-        />
-      </ResizablePanel>
+    <ResizablePanelGroup
+      direction={isMobile ? 'vertical' : 'horizontal'}
+      onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
+    >
+      {layout.panels.map((panel, index) => {
+        const defaultSize = layout.panelSizes?.[index] ?? (100 / numPanels);
+        return (
+          <React.Fragment key={`${panel.position}-${index}`}>
+            {index > 0 && <ResizableHandle className="bg-border/60" />}
+            <ResizablePanel defaultSize={defaultSize} minSize={15}>
+              <ChatPanel
+                sessionId={panel.sessionId}
+                sessions={sessions}
+                userId={user?.id}
+                userAvatar={user?.imageUrl || ''}
+                clerkApiRequest={clerkApiRequest}
+                panelPosition={panel.position}
+                isSplitMode
+                onSessionsChanged={fetchSessions}
+                onSessionTitle={index === 0 ? onPrimaryTitle : undefined}
+              />
+            </ResizablePanel>
+          </React.Fragment>
+        );
+      })}
     </ResizablePanelGroup>
   ) : (
     <ChatPanel

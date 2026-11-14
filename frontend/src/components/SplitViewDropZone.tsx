@@ -3,8 +3,9 @@ import { useDroppable } from '@dnd-kit/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { LayoutMode } from '@/types';
-import { PanelLeft, PanelRight, Maximize, PanelTop, PanelBottom } from 'lucide-react';
+import { PanelLeft, PanelRight, Maximize, PanelTop, PanelBottom, Columns3 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSplitView } from '@/contexts/SplitViewContext';
 
 interface DropZoneAreaProps {
   id: string;
@@ -55,6 +56,8 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
   alwaysMounted = false,
 }) => {
   const isMobile = useIsMobile();
+  const splitView = useSplitView();
+  const panelsCount = splitView.layout.panels.length;
 
   // When alwaysMounted is true, we always render but control visibility via CSS
   // This ensures droppable zones are registered before drag starts
@@ -93,8 +96,7 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
             isMobile ? 'flex flex-col gap-4' : 'flex gap-4'
           )}>
             {isMobile ? (
-              // Mobile: top / center / bottom (or top / bottom in split)
-              currentMode === 'single' ? (
+              currentMode === 'single' || panelsCount <= 1 ? (
                 <>
                   <DropZoneArea
                     id="drop-top"
@@ -115,12 +117,39 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
                     className="flex-1"
                   />
                 </>
+              ) : panelsCount === 2 ? (
+                <>
+                  <DropZoneArea
+                    id="drop-top"
+                    label="Open on top (3-way)"
+                    icon={<PanelTop className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-center"
+                    label="Open in middle (3-way)"
+                    icon={<Columns3 className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-bottom"
+                    label="Open on bottom (3-way)"
+                    icon={<PanelBottom className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                </>
               ) : (
                 <>
                   <DropZoneArea
                     id="drop-top"
                     label="Replace top panel"
                     icon={<PanelTop className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-center"
+                    label="Replace middle panel"
+                    icon={<Columns3 className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
@@ -132,8 +161,7 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
                 </>
               )
             ) : (
-              // Desktop: left / center / right (or left / right in split)
-              currentMode === 'single' ? (
+              currentMode === 'single' || panelsCount <= 1 ? (
                 <>
                   <DropZoneArea
                     id="drop-left"
@@ -154,12 +182,39 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
                     className="flex-1"
                   />
                 </>
+              ) : panelsCount === 2 ? (
+                <>
+                  <DropZoneArea
+                    id="drop-left"
+                    label="Open on left (3-way)"
+                    icon={<PanelLeft className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-center"
+                    label="Open in middle (3-way)"
+                    icon={<Columns3 className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-right"
+                    label="Open on right (3-way)"
+                    icon={<PanelRight className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                </>
               ) : (
                 <>
                   <DropZoneArea
                     id="drop-left"
                     label="Replace left panel"
                     icon={<PanelLeft className="w-6 h-6" />}
+                    className="flex-1"
+                  />
+                  <DropZoneArea
+                    id="drop-center"
+                    label="Replace middle panel"
+                    icon={<Columns3 className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
