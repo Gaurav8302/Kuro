@@ -70,18 +70,24 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
             isMobile
               ? 'fixed inset-0 z-[60] flex flex-col gap-4'
               : 'absolute inset-0 z-40 flex gap-4',
+            isVisible ? 'pointer-events-auto' : 'pointer-events-none'
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: isVisible ? 1 : 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          style={{ opacity, pointerEvents }}>
+          style={{
+            opacity,
+            pointerEvents,
+            visibility: isVisible ? 'visible' : 'hidden',
+          }}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-background/80 pointer-events-none" />
 
           {/* Drop zones */}
           <div className={cn(
-            'relative z-10 w-full h-full pointer-events-auto',
+            'relative z-10 w-full h-full',
+            isVisible ? 'pointer-events-auto' : 'pointer-events-none',
             isMobile ? 'flex flex-col gap-4' : 'flex gap-4'
           )}>
             {isMobile ? (

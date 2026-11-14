@@ -17,6 +17,26 @@ class AuthenticatedPrincipal:
     claims: dict[str, Any]
 
 
+def _derive_clerk_domain() -> str:
+    """Extract the Clerk instance domain from a publishable key (pk_test_... or pk_live_...)."""
+    pk = os.getenv("CLERK_PUBLISHABLE_KEY") or os.getenv("VITE_CLERK_PUBLISHABLE_KEY") or ""
+    if pk.startswith("pk_test_") or pk.startswith("pk_live_"):
+        parts = pk.split("_")
+        if len(parts) >= 3:
+            raw = parts[2]
+            pad = len(raw) % 4
+            if pad:
+                raw += "=" * (4 - pad)
+            try:
+                import base64
+                decoded = base64.b64decode(raw).decode("utf-8").rstrip("$")
+                if "." in decoded:
+                    return decoded
+            except Exception:
+                pass
+    return ""
+
+
 class ClerkJWKSVerifier:
     """Verify Clerk-issued JWTs against a cached, rotating JWKS key set."""
 
@@ -24,6 +44,16 @@ class ClerkJWKSVerifier:
         self.issuer = (os.getenv("CLERK_JWT_ISSUER") or os.getenv("CLERK_ISSUER") or "").rstrip("/")
         self.jwks_url = os.getenv("CLERK_JWKS_URL", "")
         self.audience = os.getenv("CLERK_JWT_AUDIENCE") or None
+
+        # Auto-derive from publishable key if missing or set to placeholder
+        if not self.issuer or "your-instance" in self.issuer:
+            derived_domain = _derive_clerk_domain()
+            if derived_domain:
+                self.issuer = f"https://{derived_domain}"
+        if not self.jwks_url or "your-instance" in self.jwks_url:
+            if self.issuer and "your-instance" not in self.issuer:
+                self.jwks_url = f"{self.issuer}/.well-known/jwks.json"
+
         if not self.issuer or not self.jwks_url:
             raise RuntimeError("Clerk JWT issuer and JWKS URL must be configured")
         self.algorithms = ["RS256"]

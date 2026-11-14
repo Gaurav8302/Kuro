@@ -112,6 +112,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(p) for p in self.admin_endpoints)
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Never rate limit CORS preflight requests
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = request.url.path
         
         # Skip if rate limiting is disabled

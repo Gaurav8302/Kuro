@@ -37,12 +37,12 @@ export const addResourceHints = () => {
   if (typeof document === 'undefined') return;
 
   const hints = [
-    { rel: 'preload', href: '/kuroai.png', as: 'image' },
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
   ];
 
   hints.forEach(hint => {
+    if (document.querySelector(`link[href="${hint.href}"]`)) return;
     const link = document.createElement('link');
     Object.assign(link, hint);
     document.head.appendChild(link);

@@ -173,10 +173,13 @@ def _configured_cors_origins() -> list[str]:
     frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
     if frontend_url:
         origins.add(frontend_url)
+    # Always include known project deployment domains
+    origins.add("https://kuro-tau.vercel.app")
     if not IS_PRODUCTION:
         origins.update({
             "http://localhost:3000", "http://127.0.0.1:3000",
             "http://localhost:4173", "http://127.0.0.1:4173",
+            "http://localhost:5173", "http://127.0.0.1:5173",
         })
     return sorted(origins)
 
