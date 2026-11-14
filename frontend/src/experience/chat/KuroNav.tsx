@@ -75,7 +75,16 @@ const SessionRow: React.FC<{
   };
 
   return (
-    <li ref={setNodeRef} style={style} className={cn('group relative -mx-2 rounded px-2', isDragging && 'opacity-40')}>
+    <li
+      ref={setNodeRef}
+      style={{
+        ...style,
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+      className={cn('group relative -mx-2 rounded px-2 select-none', isDragging && 'opacity-40')}
+    >
       {mode === 'edit' ? (
         <input
           value={value}
@@ -107,29 +116,43 @@ const SessionRow: React.FC<{
           <button
             type="button"
             onClick={onSelect}
+            onContextMenu={(e) => e.preventDefault()}
             className={cn(
-              'min-w-0 flex-1 truncate text-left text-[13px] transition-colors [transition-duration:180ms]',
+              'min-w-0 flex-1 truncate text-left text-[13px] transition-colors [transition-duration:180ms] select-none',
               active ? 'text-foreground' : 'text-foreground/70 hover:text-foreground'
             )}
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+            }}
           >
             {session.title || 'Untitled'}
           </button>
-          <div className="flex items-center gap-2 transition-opacity [transition-duration:180ms] opacity-80 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <div className="flex items-center gap-1 transition-opacity [transition-duration:180ms] opacity-80 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 select-none">
             <button type="button" className="k-quiet !text-[10px] hidden sm:inline" onClick={() => setMode('edit')}>
               Rename
             </button>
             <button type="button" className="k-quiet !text-[10px] hidden sm:inline" onClick={() => setMode('confirm')}>
               Delete
             </button>
-            <span
+            <div
               {...listeners}
               {...attributes}
-              className="cursor-grab touch-none p-1 text-muted-foreground/70 hover:text-foreground active:text-primary active:cursor-grabbing"
-              title="Drag into the conversation to open side by side"
+              onContextMenu={(e) => e.preventDefault()}
+              onSelectStart={(e) => e.preventDefault()}
+              style={{
+                touchAction: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded cursor-grab active:cursor-grabbing text-muted-foreground/70 hover:text-foreground active:text-primary transition-colors select-none touch-none"
+              title="Drag into conversation area to open split view"
               aria-label="Drag to open in split view"
             >
-              <GripVertical className="h-4 w-4" />
-            </span>
+              <GripVertical className="h-4 w-4 pointer-events-none" />
+            </div>
           </div>
         </div>
       )}

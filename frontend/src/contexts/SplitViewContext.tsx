@@ -115,17 +115,10 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const openSessionInPanel = useCallback(
     (sessionId: string, dropZone: DropZone, currentSessionId?: string | null) => {
       setLayout((prev) => {
-        const positionFn = isMobile ? mobilePanelPosition : desktopPanelPosition;
-
         if (dropZone === 'center') {
           // Replace current panel (primary) in single mode
           const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
-          const panels: PanelState[] =
-            prev.panels.length === 0
-              ? [{ sessionId, position: primaryPos }]
-              : prev.panels.map((p, i) =>
-                  i === 0 ? { ...p, sessionId } : p
-                );
+          const panels: PanelState[] = [{ sessionId, position: primaryPos }];
           return { mode: 'single', panels, panelSizes: [100] };
         }
 
@@ -135,46 +128,73 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const isDropOnPrimary = dropZone === 'left' || dropZone === 'top';
 
         if (prev.mode === 'single') {
-          // Identify the existing active session
           const existingSessionId = prev.panels[0]?.sessionId || currentSessionId || null;
 
           let firstPanelSession = isDropOnPrimary ? sessionId : existingSessionId;
           let secondPanelSession = isDropOnPrimary ? existingSessionId : sessionId;
 
-          if (!firstPanelSession && !secondPanelSession) {
-            firstPanelSession = sessionId;
-            secondPanelSession = '';
-          } else if (firstPanelSession === secondPanelSession) {
-            // Dragged the same session to split: put on dropped side, leave other side ready
-            if (isDropOnPrimary) {
-              secondPanelSession = '';
-            } else {
-              firstPanelSession = '';
-            }
-          }
+          if (!firstPanelSession) firstPanelSession = sessionId;
+          if (!secondPanelSession) secondPanelSession = sessionId;
 
-          const firstPanel: PanelState = {
-            sessionId: firstPanelSession || '',
-            position: primaryPos,
-          };
-          const secondPanel: PanelState = {
-            sessionId: secondPanelSession || '',
-            position: secondaryPos,
-          };
+          // If the dropped session is identical to the only open session, don't create duplicate panels
+          if (firstPanelSession === secondPanelSession) {
+            return {
+              mode: 'single',
+              panels: [{ sessionId: firstPanelSession, position: primaryPos }],
+              panelSizes: [100],
+            };
+          }
 
           return {
             mode: 'split',
-            panels: [firstPanel, secondPanel],
+            panels: [
+              { sessionId: firstPanelSession, position: primaryPos },
+              { sessionId: secondPanelSession, position: secondaryPos },
+            ],
             panelSizes: [50, 50],
           };
         }
 
-        // Already in split mode → replace the panel at the target drop position
-        const targetPos = positionFn(dropZone);
-        const panels = prev.panels.map((p) =>
-          p.position === targetPos ? { ...p, sessionId } : p
-        );
-        return { ...prev, panels };
+        // Already in split mode:
+        const currentFirst = prev.panels[0]?.sessionId || '';
+        const currentSecond = prev.panels[1]?.sessionId || '';
+
+        let nextFirst = currentFirst;
+        let nextSecond = currentSecond;
+
+        if (isDropOnPrimary) {
+          // Replace top/left panel
+          nextFirst = sessionId;
+          // If the other panel had this same session, swap so both panels aren't the same
+          if (nextSecond === sessionId && currentFirst && currentFirst !== sessionId) {
+            nextSecond = currentFirst;
+          }
+        } else {
+          // Replace bottom/right panel
+          nextSecond = sessionId;
+          // If the other panel had this same session, swap so both panels aren't the same
+          if (nextFirst === sessionId && currentSecond && currentSecond !== sessionId) {
+            nextFirst = currentSecond;
+          }
+        }
+
+        // If somehow both panels ended up with the same session ID, collapse to single mode
+        if (nextFirst === nextSecond) {
+          return {
+            mode: 'single',
+            panels: [{ sessionId: nextFirst, position: primaryPos }],
+            panelSizes: [100],
+          };
+        }
+
+        return {
+          mode: 'split',
+          panels: [
+            { sessionId: nextFirst, position: primaryPos },
+            { sessionId: nextSecond, position: secondaryPos },
+          ],
+          panelSizes: prev.panelSizes && prev.panelSizes.length === 2 ? prev.panelSizes : [50, 50],
+        };
       });
     },
     [isMobile]

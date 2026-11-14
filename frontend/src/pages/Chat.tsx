@@ -3,11 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
-  useDraggable,
   DragStartEvent,
   DragEndEvent,
   closestCenter,
@@ -16,8 +15,6 @@ import {
   CollisionDetection,
   MeasuringStrategy,
 } from '@dnd-kit/core';
-import { Columns2, GripVertical } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { ChatLayout } from '@/components/ChatLayout';
 import { ChatPanel } from '@/components/ChatPanel';
 import { SplitViewDropZone } from '@/components/SplitViewDropZone';
@@ -37,47 +34,8 @@ import { KuroNav } from '@/experience/chat/KuroNav';
  *
  * The environment (background, Core, wordmark) is already on screen from the
  * previous stage; this component only adds the conversation and the system
- * navigation. Name setup and the first-time intro moved to the Awakening, so
- * there is no modal, no intro overlay, and no loading screen here.
+ * navigation.
  */
-interface ChatDragHandleProps {
-  sessionId: string;
-  title: string | null;
-  onQuickSplit?: () => void;
-}
-
-const ChatDragHandle: React.FC<ChatDragHandleProps> = ({ sessionId, title, onQuickSplit }) => {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `active-chat-${sessionId}`,
-    data: { sessionId, title: title || 'Conversation' },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      onClick={(e) => {
-        if (!isDragging && onQuickSplit) {
-          onQuickSplit();
-        }
-      }}
-      className={cn(
-        'group flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 py-1 text-[11px] font-medium shadow-sm transition-all select-none backdrop-blur-sm',
-        'hover:border-primary/50 hover:bg-secondary/80 hover:text-foreground text-muted-foreground',
-        'cursor-grab active:cursor-grabbing touch-none',
-        isDragging && 'opacity-40 ring-2 ring-primary/40'
-      )}
-      title="Drag to split screen (or tap to split)"
-      aria-label="Drag to split chat"
-    >
-      <Columns2 className="h-3.5 w-3.5 text-primary/80 group-hover:text-primary transition-colors" />
-      <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-wider">Split</span>
-      <GripVertical className="h-3 w-3 opacity-40 group-hover:opacity-80 transition-opacity" />
-    </div>
-  );
-};
-
 const ChatInner = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -149,9 +107,35 @@ const ChatInner = () => {
     }
   }, [sessionsLoaded, sessions.length, sessionId, handleNewChat]);
 
-  // URL → primary panel
+  // Prevent text selection, long-press callouts, and context menu during drag
+  useEffect(() => {
+    if (splitView.isDragging) {
+      const prevUserSelect = document.body.style.userSelect;
+      const prevWebkitUserSelect = document.body.style.webkitUserSelect;
+      const prevTouchCallout = (document.body.style as any).webkitTouchCallout;
+
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      (document.body.style as any).webkitTouchCallout = 'none';
+
+      const preventSelection = (e: Event) => e.preventDefault();
+      document.addEventListener('selectstart', preventSelection);
+      document.addEventListener('contextmenu', preventSelection);
+
+      return () => {
+        document.body.style.userSelect = prevUserSelect;
+        document.body.style.webkitUserSelect = prevWebkitUserSelect;
+        (document.body.style as any).webkitTouchCallout = prevTouchCallout;
+        document.removeEventListener('selectstart', preventSelection);
+        document.removeEventListener('contextmenu', preventSelection);
+      };
+    }
+  }, [splitView.isDragging]);
+
+  // URL → primary panel (only in single mode so URL params do not clobber split state)
   useEffect(() => {
     if (!user || !sessionId || !sessionsLoaded) return;
+    if (splitView.layout.mode === 'split') return;
     const exists = sessions.find((s) => s.session_id === sessionId);
     if (exists) {
       splitView.setPrimarySessionId(sessionId);
@@ -160,7 +144,7 @@ const ChatInner = () => {
       navigate('/chat');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, sessions, sessionsLoaded, user]);
+  }, [sessionId, sessions, sessionsLoaded, user, splitView.layout.mode]);
 
   const handleDeleteSession = async (sid: string) => {
     try {
@@ -225,9 +209,17 @@ const ChatInner = () => {
     };
     const zone = map[zoneId];
     if (!zone) return;
+
     splitView.openSessionInPanel(dropped, zone, primarySessionId);
-    if (zone === 'center' || zone === 'left' || zone === 'top') {
+
+    if (zone === 'center') {
       navigate(`/chat/${dropped}`);
+    } else {
+      // Keep URL synced to the primary (left/top) panel
+      const targetPrimaryId = (zone === 'left' || zone === 'top') ? dropped : primarySessionId;
+      if (targetPrimaryId && targetPrimaryId !== sessionId) {
+        navigate(`/chat/${targetPrimaryId}`, { replace: true });
+      }
     }
   };
 
@@ -251,15 +243,19 @@ const ChatInner = () => {
   }, []);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
   );
 
   // --- Layout ---
   const { layout } = splitView;
-  const primarySessionId = sessionId || layout.panels[0]?.sessionId || null;
-  const secondarySessionId = layout.mode === 'split' ? layout.panels[1]?.sessionId || null : null;
-  const isSplit = layout.mode === 'split' && !!secondarySessionId;
+  const isSplit = layout.mode === 'split' && layout.panels.length >= 2 && !!layout.panels[1]?.sessionId;
+  const primarySessionId = isSplit
+    ? layout.panels[0]?.sessionId || null
+    : sessionId || layout.panels[0]?.sessionId || null;
+  const secondarySessionId = isSplit
+    ? layout.panels[1]?.sessionId || null
+    : null;
 
   const onPrimaryTitle = useCallback((title: string | null, id: string | null) => setPrimaryTitle({ title, id }), []);
 
@@ -307,7 +303,7 @@ const ChatInner = () => {
   );
 
   // Top strip: [Core][KURO][Menu] come from the environment/rail (left ~190px).
-  // The conversation title sits in the centre; draggable split handle on the right.
+  // The conversation title sits in the centre; balanced spacer on the right.
   const topBar = (
     <div className="flex h-full items-center justify-between px-3 sm:px-4">
       <div className={isMobile ? 'w-[140px] sm:w-[190px] flex-shrink-0' : 'w-[200px] flex-shrink-0'} />
@@ -321,17 +317,7 @@ const ChatInner = () => {
           />
         )}
       </div>
-      <div className="flex items-center justify-end flex-shrink-0 min-w-[36px] sm:w-[200px]">
-        {!isSplit && primarySessionId && (
-          <ChatDragHandle
-            sessionId={primarySessionId}
-            title={primaryTitle.title}
-            onQuickSplit={() => {
-              splitView.openSessionInPanel(primarySessionId, isMobile ? 'top' : 'left', primarySessionId);
-            }}
-          />
-        )}
-      </div>
+      <div className={isMobile ? 'w-[140px] sm:w-[190px] flex-shrink-0' : 'w-[200px] flex-shrink-0'} />
     </div>
   );
 
