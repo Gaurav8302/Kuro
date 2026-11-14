@@ -269,7 +269,7 @@ const ChatInner = () => {
       <ChatLayout
         topBar={topBar}
         mainContent={mainContent}
-        dropZoneOverlay={<SplitViewDropZone isVisible={splitView.isDragging} currentMode={layout.mode} />}
+        dropZoneOverlay={<SplitViewDropZone isVisible={splitView.isDragging} currentMode={layout.mode} alwaysMounted />}
         overlays={
           <KuroNav
             sessions={sessions}

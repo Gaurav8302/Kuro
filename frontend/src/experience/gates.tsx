@@ -30,6 +30,9 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
 export const RequireAwakened: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile } = useExperience();
   if (profile.status === 'idle' || profile.status === 'loading') return <Connecting />;
+  // If profile failed to load, don't block - let them through to chat
+  // The chat will handle showing onboarding if needed
+  if (profile.status === 'error') return <>{children}</>;
   if (!profile.introShown) return <Navigate to="/awaken" replace />;
   return <>{children}</>;
 };

@@ -35,6 +35,7 @@ const DropZoneArea: React.FC<DropZoneAreaProps> = ({ id, label, icon, className 
 interface SplitViewDropZoneProps {
   isVisible: boolean;
   currentMode: LayoutMode;
+  alwaysMounted?: boolean;
 }
 
 /**
@@ -49,12 +50,19 @@ interface SplitViewDropZoneProps {
 export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
   isVisible,
   currentMode,
+  alwaysMounted = false,
 }) => {
   const isMobile = useIsMobile();
 
+  // When alwaysMounted is true, we always render but control visibility via CSS
+  // This ensures droppable zones are registered before drag starts
+  const shouldRender = alwaysMounted || isVisible;
+  const opacity = isVisible ? 1 : 0;
+  const pointerEvents = isVisible ? 'auto' : 'none';
+
   return (
     <AnimatePresence>
-      {isVisible && (
+      {shouldRender && (
         <motion.div
           className={cn(
             'p-6',
@@ -62,13 +70,12 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
             isMobile
               ? 'fixed inset-0 z-[60] flex flex-col gap-4'
               : 'absolute inset-0 z-40 flex gap-4',
-            'pointer-events-auto' // Ensure drop zones can receive events
           )}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          animate={{ opacity: isVisible ? 1 : 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-        >
+          style={{ opacity, pointerEvents }}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-background/80 pointer-events-none" />
 
