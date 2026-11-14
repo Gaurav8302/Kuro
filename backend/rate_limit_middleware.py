@@ -131,10 +131,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Determine applicable limits
         if self._is_admin(path):
             # Admin endpoints get stricter limits
-            limits = [("user:admin", 10, 60), ("ip:sustained", 20, 60)]
+            limits = [
+                ("user:admin", 10, 60, identifier if id_type == "user" else f"ip:{identifier}"),
+                ("ip:sustained", 20, 60, identifier if id_type == "ip" else f"ip:{identifier}"),
+            ]
         elif self._is_public(path):
             # Public endpoints only get IP limits
-            limits = [("ip:burst", 30, 1), ("ip:sustained", 200, 60)]
+            limits = [
+                ("ip:burst", 30, 1, identifier if id_type == "ip" else f"ip:{identifier}"),
+                ("ip:sustained", 200, 60, identifier if id_type == "ip" else f"ip:{identifier}"),
+            ]
         else:
             # Protected endpoints get matched limits
             limits = match_endpoint(path, self.endpoint_limits)
