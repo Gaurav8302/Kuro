@@ -70,16 +70,30 @@ class ClerkJWKSVerifier:
 _TEST_MODE = os.getenv("TESTING") == "1" and os.getenv("DISABLE_MEMORY_INIT") == "1"
 
 # Fixed test key pair - defined at module level for access by get_test_* functions
+_fixed_test_private_key = None
+_fixed_test_public_key = None
+
 if _TEST_MODE:
     from cryptography.hazmat.primitives.asymmetric import rsa
     _fixed_test_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     _fixed_test_public_key = _fixed_test_private_key.public_key()
-else:
-    _fixed_test_private_key = None
-    _fixed_test_public_key = None
 
-# Test mode: when TESTING=1 and DISABLE_MEMORY_INIT=1, use local test JWKS
-_TEST_MODE = os.getenv("TESTING") == "1" and os.getenv("DISABLE_MEMORY_INIT") == "1"
+# Export fixed test key pair for conftest to use
+def set_test_public_key(public_key):
+    """Override the test public key used for JWT verification in test mode."""
+    global _fixed_test_public_key
+    _fixed_test_public_key = public_key
+
+
+def get_test_private_key():
+    """Return the fixed test private key for token signing in tests."""
+    return _fixed_test_private_key
+
+
+def get_test_public_key():
+    """Return the fixed public key for verification in tests."""
+    return _fixed_test_public_key
+
 
 if _TEST_MODE:
     _test_private_key = _fixed_test_private_key
@@ -130,22 +144,6 @@ if _TEST_MODE:
 
     def _get_verifier() -> ClerkJWKSVerifier:
         return _TestVerifier()
-
-    def set_test_public_key(public_key):
-        """Override the test public key used for JWT verification in test mode."""
-        global _fixed_test_public_key
-        _fixed_test_public_key = public_key
-        # Note: _get_verifier is not cached in test mode, so no cache_clear needed
-
-    # Export fixed test key pair for conftest to use
-    def get_test_private_key():
-        """Return the fixed test private key for token signing in tests."""
-        return _fixed_test_private_key
-    
-    def get_test_public_key():
-        """Return the fixed test public key for verification in tests."""
-        return _fixed_test_public_key
-
 else:
     @lru_cache(maxsize=1)
     def _get_verifier() -> ClerkJWKSVerifier:
