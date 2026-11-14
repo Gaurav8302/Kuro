@@ -15,7 +15,7 @@ def get_user_profile(user_id: str) -> dict | None:
         return users_collection.find_one({"user_id": user_id})
     except PyMongoError as e:
         logger.error(f"Error retrieving user profile: {str(e)}")
-        return None
+        raise
 
 def set_user_name(user_id: str, name: str):
     try:
@@ -27,6 +27,7 @@ def set_user_name(user_id: str, name: str):
         logger.info(f"Set name '{name}' for user {user_id}")
     except PyMongoError as e:
         logger.error(f"Error setting user name: {str(e)}")
+        raise
 
 def get_user_name(user_id: str) -> str | None:
     profile = get_user_profile(user_id)
@@ -49,3 +50,4 @@ def set_intro_shown(user_id: str):
         logger.info(f"Marked intro_shown for user {user_id}")
     except PyMongoError as e:
         logger.error(f"Error setting intro_shown: {str(e)}")
+        raise

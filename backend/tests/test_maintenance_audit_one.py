@@ -132,7 +132,7 @@ def test_groq_client_fallback_success():
     assert text == "fallback ok"
 
 
-def test_chat_endpoint_does_not_persist_on_provider_failure():
+def test_chat_endpoint_does_not_persist_on_provider_failure(auth_client):
     os.environ["DISABLE_MEMORY_INIT"] = "1"
     os.environ["TESTING"] = "1"
 
@@ -152,15 +152,19 @@ def test_chat_endpoint_does_not_persist_on_provider_failure():
         mgr.handle_chat = boom
         # Force non-legacy path
         with patch.dict(os.environ, {"DISABLE_MEMORY_INIT": "0"}):
-            client = TestClient(chatbot_mod.app)
-            resp = client.post(
-                "/chat",
-                json={
-                    "user_id": "user_test",
-                    "message": "hello",
-                    "session_id": "sess_test",
-                },
-            )
+            # Mock session ownership check to avoid database calls
+            import memory.chat_database as chat_db_mod
+            def fake_session_belongs_to_user(session_id, user_id):
+                return True
+            with patch.object(chat_db_mod.chat_db, "session_belongs_to_user", fake_session_belongs_to_user):
+                resp = auth_client.post(
+                    "/chat",
+                    json={
+                        "user_id": "test_user",
+                        "message": "hello",
+                        "session_id": "sess_test",
+                    },
+                )
 
     assert resp.status_code == 502
     body = resp.json()

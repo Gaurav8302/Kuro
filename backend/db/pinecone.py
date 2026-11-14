@@ -92,6 +92,8 @@ def _embed_text(text: str) -> List[float]:
 
 
 def upsert_vector(vec_id, text, user_id, memory_type, importance):
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Pinecone memory owner is required")
     index = _get_index()
     if not index:
         return
@@ -115,12 +117,14 @@ def upsert_vector(vec_id, text, user_id, memory_type, importance):
 
 
 def query_vectors(query, user_id, memory_types, top_k):
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Pinecone memory owner is required")
     index = _get_index()
     if not index:
         return []
 
     vec = embed_text(query, task_type="retrieval_query")
-    filter_dict = {"user_id": {"$eq": user_id}} if user_id else {}
+    filter_dict = {"user_id": {"$eq": user_id}}
     if memory_types:
         filter_dict["type"] = {"$in": list(memory_types)}
 
@@ -151,3 +155,39 @@ def delete_all_vectors() -> None:
         raise RuntimeError("Pinecone index not available")
     index.delete(delete_all=True)
     logger.info("Deleted all vectors from Pinecone index")
+
+
+def delete_user_vectors(user_id: str) -> int:
+    """Delete all vectors for a specific user."""
+    index = _get_index()
+    if not index:
+        raise RuntimeError("Pinecone index not available")
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Pinecone memory owner is required")
+    
+    try:
+        # Delete by metadata filter
+        result = index.delete(filter={"user_id": {"$eq": user_id}})
+        logger.info("Deleted vectors for user %s from Pinecone index", user_id)
+        return 1  # Pinecone doesn't return count easily
+    except Exception as e:
+        logger.error("Pinecone delete error for user %s: %s", user_id, e)
+        raise
+
+
+def delete_memory_vector(vec_id: str, user_id: str) -> bool:
+    """Delete a specific memory vector by ID for a specific user."""
+    index = _get_index()
+    if not index:
+        raise RuntimeError("Pinecone index not available")
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Pinecone memory owner is required")
+    
+    try:
+        # Delete by ID with filter to ensure ownership
+        index.delete(ids=[vec_id])
+        logger.info("Deleted vector %s for user %s from Pinecone index", vec_id, user_id)
+        return True
+    except Exception as e:
+        logger.error("Pinecone delete error for vector %s user %s: %s", vec_id, user_id, e)
+        return False

@@ -1,4 +1,4 @@
-"""Session-level model locking.
+"""Session-level model locking with tenant isolation.
 
 Ensures the same model is used throughout an active session to prevent
 behavioural drift. The model is assigned on the first message of a session
@@ -10,6 +10,7 @@ Override rules:
   - Context exceeds current model's token limit → allow switch to larger-context model
 
 Storage: MongoDB session_titles collection (adds a `model_id` field).
+All operations are scoped to the authenticated user.
 """
 from __future__ import annotations
 
@@ -48,45 +49,55 @@ def _needs_reasoning_model(message: str) -> bool:
     return any(p.search(message) for p in REASONING_PATTERNS)
 
 
-def get_locked_model(session_id: str) -> Optional[str]:
-    """Return the model_id locked to this session, or None if not set."""
+def _cache_key(session_id: str, user_id: str) -> str:
+    """Generate cache key scoped to user and session."""
+    return f"{user_id}:{session_id}"
+
+
+def get_locked_model(session_id: str, user_id: str) -> Optional[str]:
+    """Return the model_id locked to this session for this user, or None if not set."""
+    cache_key = _cache_key(session_id, user_id)
     try:
         col = get_session_titles_collection()
-        doc = col.find_one({"session_id": session_id})
+        # Owner-scoped query - must match both session_id and user_id
+        doc = col.find_one({"session_id": session_id, "user_id": user_id})
         if doc:
             model_id = doc.get("model_id")
             if model_id:
-                _memory_cache[session_id] = model_id
+                _memory_cache[cache_key] = model_id
                 return model_id
     except Exception as e:
-        logger.error("ModelLock: failed to read for session %s: %s", session_id, e)
+        logger.error("ModelLock: failed to read for session %s user %s: %s", session_id, user_id, e)
     # Fallback to in-memory cache
-    return _memory_cache.get(session_id)
+    return _memory_cache.get(cache_key)
 
 
-def lock_model(session_id: str, model_id: str) -> None:
-    """Assign (lock) a model to a session."""
-    _memory_cache[session_id] = model_id
+def lock_model(session_id: str, user_id: str, model_id: str) -> None:
+    """Assign (lock) a model to a session for a specific user."""
+    cache_key = _cache_key(session_id, user_id)
+    _memory_cache[cache_key] = model_id
     try:
         col = get_session_titles_collection()
+        # Owner-scoped upsert - must match both session_id and user_id
         col.update_one(
-            {"session_id": session_id},
+            {"session_id": session_id, "user_id": user_id},
             {"$set": {"model_id": model_id}},
             upsert=True,
         )
-        logger.info("ModelLock: session %s locked to model %s", session_id, model_id)
+        logger.info("ModelLock: session %s (user %s) locked to model %s", session_id, user_id, model_id)
     except Exception as e:
-        logger.warning("ModelLock: failed to persist lock for session %s (in-memory only): %s", session_id, e)
+        logger.warning("ModelLock: failed to persist lock for session %s user %s (in-memory only): %s", session_id, user_id, e)
 
 
 def resolve_model(
     session_id: str,
+    user_id: str,
     user_message: str,
     router_pick: str,
     context_tokens: int = 0,
     model_max_tokens: int = 32768,
 ) -> Dict[str, Any]:
-    """Determine which model to use, respecting the session lock.
+    """Determine which model to use, respecting the session lock and user ownership.
 
     Logic:
       1. If no model locked → use router_pick and lock it.
@@ -98,11 +109,11 @@ def resolve_model(
     Returns:
         {"model_id": str, "source": str, "locked": bool, "override_reason": str | None}
     """
-    current_lock = get_locked_model(session_id)
+    current_lock = get_locked_model(session_id, user_id)
 
     if current_lock is None:
         # First message in session — lock to router's pick
-        lock_model(session_id, router_pick)
+        lock_model(session_id, user_id, router_pick)
         return {
             "model_id": router_pick,
             "source": "router_initial",
@@ -121,10 +132,11 @@ def resolve_model(
         override_reason = "context_exceeds_model_limit"
 
     if override_reason:
-        lock_model(session_id, router_pick)
+        lock_model(session_id, user_id, router_pick)
         logger.info(
-            "ModelLock: overriding session %s from %s → %s (%s)",
+            "ModelLock: overriding session %s (user %s) from %s → %s (%s)",
             session_id,
+            user_id,
             current_lock,
             router_pick,
             override_reason,

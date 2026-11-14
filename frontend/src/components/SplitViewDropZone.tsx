@@ -21,6 +21,7 @@ const DropZoneArea: React.FC<DropZoneAreaProps> = ({ id, label, icon, className 
       ref={setNodeRef}
       className={cn(
         'flex flex-col items-center justify-center gap-3 rounded-md border border-dashed transition-colors [transition-duration:180ms]',
+        'min-h-[180px] min-w-[180px]', // Ensure minimum hit area for reliable drop detection
         isOver ? 'border-primary/70 bg-primary/[0.06]' : 'border-border',
         className
       )}
@@ -60,7 +61,8 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
             // On mobile use fixed positioning with high z-index to render above the sidebar (z-50)
             isMobile
               ? 'fixed inset-0 z-[60] flex flex-col gap-4'
-              : 'absolute inset-0 z-40 flex gap-4'
+              : 'absolute inset-0 z-40 flex gap-4',
+            'pointer-events-auto' // Ensure drop zones can receive events
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -68,11 +70,11 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
           transition={{ duration: 0.2 }}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-background/80" />
+          <div className="absolute inset-0 bg-background/80 pointer-events-none" />
 
           {/* Drop zones */}
           <div className={cn(
-            'relative z-10 w-full h-full',
+            'relative z-10 w-full h-full pointer-events-auto',
             isMobile ? 'flex flex-col gap-4' : 'flex gap-4'
           )}>
             {isMobile ? (

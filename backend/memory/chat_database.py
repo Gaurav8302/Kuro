@@ -13,6 +13,7 @@ Features:
 """
 
 import logging
+import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pymongo import DESCENDING
@@ -47,51 +48,69 @@ class ChatDatabase:
                 ("metadata.sequence_number", 1)
             ])
             
-            # Indexes for session titles
+            # Indexes for session titles - compound unique index for atomic ownership
             self.session_titles.create_index([("user_id", 1), ("created_at", -1)])
-            self.session_titles.create_index("session_id", unique=True)
+            self.session_titles.create_index([("session_id", 1)], unique=True)
+            # Compound unique index to enforce one title per (session_id, user_id) pair
+            self.session_titles.create_index(
+                [("session_id", 1), ("user_id", 1)], 
+                unique=True, 
+                name="session_id_user_id_unique"
+            )
             
             self._indexes_ensured = True
             logger.info("Database indexes verified")
         except Exception as e:
             logger.error(f"Error ensuring indexes: {str(e)}")
 
-    def _get_next_sequence_number(self, session_id: str) -> int:
+    def _get_next_sequence_number(self, session_id: str, user_id: str) -> int:
         """Get the next sequence number for messages in a session"""
         try:
             last_message = self.chat_collection.find_one(
-                {"session_id": session_id},
-                sort=[("metadata.sequence_number", -1)]
-            )
+                            {"session_id": session_id, "user_id": user_id},
+                            sort=[("metadata.sequence_number", -1)]
+                        )
             return (last_message.get("metadata", {}).get("sequence_number", 0) + 1) if last_message else 1
         except Exception as e:
             logger.error(f"Error getting sequence number: {str(e)}")
             return 1
 
+    def session_belongs_to_user(self, session_id: str, user_id: str) -> bool:
+        """Check ownership against persisted metadata or legacy chat records."""
+        if not session_id or not user_id:
+            return False
+        title = self.session_titles.find_one({"session_id": session_id, "user_id": user_id})
+        if title:
+            return True
+        if self.session_titles.find_one({"session_id": session_id}):
+            return False
+        return self.chat_collection.find_one({"session_id": session_id, "user_id": user_id}) is not None
+
     def _update_session_metadata(self, session_id: str, user_id: str, message: str):
-        """Update session metadata including title and activity timestamps"""
+        """Update session metadata including title and activity timestamps atomically"""
         try:
-            update_data = {
-                "last_activity": datetime.utcnow(),
-                "message_count": self.chat_collection.count_documents({"session_id": session_id})
-            }
+            from pymongo import ReturnDocument
             
-            # Update or create session title
-            existing_title = self.session_titles.find_one({"session_id": session_id})
-            if not existing_title:
-                title_document = {
-                    "session_id": session_id,
-                    "user_id": user_id,
-                    "title": message[:100],
-                    "created_at": datetime.utcnow(),
-                    **update_data
-                }
-                self.session_titles.insert_one(title_document)
-            else:
-                self.session_titles.update_one(
-                    {"session_id": session_id},
-                    {"$set": update_data}
-                )
+            # Atomically upsert session title with owner predicate
+            # This replaces the check-then-insert pattern
+            result = self.session_titles.find_one_and_update(
+                {"session_id": session_id, "user_id": user_id},
+                {
+                    "$setOnInsert": {
+                        "session_id": session_id,
+                        "user_id": user_id,
+                        "title": message[:100],
+                        "created_at": datetime.utcnow()
+                    },
+                    "$set": {
+                        "last_activity": datetime.utcnow(),
+                        "message_count": self.chat_collection.count_documents({"session_id": session_id, "user_id": user_id})
+                    }
+                },
+                upsert=True,
+                return_document=ReturnDocument.AFTER
+            )
+            logger.debug(f"Session metadata updated/created for {session_id}")
         except Exception as e:
             logger.error(f"Error updating session metadata: {str(e)}")
 
@@ -101,8 +120,17 @@ class ChatDatabase:
         
         try:
             if not session_id:
-                session_id = f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                
+                # Atomic creation: generate session_id and insert chat message + session title in one go
+                session_id = uuid.uuid4().hex
+            else:
+                # Verify ownership atomically - will raise PermissionError if session exists but belongs to another user
+                # The compound unique index on (session_id, user_id) ensures we can't insert a conflicting title
+                existing_title = self.session_titles.find_one({"session_id": session_id, "user_id": user_id})
+                existing_chat = self.chat_collection.find_one({"session_id": session_id, "user_id": user_id})
+                owner = (existing_title or existing_chat or {}).get("user_id")
+                if not owner and (self.session_titles.find_one({"session_id": session_id}) or self.chat_collection.find_one({"session_id": session_id})):
+                    raise PermissionError("Session does not belong to authenticated user")
+
             # Prepare chat document with enhanced metadata
             chat_document = {
                 "user_id": user_id,
@@ -114,18 +142,15 @@ class ChatDatabase:
                     "message_length": len(message),
                     "reply_length": len(reply),
                     "type": "chat_message",
-                    "sequence_number": self._get_next_sequence_number(session_id)
+                    "sequence_number": self._get_next_sequence_number(session_id, user_id)
                 }
             }
             
-            # Insert with automatic expiry for old sessions
+            # Insert chat message
             result = self.chat_collection.insert_one(chat_document)
             
-            # Update session metadata
+            # Atomically update/create session metadata (title + activity)
             self._update_session_metadata(session_id, user_id, message)
-            
-            # Index management - ensure we have proper indexes
-            self._ensure_indexes()
             
             logger.info(f"Chat saved: {result.inserted_id} for session {session_id}")
             return session_id
@@ -138,7 +163,7 @@ class ChatDatabase:
 
     def _ensure_session_title(self, session_id: str, user_id: str, message: str):
         try:
-            existing_title = self.session_titles.find_one({"session_id": session_id})
+            existing_title = self.session_titles.find_one({"session_id": session_id, "user_id": user_id})
             if not existing_title:
                 title_document = {
                     "session_id": session_id,
@@ -152,7 +177,7 @@ class ChatDatabase:
             logger.error(f"Error creating session title: {str(e)}")
 
     def create_new_session(self, user_id: str, force_new: bool = False) -> str:
-        """Create a new chat session for a user.
+        """Create a new chat session for a user atomically.
 
         If the user already has an existing empty session (no messages yet)
         this will return that session instead of creating a new one to avoid
@@ -168,25 +193,37 @@ class ChatDatabase:
                 )
                 if existing:
                     # Check if it has any messages
-                    has_message = self.chat_collection.find_one({"session_id": existing["session_id"]})
+                    has_message = self.chat_collection.find_one({"session_id": existing["session_id"], "user_id": user_id})
                     if not has_message:
                         logger.info(
                             f"Reusing existing empty session {existing['session_id']} for user {user_id}"  # noqa: E501
                         )
                         return existing["session_id"]
 
-            session_id = f"{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            # Atomic creation: use upsert with compound unique index to avoid race
+            session_id = uuid.uuid4().hex
             title_document = {
                 "session_id": session_id,
                 "user_id": user_id,
                 "title": "New Chat",
                 "created_at": datetime.utcnow()
             }
+            # The compound unique index on (session_id, user_id) prevents duplicates
             self.session_titles.insert_one(title_document)
             logger.info(f"New session created for {user_id} with ID {session_id}")
             return session_id
         except PyMongoError as e:
+            # Handle duplicate key error from compound unique index
+            if e.code == 11000:  # DuplicateKeyError
+                # Another request created the same session, find and return it
+                existing = self.session_titles.find_one({"user_id": user_id, "title": "New Chat"}, sort=[("created_at", DESCENDING)])
+                if existing:
+                    logger.info(f"Reusing session created by concurrent request: {existing['session_id']}")
+                    return existing["session_id"]
             logger.error(f"Database error creating session: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error creating session: {str(e)}")
             raise
 
     def get_sessions_by_user(self, user_id: str) -> List[Dict[str, Any]]:
@@ -239,9 +276,9 @@ class ChatDatabase:
             logger.error(f"Unexpected error retrieving sessions: {str(e)}")
             return []
 
-    def get_chat_by_session(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_chat_by_session(self, session_id: str, user_id: str) -> List[Dict[str, Any]]:
         try:
-            chats = self.chat_collection.find({"session_id": session_id}).sort("timestamp", 1)
+            chats = self.chat_collection.find({"session_id": session_id, "user_id": user_id}).sort("timestamp", 1)
             return [{
                 "user": c["message"],
                 "assistant": c["reply"],
@@ -254,10 +291,10 @@ class ChatDatabase:
             logger.error(f"Unexpected error retrieving chat history: {str(e)}")
             return []
 
-    def get_session_messages_with_sequence(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_session_messages_with_sequence(self, session_id: str, user_id: str) -> List[Dict[str, Any]]:
         """Retrieve full messages including sequence numbers (for advanced logic/testing)."""
         try:
-            chats = self.chat_collection.find({"session_id": session_id}).sort("metadata.sequence_number", 1)
+            chats = self.chat_collection.find({"session_id": session_id, "user_id": user_id}).sort("metadata.sequence_number", 1)
             return [
                 {
                     "sequence": c.get("metadata", {}).get("sequence_number", 0),
@@ -287,10 +324,10 @@ class ChatDatabase:
             logger.error(f"Unexpected error retrieving user history: {str(e)}")
             return []
 
-    def delete_session_by_id(self, session_id: str) -> bool:
+    def delete_session_by_id(self, session_id: str, user_id: str) -> bool:
         try:
-            chat_result = self.chat_collection.delete_many({"session_id": session_id})
-            title_result = self.session_titles.delete_one({"session_id": session_id})
+            chat_result = self.chat_collection.delete_many({"session_id": session_id, "user_id": user_id})
+            title_result = self.session_titles.delete_one({"session_id": session_id, "user_id": user_id})
             return chat_result.deleted_count > 0 or title_result.deleted_count > 0
         except PyMongoError as e:
             logger.error(f"Database error deleting session: {str(e)}")
@@ -299,10 +336,10 @@ class ChatDatabase:
             logger.error(f"Unexpected error deleting session: {str(e)}")
             return False
 
-    def rename_session_title(self, session_id: str, new_title: str) -> bool:
+    def rename_session_title(self, session_id: str, user_id: str, new_title: str) -> bool:
         try:
             # Fetch existing to handle no-op renames gracefully
-            existing = self.session_titles.find_one({"session_id": session_id})
+            existing = self.session_titles.find_one({"session_id": session_id, "user_id": user_id})
             if not existing:
                 return False
 
@@ -319,7 +356,7 @@ class ChatDatabase:
                 return True
 
             result = self.session_titles.update_one(
-                {"session_id": session_id},
+                {"session_id": session_id, "user_id": user_id},
                 {"$set": {"title": clean_title, "last_renamed_at": datetime.utcnow()}}
             )
             # Success if we matched a document even if modified_count is 0 (already handled)
@@ -331,9 +368,9 @@ class ChatDatabase:
             logger.error(f"Unexpected error renaming session: {str(e)}")
             return False
 
-    def get_chat_history_for_session(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_chat_history_for_session(self, session_id: str, user_id: str) -> List[Dict[str, Any]]:
         try:
-            messages = self.chat_collection.find({"session_id": session_id}).sort("timestamp", 1)
+            messages = self.chat_collection.find({"session_id": session_id, "user_id": user_id}).sort("timestamp", 1)
             return [{
                 "session_id": m["session_id"],
                 "user_id": m["user_id"],
@@ -376,20 +413,20 @@ def save_chat_to_db(user_id: str, message: str, reply: str, session_id: Optional
 def get_sessions_by_user(user_id: str) -> List[Dict[str, Any]]:
     return chat_db.get_sessions_by_user(user_id)
 
-def get_chat_by_session(session_id: str) -> List[Dict[str, Any]]:
-    return chat_db.get_chat_by_session(session_id)
+def get_chat_by_session(session_id: str, user_id: str) -> List[Dict[str, Any]]:
+    return chat_db.get_chat_by_session(session_id, user_id)
 
 def get_all_chats_by_user(user_id: str) -> List[Dict[str, Any]]:
     return chat_db.get_all_chats_by_user(user_id)
 
-def delete_session_by_id(session_id: str) -> bool:
-    return chat_db.delete_session_by_id(session_id)
+def delete_session_by_id(session_id: str, user_id: str) -> bool:
+    return chat_db.delete_session_by_id(session_id, user_id)
 
-def rename_session_title(session_id: str, new_title: str) -> bool:
-    return chat_db.rename_session_title(session_id, new_title)
+def rename_session_title(session_id: str, user_id: str, new_title: str) -> bool:
+    return chat_db.rename_session_title(session_id, user_id, new_title)
 
-def get_chat_history_for_session(session_id: str) -> List[Dict[str, Any]]:
-    return chat_db.get_chat_history_for_session(session_id)
+def get_chat_history_for_session(session_id: str, user_id: str) -> List[Dict[str, Any]]:
+    return chat_db.get_chat_history_for_session(session_id, user_id)
 
 def create_new_session(user_id: str, force_new: bool = False) -> str:
     return chat_db.create_new_session(user_id, force_new=force_new)

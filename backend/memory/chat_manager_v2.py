@@ -370,11 +370,12 @@ class ChatManager:
                 model_decision = {"model_id": model_id, "source": "manual_skill_override"}
             else:
                 model_decision = resolve_model(
-                    session_id=session_id,
-                    user_message=message,
-                    router_pick=router_pick,
-                    context_tokens=debug["estimated_tokens"],
-                )
+                                    session_id=session_id,
+                                    user_id=user_id,
+                                    user_message=message,
+                                    router_pick=router_pick,
+                                    context_tokens=debug["estimated_tokens"],
+                                )
                 model_id = model_decision["model_id"]
 
             # --- Debug log ---
@@ -449,7 +450,7 @@ class ChatManager:
             save_chat_to_db(user_id, message, response_text, session_id)
 
             # --- 9. Post-session summarization check ---
-            msg_count = session_memory.get_message_count(session_id)
+            msg_count = session_memory.get_message_count(session_id, user_id)
             if msg_count >= POST_SESSION_SUMMARY_THRESHOLD and msg_count % POST_SESSION_SUMMARY_THRESHOLD == 0:
                 logger.info(
                     "Post-session summary trigger: session=%s msg_count=%d threshold=%d",
@@ -669,7 +670,7 @@ class ChatManager:
 
         def _summarize():
             try:
-                messages = session_memory.get_recent_messages(session_id, limit=200)
+                messages = session_memory.get_recent_messages(session_id, user_id, limit=200)
                 if len(messages) < 10:
                     return
                 long_term_memory.summarize_session(

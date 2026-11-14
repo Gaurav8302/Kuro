@@ -63,7 +63,7 @@ class ChatManagerV3:
                     memories=retrieved_memories,
                     top_k=5,
                 )
-                self.memory_updater.reinforce_memories(retrieved_memories)
+                self.memory_updater.reinforce_memories(retrieved_memories, user_id)
             except Exception as exc:
                 logger.warning("Memory retrieval failed; continuing without memories: %s", exc)
                 retrieved_memories = []

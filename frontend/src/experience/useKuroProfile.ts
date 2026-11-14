@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  checkUserHasName,
-  getIntroShown,
-  getUserName,
-  setIntroShown,
-  setUserName,
-} from '@/lib/api';
+import { useClerkApi } from '@/lib/api';
 
 /**
  * What Kuro already knows about the signed-in person.
@@ -40,23 +34,20 @@ export function useKuroProfile(userId: string | null | undefined): KuroProfile {
   const [hasName, setHasName] = useState(false);
   const [introShown, setIntroShownState] = useState(false);
   const loadedFor = useRef<string | null>(null);
+  const clerkApi = useClerkApi();
 
   const load = useCallback(async (id: string) => {
     setStatus('loading');
     try {
       const [hasNameRes, introRes] = await Promise.all([
-        checkUserHasName(id),
-        getIntroShown(id),
+        clerkApi<{ has_name: boolean }>(`/user/${encodeURIComponent(id)}/has-name`, 'get'),
+        clerkApi<{ intro_shown: boolean }>(`/user/${encodeURIComponent(id)}/intro-shown`, 'get'),
       ]);
       setHasName(hasNameRes.has_name);
       setIntroShownState(introRes.intro_shown);
       if (hasNameRes.has_name) {
-        try {
-          const n = await getUserName(id);
-          setName(n.name);
-        } catch {
-          setName(null);
-        }
+        const n = await clerkApi<{ name: string | null }>(`/user/${encodeURIComponent(id)}/name`, 'get');
+        setName(n.name);
       } else {
         setName(null);
       }
@@ -69,7 +60,7 @@ export function useKuroProfile(userId: string | null | undefined): KuroProfile {
       setIntroShownState(local);
       setStatus('error');
     }
-  }, []);
+  }, [clerkApi]);
 
   useEffect(() => {
     if (!userId) {
@@ -89,31 +80,29 @@ export function useKuroProfile(userId: string | null | undefined): KuroProfile {
     async (n: string) => {
       const trimmed = n.trim();
       if (!userId || !trimmed) return;
-      setName(trimmed);
-      setHasName(true);
       try {
-        await setUserName(userId, trimmed);
+        await clerkApi(`/user/${encodeURIComponent(userId)}/set-name`, 'post', { name: trimmed });
+        setName(trimmed);
+        setHasName(true);
       } catch (e) {
         console.error('[kuro] set-name failed', e);
+        throw e;
       }
     },
-    [userId]
+    [userId, clerkApi]
   );
 
   const completeAwakening = useCallback(async () => {
     if (!userId) return;
-    setIntroShownState(true);
     try {
-      localStorage.setItem(`kuro_intro_shown_${userId}`, '1');
-    } catch {
-      /* ignore */
-    }
-    try {
-      await setIntroShown(userId);
+      await clerkApi(`/user/${encodeURIComponent(userId)}/intro-shown`, 'post', { shown: true });
+      setIntroShownState(true);
+      try { localStorage.setItem(`kuro_intro_shown_${userId}`, '1'); } catch { /* storage unavailable */ }
     } catch (e) {
       console.error('[kuro] intro-shown failed', e);
+      throw e;
     }
-  }, [userId]);
+  }, [userId, clerkApi]);
 
   const refresh = useCallback(async () => {
     if (userId) await load(userId);

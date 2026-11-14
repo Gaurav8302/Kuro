@@ -9,6 +9,8 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  closestCenter,
+  rectIntersection,
 } from '@dnd-kit/core';
 import { ChatLayout } from '@/components/ChatLayout';
 import { ChatPanel } from '@/components/ChatPanel';
@@ -258,7 +260,12 @@ const ChatInner = () => {
   );
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
       <ChatLayout
         topBar={topBar}
         mainContent={mainContent}

@@ -1,5 +1,6 @@
 // src/lib/api.ts
 import { useAuth } from '@clerk/clerk-react';
+import { useCallback } from 'react';
 import axios from 'axios';
 
 // Use environment-specific API base URL
@@ -47,34 +48,35 @@ export async function apiRequest<T>(endpoint: string, method: 'get' | 'post' | '
 // Custom hook to get Clerk JWT
 export function useClerkApi() {
   const { getToken } = useAuth();
-  return async function clerkApiRequest<T>(endpoint: string, method: 'get' | 'post' | 'put' | 'delete', data?: any, params?: any): Promise<T> {
+  return useCallback(async function clerkApiRequest<T>(endpoint: string, method: 'get' | 'post' | 'put' | 'delete', data?: unknown, params?: unknown): Promise<T> {
     const token = await getToken();
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
     return apiRequest<T>(endpoint, method, data, params, token);
-  };
+  }, [getToken]);
 }
 
 export default apiRequest;
 
 // Name management functions
-export async function setUserName(userId: string, name: string): Promise<{ status: string; message: string }> {
-  return apiRequest(`/user/${userId}/set-name`, 'post', { name });
+export async function setUserName(userId: string, name: string, token: string): Promise<{ status: string; message: string }> {
+  return apiRequest(`/user/${encodeURIComponent(userId)}/set-name`, 'post', { name }, undefined, token);
 }
 
-export async function getUserName(userId: string): Promise<{ user_id: string; name: string | null }> {
-  return apiRequest(`/user/${userId}/name`, 'get');
+export async function getUserName(userId: string, token: string): Promise<{ user_id: string; name: string | null }> {
+  return apiRequest(`/user/${encodeURIComponent(userId)}/name`, 'get', undefined, undefined, token);
 }
 
-export async function checkUserHasName(userId: string): Promise<{ user_id: string; has_name: boolean }> {
-  return apiRequest(`/user/${userId}/has-name`, 'get');
+export async function checkUserHasName(userId: string, token: string): Promise<{ user_id: string; has_name: boolean }> {
+  return apiRequest(`/user/${encodeURIComponent(userId)}/has-name`, 'get', undefined, undefined, token);
 }
 
 // Intro animation persistence
-export async function getIntroShown(userId: string): Promise<{ user_id: string; intro_shown: boolean }> {
-  return apiRequest(`/user/${userId}/intro-shown`, 'get');
+export async function getIntroShown(userId: string, token: string): Promise<{ user_id: string; intro_shown: boolean }> {
+  return apiRequest(`/user/${encodeURIComponent(userId)}/intro-shown`, 'get', undefined, undefined, token);
 }
 
-export async function setIntroShown(userId: string): Promise<{ status: string; user_id: string; intro_shown: boolean }> {
-  return apiRequest(`/user/${userId}/intro-shown`, 'post', { shown: true });
+export async function setIntroShown(userId: string, token: string): Promise<{ status: string; user_id: string; intro_shown: boolean }> {
+  return apiRequest(`/user/${encodeURIComponent(userId)}/intro-shown`, 'post', { shown: true }, undefined, token);
 }
 
 // Memory (existing endpoints) — used by onboarding and the Memory view
@@ -114,7 +116,8 @@ export async function inlineQuery(
     sessionId?: string;
     userId?: string;
     messageIndex?: number;
-  }
+  },
+  token: string
 ): Promise<{ answer: string }> {
   return apiRequest('/inline-query', 'post', {
     selected_text: selectedText,
@@ -124,5 +127,5 @@ export async function inlineQuery(
     session_id: options?.sessionId || null,
     user_id: options?.userId || null,
     message_index: options?.messageIndex ?? null,
-  });
+  }, undefined, token);
 }

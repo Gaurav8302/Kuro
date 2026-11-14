@@ -57,6 +57,9 @@ class UltraLightweightMemoryManager:
 
     def store_memory(self, text: str, metadata: Dict[str, Any], importance: Optional[float] = None) -> str:
         try:
+            user_id = (metadata or {}).get("user_id")
+            if not isinstance(user_id, str) or not user_id.strip():
+                raise ValueError("Memory owner is required")
             embedding = self.get_embedding(text)
             import uuid
 
@@ -84,10 +87,12 @@ class UltraLightweightMemoryManager:
         self, query: str, user_filter: Optional[str] = None, top_k: int = 5
     ) -> List[Dict[str, Any]]:
         try:
+            if not isinstance(user_filter, str) or not user_filter.strip():
+                raise ValueError("Memory owner is required")
             from db.pinecone import embed_text
 
             query_embedding = embed_text(query, task_type="retrieval_query")
-            filter_dict = {"user_id": {"$eq": user_filter}} if user_filter else None
+            filter_dict = {"user_id": {"$eq": user_filter}}
             results = self.index.query(
                 vector=query_embedding,
                 top_k=top_k,
@@ -115,8 +120,41 @@ class UltraLightweightMemoryManager:
         return {"recent_memories": 0, "topics": [], "last_interaction": ""}
 
     def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
+        """Delete all memories for a user older than the threshold.
+        
+        Note: Pinecone doesn't support time-based filters directly.
+        This deletes ALL user vectors. For time-based cleanup, we would need
+        to query first, filter by timestamp in application code, then delete by IDs.
+        """
         logger.info("Cleanup requested for user %s (threshold: %s days)", user_id, days_threshold)
-        return True
+        from db.pinecone import delete_user_vectors
+        try:
+            delete_user_vectors(user_id)
+            return True
+        except Exception as e:
+            logger.error("Error cleaning up memories for user %s: %s", user_id, e)
+            return False
+
+    def delete_user_memories(self, user_id: str) -> bool:
+        """Delete all memories for a specific user (for account deletion)."""
+        logger.info("Deleting all memories for user %s", user_id)
+        from db.pinecone import delete_user_vectors
+        try:
+            delete_user_vectors(user_id)
+            return True
+        except Exception as e:
+            logger.error("Error deleting memories for user %s: %s", user_id, e)
+            return False
+
+    def delete_memory(self, memory_id: str, user_id: str) -> bool:
+        """Delete a specific memory by ID for a specific user."""
+        logger.info("Deleting memory %s for user %s", memory_id, user_id)
+        from db.pinecone import delete_memory_vector
+        try:
+            return delete_memory_vector(memory_id, user_id)
+        except Exception as e:
+            logger.error("Error deleting memory %s for user %s: %s", memory_id, user_id, e)
+            return False
 
 
 if os.getenv("DISABLE_MEMORY_INIT") == "1":
@@ -138,6 +176,12 @@ if os.getenv("DISABLE_MEMORY_INIT") == "1":
             return {"recent_memories": 0, "topics": [], "last_interaction": ""}
 
         def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
+            return True
+
+        def delete_user_memories(self, user_id: str) -> bool:
+            return True
+
+        def delete_memory(self, memory_id: str, user_id: str) -> bool:
             return True
 
         def get_embedding(self, text: str):
@@ -169,6 +213,12 @@ else:
             def cleanup_old_memories(self, user_id: str, days_threshold: int = 30):
                 return True
 
+            def delete_user_memories(self, user_id: str) -> bool:
+                return True
+
+            def delete_memory(self, memory_id: str, user_id: str) -> bool:
+                return True
+
             def get_embedding(self, text: str):
                 raise RuntimeError("Memory manager unavailable")
 
@@ -187,3 +237,15 @@ def get_relevant_memories_detailed(
     query: str, user_filter: Optional[str] = None, top_k: int = 5
 ) -> List[Dict[str, Any]]:
     return ultra_lightweight_memory_manager.get_relevant_memories_detailed(query, user_filter, top_k)
+
+
+def cleanup_old_memories(user_id: str, days_threshold: int = 30) -> bool:
+    return ultra_lightweight_memory_manager.cleanup_old_memories(user_id, days_threshold)
+
+
+def delete_user_memories(user_id: str) -> bool:
+    return ultra_lightweight_memory_manager.delete_user_memories(user_id)
+
+
+def delete_memory(memory_id: str, user_id: str) -> bool:
+    return ultra_lightweight_memory_manager.delete_memory(memory_id, user_id)

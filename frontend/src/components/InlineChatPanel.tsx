@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { HoloSparklesIcon } from '@/components/HolographicIcons';
 import { inlineQuery } from '@/lib/api';
+import { useClerkApi } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface InlineMessage {
@@ -213,6 +214,7 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     drag.reset();
   }, [isMobile, drag.reset]);
 
+  const clerkApi = useClerkApi();
   const sendQuestion = useCallback(async (question: string) => {
     if (!question.trim() || isLoading) return;
 
@@ -221,11 +223,14 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     setIsLoading(true);
 
     try {
-      const { answer } = await inlineQuery(selectedText, context, question, {
-        parentMessage,
-        sessionId,
-        userId,
-        messageIndex,
+      const { answer } = await clerkApi('/inline-query', 'post', {
+        selected_text: selectedText,
+        context,
+        question,
+        parent_message: parentMessage || '',
+        session_id: sessionId || null,
+        user_id: userId || null,
+        message_index: messageIndex ?? null,
       });
       const aiMsgId = ++msgIdRef.current;
       setMessages((prev) => [...prev, { id: aiMsgId, role: 'assistant', content: answer }]);
@@ -238,7 +243,7 @@ export const InlineChatPanel: React.FC<InlineChatPanelProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, selectedText, context, parentMessage, sessionId, userId, messageIndex]);
+  }, [clerkApi, isLoading, selectedText, context, parentMessage, sessionId, userId, messageIndex]);
 
   // Auto-send initial question (for Explain/Example quick actions)
   useEffect(() => {

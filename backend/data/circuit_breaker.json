@@ -3,10 +3,7 @@
     "llama-3.3-70b-versatile": {
       "total_requests": 9,
       "total_failures": 9,
-      "recent_failures": [
-        1774423788.9713957,
-        1774423863.9904218
-      ],
+      "recent_failures": [],
       "recent_successes": [],
       "consecutive_failures": 9,
       "consecutive_successes": 0,
@@ -38,7 +35,37 @@
       "last_failure_time": 1773765531.2159288,
       "last_success_time": 0.0,
       "circuit_opened_at": 0.0
+    },
+    "openai/gpt-oss-20b": {
+      "total_requests": 38,
+      "total_failures": 38,
+      "recent_failures": [
+        1794631379.4265852
+      ],
+      "recent_successes": [],
+      "consecutive_failures": 38,
+      "consecutive_successes": 0,
+      "circuit_state": "open",
+      "last_failure_time": 1794631379.4265852,
+      "last_success_time": 0.0,
+      "circuit_opened_at": 1794631379.4265864
+    },
+    "openai/gpt-oss-120b": {
+      "total_requests": 72,
+      "total_failures": 37,
+      "recent_failures": [
+        1794631404.186126
+      ],
+      "recent_successes": [
+        1794631379.426937
+      ],
+      "consecutive_failures": 1,
+      "consecutive_successes": 0,
+      "circuit_state": "closed",
+      "last_failure_time": 1794631404.186126,
+      "last_success_time": 1794631379.426937,
+      "circuit_opened_at": 0.0
     }
   },
-  "last_updated": 1774423863.9908555
+  "last_updated": 1794631404.1861944
 }

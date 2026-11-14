@@ -85,7 +85,7 @@ def build_context(
 
     # --- 2. Active session history (Layer 1) ---
     history_messages = session_memory.get_recent_messages(
-        session_id, limit=EXCHANGE_LIMIT
+        session_id, user_id, limit=EXCHANGE_LIMIT
     )
 
     # --- 3. Long-term memory check (Layer 2) ---

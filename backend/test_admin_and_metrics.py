@@ -1,6 +1,9 @@
 import os
 os.environ['DISABLE_MEMORY_INIT'] = '1'
-os.environ['ADMIN_API_KEY'] = 'test-admin'
+os.environ['ADMIN_USER_IDS'] = 'admin_user'
+os.environ['METRICS_BEARER_TOKEN'] = 'test-metrics-token'
+os.environ['TESTING'] = '1'
+os.environ['RATE_LIMIT_ENABLED'] = 'false'
 
 from fastapi.testclient import TestClient
 from chatbot import app
@@ -8,7 +11,7 @@ from chatbot import app
 client = TestClient(app)
 
 def test_metrics_endpoint():
-    r = client.get('/metrics')
+    r = client.get('/metrics', headers={'X-Metrics-Token': 'test-metrics-token'})
     assert r.status_code in (200, 500)  # allow 500 if lib missing in minimal env
     if r.status_code == 200:
         body = r.text
@@ -19,8 +22,6 @@ def test_admin_health_unauthorized():
     assert r.status_code in (401, 503)  # 503 if key not configured yet
 
 def test_admin_health_authorized():
-    if 'ADMIN_API_KEY' not in os.environ:
-        return
-    r = client.get('/admin/health', headers={'X-Admin-Key': 'test-admin'})
+    r = client.get('/admin/health', headers={'Authorization': 'Bearer admin_user'})
     # If admin router mounted and key matches we expect 200 else 401/503
     assert r.status_code in (200, 401, 503)

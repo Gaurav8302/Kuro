@@ -39,11 +39,13 @@ if missing_vars:
     if os.getenv("ENVIRONMENT") != "production" and not is_test_mode:
         raise RuntimeError(f"Missing required environment variables: {missing_vars}")
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
+from security.auth import AuthenticatedPrincipal, get_current_principal, require_admin, require_service_token
 import logging
 import os
 
@@ -57,7 +59,8 @@ from memory.chat_database import (
     get_chat_by_session, 
     get_all_chats_by_user,
     delete_session_by_id,
-    rename_session_title
+    rename_session_title,
+    chat_db,
 )
 # Keep legacy Pinecone manager for /store-memory, /retrieve-memory, /health endpoints
 from memory.ultra_lightweight_memory import (
@@ -161,90 +164,41 @@ try:
 except Exception as e:
     logger.warning(f"Admin router not mounted: {e}")
 
-# Frontend URLs for CORS configuration
-frontend_urls = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080", 
-    "http://127.0.0.1:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:4173",  # Vite preview server
-    "http://127.0.0.1:4173",
-    # Production frontend URLs
-    "https://kuro-tau.vercel.app",
-    "https://kuro-tau.vercel.app/",
-    # Add wildcard pattern for Vercel deployments
-    "https://kuro.vercel.app",
-    "https://kuro.vercel.app/",
-]
+def _configured_cors_origins() -> list[str]:
+    origins = {
+        origin.strip().rstrip("/")
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    }
+    frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if frontend_url:
+        origins.add(frontend_url)
+    if not IS_PRODUCTION:
+        origins.update({
+            "http://localhost:3000", "http://127.0.0.1:3000",
+            "http://localhost:4173", "http://127.0.0.1:4173",
+        })
+    return sorted(origins)
 
-"""
-Allow dynamic CORS for Vercel preview deployments and custom domains:
-- FRONTEND_URL: single canonical prod domain (e.g., https://your-app.vercel.app)
-- FRONTEND_URL_PATTERN: optional substring to match (e.g., .vercel.app) for preview URLs
-"""
-frontend_prod_url = os.getenv("FRONTEND_URL")
-frontend_url_pattern = os.getenv("FRONTEND_URL_PATTERN", ".vercel.app")  # Default pattern for Vercel
-if frontend_prod_url:
-    frontend_urls.extend([
-        frontend_prod_url,
-        frontend_prod_url.replace("https://", "http://")
-    ])
 
-# CORS middleware for production stability
-@app.middleware("http")
-async def cors_middleware(request: Request, call_next):
-    """Handle CORS requests with manual headers for reliability"""
-    origin = request.headers.get("origin")
-    method = request.method
-    
-    # Debug logging for CORS issues
-    if origin:
-        logger.info(f"🌐 CORS request from origin: {origin}")
-        logger.info(f"📋 Allowed origins: {frontend_urls}")
-    
-    # Precompute allow_origin for this request
-    allow_origin = False
-    if origin:
-        if origin in frontend_urls:
-            allow_origin = True
-            logger.info(f"✅ Origin allowed (exact match): {origin}")
-        elif frontend_url_pattern and frontend_url_pattern in origin:
-            allow_origin = True
-            logger.info(f"✅ Origin allowed (pattern match): {origin}")
-        else:
-            logger.warning(f"❌ Origin not allowed: {origin}")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_configured_cors_origins(),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["Accept", "Authorization", "Cache-Control", "Content-Type", "X-Requested-With", "X-Clerk-Auth-Version", "X-Clerk-Session-Id", "X-Metrics-Token"],
+)
 
-    # Handle preflight OPTIONS requests
-    if method == "OPTIONS":
-        logger.info(f"🔍 Handling OPTIONS preflight request from {origin}")
-        response = Response(status_code=200)
-        if allow_origin:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-            response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, cache-control, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
-            response.headers["Access-Control-Max-Age"] = "86400"
-            logger.info(f"✅ CORS headers added for OPTIONS: {origin}")
-        else:
-            logger.warning(f"❌ CORS denied for OPTIONS: {origin}")
-        return response
-    
-    response = await call_next(request)
-    
-    # Add CORS headers to all responses
-    if allow_origin:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
-        response.headers["Access-Control-Allow-Headers"] = "accept, accept-encoding, authorization, cache-control, content-type, dnt, origin, user-agent, x-csrftoken, x-requested-with, x-clerk-auth-version, x-clerk-session-id"
-    
-    return response
+# Rate limiting middleware
+try:
+    from rate_limit_middleware import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware)
+    logger.info("Rate limit middleware registered")
+except Exception as e:
+    logger.warning(f"Rate limit middleware registration failed: {e}")
 
 @app.get("/metrics")
-async def metrics_endpoint():
+async def metrics_endpoint(_: None = Depends(require_service_token)):
     """Prometheus metrics exposition endpoint."""
     try:
         from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -274,11 +228,11 @@ from fastapi import Query
 from memory.chat_database import create_new_session
 @app.post("/session/create", tags=["Sessions"])
 def create_session(
-    user_id: str = Query(...),
-    force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists")
+    user_id: Optional[str] = Query(None),
+    force_new: bool = Query(False, description="Force creation of a new session even if an empty one exists"),
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
 ):
-    if not user_id:
-        raise HTTPException(status_code=400, detail="Missing user_id")
+    user_id = _assert_same_user(user_id, principal)
 
     # Before creating a new session, summarize the user's most recent non-empty
     # session so its content is available for cross-session memory retrieval.
@@ -303,20 +257,20 @@ def _auto_summarize_previous_session(user_id: str):
 # Pydantic models for request/response validation
 class MemoryInput(BaseModel):
     """Request model for storing memory"""
-    user_id: str = Field(..., description="Unique identifier for the user")
-    text: str = Field(..., description="Text content to store in memory")
+    user_id: Optional[str] = Field(None, description="Legacy compatibility; must match authenticated user")
+    text: str = Field(..., min_length=1, max_length=12000, description="Text content to store in memory")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 class QueryInput(BaseModel):
     """Request model for retrieving memory"""
-    user_id: str = Field(..., description="Unique identifier for the user")
-    query: str = Field(..., description="Query text for memory retrieval")
-    top_k: int = Field(default=5, description="Number of memories to retrieve")
+    user_id: Optional[str] = Field(None, description="Legacy compatibility; must match authenticated user")
+    query: str = Field(..., min_length=1, max_length=4000, description="Query text for memory retrieval")
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of memories to retrieve")
 
 class ChatInput(BaseModel):
     """Request model for chat messages"""
-    user_id: str = Field(..., description="Unique identifier for the user")
-    message: str = Field(..., description="User's chat message")
+    user_id: Optional[str] = Field(None, description="Legacy compatibility; must match authenticated user")
+    message: str = Field(..., min_length=1, max_length=12000, description="User's chat message")
     session_id: Optional[str] = Field(None, description="Optional session ID")
     model: Optional[str] = Field(None, description="Optional model override")
     search_mode: bool = Field(False, description="Force web search via compound research")
@@ -331,6 +285,12 @@ class ChatResponse(BaseModel):
     intents: Optional[list] = Field(None, description="Classified intents")
     suggest_search: bool = Field(False, description="True when the response suggests enabling browser search")
     session_id: Optional[str] = Field(None, description="Session ID used for this response")
+
+
+def _assert_same_user(requested_user_id: Optional[str], principal: AuthenticatedPrincipal) -> str:
+    if requested_user_id and requested_user_id != principal.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return principal.user_id
 
 class RenameRequest(BaseModel):
     """Request model for renaming sessions"""
@@ -372,13 +332,8 @@ async def ping():
         "uptime_check": "render_auto_warm"
     }
 
-@app.get("/healthz", tags=["Health"])
-async def healthz():
-    """Lightweight health probe endpoint (no external calls)."""
-    return {"status": "ok"}
-
 @app.get("/api-status", tags=["Health"])
-async def api_status():
+async def api_status(_: AuthenticatedPrincipal = Depends(require_admin)):
     """
     Check if the Groq API is available or if we've hit rate limits.
     Frontend can use this to show appropriate messages.
@@ -425,37 +380,40 @@ class SetNameRequest(BaseModel):
     name: str = Field(..., description="User's name")
 
 @app.post("/user/{user_id}/set-name", tags=["Users"])
-def set_user_name_endpoint(user_id: str, request: SetNameRequest):
+def set_user_name_endpoint(user_id: str, request: SetNameRequest, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """Set user name"""
+    user_id = _assert_same_user(user_id, principal)
     try:
         from memory.user_profile import set_user_name
         set_user_name(user_id, request.name)
         return {"status": "success", "message": f"Name set to {request.name}"}
     except Exception as e:
         logger.error(f"Error setting user name: {str(e)}")
-        return {"status": "success", "message": "Name processing completed"}  # Always success to avoid breaking chat
+        raise HTTPException(status_code=503, detail="Profile could not be saved") from e
 
 @app.get("/user/{user_id}/name", tags=["Users"])
-def get_user_name_endpoint(user_id: str):
+def get_user_name_endpoint(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """Get user name"""
+    user_id = _assert_same_user(user_id, principal)
     try:
         from memory.user_profile import get_user_name
         name = get_user_name(user_id)
         return {"user_id": user_id, "name": name}
     except Exception as e:
         logger.error(f"Error getting user name: {str(e)}")
-        return {"user_id": user_id, "name": None}
+        raise HTTPException(status_code=503, detail="Profile unavailable") from e
 
 @app.get("/user/{user_id}/has-name", tags=["Users"])
-def check_user_has_name(user_id: str):
+def check_user_has_name(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """Check if user has set their name"""
+    user_id = _assert_same_user(user_id, principal)
     try:
         from memory.user_profile import get_user_name
         name = get_user_name(user_id)
         return {"user_id": user_id, "has_name": bool(name)}
     except Exception as e:
         logger.error(f"Error checking user name: {str(e)}")
-        return {"user_id": user_id, "has_name": False}
+        raise HTTPException(status_code=503, detail="Profile unavailable") from e
 
 # Intro shown persistence endpoints
 class IntroShownRequest(BaseModel):
@@ -463,19 +421,21 @@ class IntroShownRequest(BaseModel):
     shown: bool = Field(default=True, description="Whether intro was shown")
 
 @app.get("/user/{user_id}/intro-shown", tags=["Users"])
-def get_intro_shown_endpoint(user_id: str):
+def get_intro_shown_endpoint(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """Return whether the welcome intro was already displayed."""
+    user_id = _assert_same_user(user_id, principal)
     try:
         from memory.user_profile import get_intro_shown
         shown = get_intro_shown(user_id)
         return {"user_id": user_id, "intro_shown": shown}
     except Exception as e:
         logger.error(f"Error retrieving intro_shown: {str(e)}")
-        return {"user_id": user_id, "intro_shown": False}
+        raise HTTPException(status_code=503, detail="Profile unavailable") from e
 
 @app.post("/user/{user_id}/intro-shown", tags=["Users"])
-def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
+def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """Mark intro as shown (idempotent)."""
+    user_id = _assert_same_user(user_id, principal)
     if not body.shown:
         return {"status": "ignored", "reason": "Only true is accepted"}
     try:
@@ -484,23 +444,25 @@ def set_intro_shown_endpoint(user_id: str, body: IntroShownRequest):
         return {"status": "success", "user_id": user_id, "intro_shown": True}
     except Exception as e:
         logger.error(f"Error setting intro_shown: {str(e)}")
-        return {"status": "error", "message": "Failed to persist intro flag"}
+        raise HTTPException(status_code=503, detail="Profile could not be saved") from e
 
 # Memory management endpoints
 @app.post("/store-memory", tags=["Memory"])
-def store_user_memory(payload: MemoryInput):
+def store_user_memory(payload: MemoryInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Store user memory in the vector database
     
     This endpoint allows storing text content with metadata in Pinecone
     for later semantic retrieval.
     """
+    user_id = _assert_same_user(payload.user_id, principal)
     try:
-        # Inject user_id into metadata for user isolation
-        payload.metadata["user"] = payload.user_id
+        # Never trust caller metadata to select a tenant.
+        payload.metadata["user_id"] = user_id
+        payload.metadata["user"] = user_id
         memory_id = store_memory(payload.text, payload.metadata)
         
-        logger.info(f"Memory stored for user {payload.user_id}: {memory_id}")
+        logger.info("Memory stored for authenticated user")
         return {"status": "success", "memory_id": memory_id}
     
     except Exception as e:
@@ -508,18 +470,19 @@ def store_user_memory(payload: MemoryInput):
         raise HTTPException(status_code=500, detail=f"Failed to store memory: {str(e)}")
 
 @app.post("/retrieve-memory", tags=["Memory"])
-def retrieve_memories(payload: QueryInput):
+def retrieve_memories(payload: QueryInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Retrieve relevant memories based on a query
     
     Uses semantic search to find the most relevant stored memories
     for the given user and query.
     """
+    user_id = _assert_same_user(payload.user_id, principal)
     try:
         # Get detailed memories with metadata
         memories = get_relevant_memories_detailed(
             query=payload.query, 
-            user_filter=payload.user_id, 
+            user_filter=user_id, 
             top_k=payload.top_k
         )
         
@@ -535,7 +498,7 @@ def retrieve_memories(payload: QueryInput):
             for memory in memories
         ]
         
-        logger.info(f"Retrieved {len(formatted_memories)} memories for user {payload.user_id}")
+        logger.info("Retrieved %d memories for authenticated user", len(formatted_memories))
         return {"query": payload.query, "results": formatted_memories}
     
     except Exception as e:
@@ -544,7 +507,7 @@ def retrieve_memories(payload: QueryInput):
 
 # Chat endpoints
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
-async def chat_endpoint(chat_message: ChatInput):
+async def chat_endpoint(chat_message: ChatInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Send a message to the AI chatbot (ChatManagerV3).
 
@@ -554,23 +517,54 @@ async def chat_endpoint(chat_message: ChatInput):
     import time as _time
     from llm.errors import LLMProviderError
     from config.active_models import PRIMARY_CHAT_MODEL
+    
+    # Import guardrails
+    from utils.prompt_injection import scan_for_injection, ContentSource, is_safe_input
+    from utils.output_guardrails import validate_output, ValidationResult
 
     request_start = _time.time()
+    user_id = _assert_same_user(chat_message.user_id, principal)
     effective_session_id = chat_message.session_id
     if not effective_session_id:
         try:
             from memory.chat_database import create_new_session
-            effective_session_id = create_new_session(chat_message.user_id)
+            effective_session_id = create_new_session(user_id)
         except Exception as create_err:
-            logger.warning("Failed to create session for user %s: %s", chat_message.user_id, create_err)
-            effective_session_id = "default"
+            logger.error("Failed to create session for user %s: %s", user_id, create_err)
+            raise HTTPException(status_code=503, detail="Session service unavailable") from create_err
+
+    if not chat_db.session_belongs_to_user(effective_session_id, user_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # --- Input Safety: Scan user message for prompt injection ---
+    injection_assessment = scan_for_injection(chat_message.message, ContentSource.USER_MESSAGE)
+    if injection_assessment.is_malicious:
+        logger.warning(
+            "Prompt injection detected in user message: risk=%.2f, action=%s, signals=%d",
+            injection_assessment.risk_score,
+            injection_assessment.recommended_action,
+            len(injection_assessment.signals)
+        )
+        if injection_assessment.recommended_action in ("quarantine", "block"):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "prompt_injection_detected",
+                    "message": "Your message appears to contain prompt injection attempts. Please rephrase.",
+                    "risk_score": injection_assessment.risk_score
+                }
+            )
+        # For sanitize action, use sanitized version
+        if injection_assessment.recommended_action == "sanitize":
+            chat_message.message = injection_assessment.sanitized_content
+            logger.info("User message sanitized for prompt injection")
 
     try:
         if os.getenv("DISABLE_MEMORY_INIT") == "1":
             # Legacy compatibility path used by lightweight tests that monkeypatch chat manager.
             from memory import chat_manager as legacy_chat_manager
             response_data = legacy_chat_manager.chat_with_memory(
-                user_id=chat_message.user_id,
+                user_id=user_id,
                 message=chat_message.message,
                 session_id=effective_session_id,
             )
@@ -583,7 +577,7 @@ async def chat_endpoint(chat_message: ChatInput):
                 model_used = "legacy_model"
                 route_rule = "legacy_rule"
         else:
-            db_history = get_chat_by_session(effective_session_id)
+            db_history = get_chat_by_session(effective_session_id, user_id)
             chat_history: list[dict[str, str]] = []
             for turn in db_history[-20:]:
                 user_msg = str(turn.get("user", "") or turn.get("message", "") or "").strip()
@@ -594,7 +588,7 @@ async def chat_endpoint(chat_message: ChatInput):
                     chat_history.append({"role": "assistant", "content": assistant_msg})
 
             response_data = await chat_manager_v3_instance.handle_chat(
-                user_id=chat_message.user_id,
+                user_id=user_id,
                 session_id=effective_session_id,
                 user_input=chat_message.message,
                 chat_history=chat_history,
@@ -611,6 +605,35 @@ async def chat_endpoint(chat_message: ChatInput):
         if not response_text or not response_text.strip():
             raise LLMProviderError("Empty model response", model=model_used, status_code=502)
 
+        # --- Output Guardrails: Validate response before returning ---
+        validation_report = validate_output(
+            response=response_text,
+            citations=None,  # Would be populated from RAG context if available
+            tool_calls_made=[],  # Would be populated from actual tool calls
+            strict_mode=True
+        )
+        
+        if validation_report.result == ValidationResult.FAIL:
+            logger.warning(
+                "Response validation failed: violations=%d, result=%s",
+                len(validation_report.violations),
+                validation_report.result.value
+            )
+            # Use sanitized response
+            response_text = validation_report.sanitized_response
+        elif validation_report.result == ValidationResult.RETRY:
+            # Could implement retry logic here
+            logger.info("Response validation suggests retry")
+            response_text = validation_report.sanitized_response
+        elif validation_report.result == ValidationResult.WARNING:
+            # Log warnings but use response (with sanitization if any)
+            if validation_report.violations:
+                logger.info("Response validation warnings: %d violations", len(validation_report.violations))
+            response_text = validation_report.sanitized_response
+        else:
+            # PASS - use sanitized version (which may have redacted secrets)
+            response_text = validation_report.sanitized_response
+
         latency_ms = int((_time.time() - request_start) * 1000)
         logger.info(
             "Chat response for user %s in %dms (model=%s rule=%s)",
@@ -620,7 +643,7 @@ async def chat_endpoint(chat_message: ChatInput):
         # Persist only after a successful model response.
         try:
             persisted_session_id = save_chat_to_db(
-                user_id=chat_message.user_id,
+                user_id=user_id,
                 message=chat_message.message,
                 reply=response_text,
                 session_id=effective_session_id,
@@ -665,12 +688,13 @@ async def chat_endpoint(chat_message: ChatInput):
 
 # Session management endpoints
 @app.get("/sessions/{user_id}", tags=["Sessions"])
-def get_user_sessions(user_id: str):
+def get_user_sessions(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Get all chat sessions for a specific user from MongoDB
     
     Returns a list of sessions with their titles and IDs, ordered by creation date.
     """
+    user_id = _assert_same_user(user_id, principal)
     try:
         sessions = get_sessions_by_user(user_id)
         
@@ -682,7 +706,7 @@ def get_user_sessions(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve sessions: {str(e)}")
 
 @app.get("/chat/{session_id}", tags=["Sessions"])
-def get_session_chat(session_id: str):
+def get_session_chat(session_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Get full chat history for a specific session from MongoDB
     
@@ -691,7 +715,9 @@ def get_session_chat(session_id: str):
     Returns all messages in chronological order for the given session.
     """
     try:
-        chat_history = get_chat_by_session(session_id)
+        if not chat_db.session_belongs_to_user(session_id, principal.user_id):
+            raise HTTPException(status_code=404, detail="Session not found")
+        chat_history = get_chat_by_session(session_id, principal.user_id)
         
         logger.info(f"Retrieved chat history for session {session_id}")
         return {"session_id": session_id, "history": chat_history}
@@ -701,12 +727,13 @@ def get_session_chat(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve chat history: {str(e)}")
 
 @app.get("/history/{user_id}", tags=["Sessions"])
-def get_user_chat_history(user_id: str):
+def get_user_chat_history(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Get complete chat history for a user across all sessions
     
-    Returns all chat messages for the user, organized by session.
+    Returns all chat messages for a user, organized by session.
     """
+    user_id = _assert_same_user(user_id, principal)
     try:
         full_history = get_all_chats_by_user(user_id)
         
@@ -718,14 +745,14 @@ def get_user_chat_history(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user history: {str(e)}")
 
 @app.put("/session/{session_id}", tags=["Sessions"])
-def rename_session(session_id: str, request: RenameRequest):
+def rename_session(session_id: str, request: RenameRequest, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Rename a chat session
     
     Updates the title of the specified session.
     """
     try:
-        success = rename_session_title(session_id, request.new_title)
+        success = rename_session_title(session_id, principal.user_id, request.new_title)
         
         if success:
             logger.info(f"Session {session_id} renamed to: {request.new_title}")
@@ -740,14 +767,14 @@ def rename_session(session_id: str, request: RenameRequest):
         raise HTTPException(status_code=500, detail=f"Failed to rename session: {str(e)}")
 
 @app.delete("/session/{session_id}", tags=["Sessions"])
-def delete_session(session_id: str):
+def delete_session(session_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Delete a chat session
     
     Removes all messages and data associated with the specified session.
     """
     try:
-        success = delete_session_by_id(session_id)
+        success = delete_session_by_id(session_id, principal.user_id)
         
         if success:
             logger.info(f"Session {session_id} deleted successfully")
@@ -762,13 +789,16 @@ def delete_session(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
 @app.post("/session/summarize/{session_id}", tags=["Sessions"])
-def summarize_session(session_id: str, user_id: str):
+def summarize_session(session_id: str, user_id: Optional[str] = None, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Generate a post-session summary and store in Pinecone (Layer 2).
 
     Call this when a session is considered "closed" or when the user
     explicitly wants to archive their conversation context.
     """
+    user_id = _assert_same_user(user_id, principal)
+    if not chat_db.session_belongs_to_user(session_id, user_id):
+        raise HTTPException(status_code=404, detail="Session not found")
     logger.info("Session summarization endpoint disabled in unified memory mode")
     return {
         "status": "disabled",
@@ -779,12 +809,13 @@ def summarize_session(session_id: str, user_id: str):
 
 # Enhanced Memory Management endpoints
 @app.get("/user/{user_id}/context", tags=["Memory"])
-def get_user_context(user_id: str):
+def get_user_context(user_id: str, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Get comprehensive user context including name, preferences, goals, etc.
     
     This endpoint provides a complete overview of what the AI knows about the user.
     """
+    user_id = _assert_same_user(user_id, principal)
     try:
         context = memory_manager.get_user_context(user_id)
         
@@ -796,7 +827,7 @@ def get_user_context(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user context: {str(e)}")
 
 @app.post("/user/{user_id}/cleanup", tags=["Memory"])
-def cleanup_user_memories(user_id: str, days_threshold: int = 30):
+def cleanup_user_memories(user_id: str, days_threshold: int = Query(30, ge=1, le=3650), principal: AuthenticatedPrincipal = Depends(require_admin)):
     """
     Clean up old, low-importance memories for a user
     
@@ -815,7 +846,7 @@ def cleanup_user_memories(user_id: str, days_threshold: int = 30):
 
 # Health check endpoint
 @app.get("/health", tags=["System"])
-async def health_check():
+async def health_check(_: AuthenticatedPrincipal = Depends(require_admin)):
     """
     Health check endpoint for monitoring system status
     """
@@ -859,7 +890,7 @@ class InlineQueryResponse(BaseModel):
     answer: str = Field(..., description="AI explanation")
 
 @app.post("/inline-query", tags=["Chat"], response_model=InlineQueryResponse)
-def inline_query_endpoint(payload: InlineQueryInput):
+def inline_query_endpoint(payload: InlineQueryInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
     """
     Ephemeral endpoint for inline side-questions with READ-ONLY session context.
 
@@ -874,6 +905,8 @@ def inline_query_endpoint(payload: InlineQueryInput):
     """
     import time as _time
     request_start = _time.time()
+    if payload.user_id and payload.user_id != principal.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     try:
         from utils.groq_client import GroqClient
 
@@ -884,10 +917,10 @@ def inline_query_endpoint(payload: InlineQueryInput):
         # 1. Load recent session messages (read-only, last 8 exchanges)
         if payload.session_id:
             try:
-                from memory.session_memory import session_memory
-                raw_messages = session_memory.get_recent_messages(
-                    payload.session_id, limit=8
-                )
+                from memory.chat_database import chat_db
+                if not chat_db.session_belongs_to_user(payload.session_id, principal.user_id):
+                    raise HTTPException(status_code=404, detail="Session not found")
+                raw_messages = chat_db.get_chat_by_session(payload.session_id, principal.user_id)[-8:]
 
                 # If message_index is provided and points to an older message,
                 # use surrounding messages instead of the most recent ones
@@ -897,7 +930,7 @@ def inline_query_endpoint(payload: InlineQueryInput):
                     from memory.chat_database import chat_db
                     all_docs = list(
                         chat_db.chat_collection.find(
-                            {"session_id": payload.session_id}
+                            {"session_id": payload.session_id, "user_id": principal.user_id}
                         ).sort("metadata.sequence_number", 1)
                     )
                     total_exchanges = len(all_docs)

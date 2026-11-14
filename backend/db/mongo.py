@@ -1,12 +1,18 @@
 from database.db import get_collection
 from bson.objectid import ObjectId
 from datetime import datetime
+import logging
 from db.pinecone import upsert_vector, query_vectors
+
+logger = logging.getLogger(__name__)
 
 def memories_collection():
     return get_collection("memories_v3")
 
 def insert_memory(memory):
+    user_id = memory.get("user_id")
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Memory owner is required")
     memory["created_at"] = datetime.utcnow()
     # Ensure memory['content'] exists
     inserted_id = memories_collection().insert_one(memory).inserted_id
@@ -39,23 +45,25 @@ def find_similar_memory_semantic(content, user_id, memory_types=None, min_score=
     if not memory_id:
         return None
 
-    doc = memories_collection().find_one({"_id": ObjectId(memory_id)})
+    doc = memories_collection().find_one({"_id": ObjectId(memory_id), "user_id": user_id})
     if not doc:
         return None
 
     doc["similarity"] = best.get("score", 0.0)
     return doc
 
-def update_memory(memory_id, new_data):
+def update_memory(memory_id, new_data, user_id):
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Memory owner is required")
     new_data["updated_at"] = datetime.utcnow()
     obj_id = ObjectId(memory_id) if isinstance(memory_id, str) else memory_id
     memories_collection().update_one(
-        {"_id": obj_id},
+        {"_id": obj_id, "user_id": user_id},
         {"$set": new_data}
     )
     
     # query to get full data for pinecone upsert
-    updated_doc = memories_collection().find_one({"_id": obj_id})
+    updated_doc = memories_collection().find_one({"_id": obj_id, "user_id": user_id})
     if updated_doc:
         upsert_vector(
             vec_id=str(updated_doc["_id"]),
@@ -66,14 +74,46 @@ def update_memory(memory_id, new_data):
         )
 
 
-def reinforce_memories(memory_ids):
+def reinforce_memories(memory_ids, user_id):
     for memory_id in memory_ids:
         try:
             obj_id = ObjectId(memory_id) if isinstance(memory_id, str) else memory_id
-            doc = memories_collection().find_one({"_id": obj_id})
+            doc = memories_collection().find_one({"_id": obj_id, "user_id": user_id})
             if not doc:
                 continue
             new_importance = float(doc.get("importance", 0.0)) + 1.0
-            update_memory(obj_id, {"importance": new_importance})
+            update_memory(obj_id, {"importance": new_importance}, user_id)
         except Exception:
             continue
+
+
+def delete_memory(memory_id: str, user_id: str) -> bool:
+    """Delete a specific memory by ID for a specific user."""
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Memory owner is required")
+    obj_id = ObjectId(memory_id) if isinstance(memory_id, str) else memory_id
+    result = memories_collection().delete_one({"_id": obj_id, "user_id": user_id})
+    if result.deleted_count > 0:
+        # Also delete from Pinecone
+        from db.pinecone import delete_memory_vector
+        try:
+            delete_memory_vector(str(obj_id), user_id)
+        except Exception as e:
+            logger.warning("Failed to delete vector for memory %s: %s", memory_id, e)
+        return True
+    return False
+
+
+def delete_user_memories(user_id: str) -> int:
+    """Delete all memories for a specific user (for account deletion)."""
+    if not isinstance(user_id, str) or not user_id.strip():
+        raise ValueError("Memory owner is required")
+    result = memories_collection().delete_many({"user_id": user_id})
+    if result.deleted_count > 0:
+        # Also delete from Pinecone
+        from db.pinecone import delete_user_vectors
+        try:
+            delete_user_vectors(user_id)
+        except Exception as e:
+            logger.warning("Failed to delete vectors for user %s: %s", user_id, e)
+    return result.deleted_count

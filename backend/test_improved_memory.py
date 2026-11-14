@@ -68,7 +68,7 @@ def test_session_memory():
     print(f"Response 2: {response2[:100]}…")
 
     # Validate that the raw messages are stored
-    msgs = session_memory.get_recent_messages(session_id)
+    msgs = session_memory.get_recent_messages(session_id, test_user_id)
     print(f"\n   → {len(msgs)} messages in session")
     assert len(msgs) >= 4, f"Expected ≥4 messages, got {len(msgs)}"
 
@@ -158,21 +158,22 @@ def test_model_locking():
     print("\n🔒 Testing Model Locking")
 
     session_id = f"lock_test_{uuid.uuid4().hex[:8]}"
+    user_id = f"test_user_{uuid.uuid4().hex[:8]}"
 
     # First call — should lock to router_pick
-    result = resolve_model(session_id, "Hello", PRIMARY_CHAT_MODEL)
+    result = resolve_model(session_id, user_id, "Hello", PRIMARY_CHAT_MODEL)
     assert result["model_id"] == PRIMARY_CHAT_MODEL
     assert result["source"] == "router_initial"
     print(f"   ✅ Initial lock: {result['model_id']} (source={result['source']})")
 
     # Second call — same model, normal message
-    result2 = resolve_model(session_id, "How are you?", FALLBACK_CHAT_MODEL)
+    result2 = resolve_model(session_id, user_id, "How are you?", FALLBACK_CHAT_MODEL)
     assert result2["model_id"] == PRIMARY_CHAT_MODEL  # should keep original
     assert result2["source"] == "session_lock"
     print(f"   ✅ Locked reuse: {result2['model_id']} (source={result2['source']})")
 
     # Explicit code request — should override
-    result3 = resolve_model(session_id, "Write code for a Python web scraper", FALLBACK_CHAT_MODEL)
+    result3 = resolve_model(session_id, user_id, "Write code for a Python web scraper", FALLBACK_CHAT_MODEL)
     assert result3["override_reason"] == "explicit_code_request"
     assert result3["model_id"] == FALLBACK_CHAT_MODEL
     print(f"   ✅ Code override: {result3['model_id']} (reason={result3['override_reason']})")

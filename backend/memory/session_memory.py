@@ -26,7 +26,7 @@ class SessionMemoryManager:
     """Manages active-session memory using raw MongoDB messages.
 
     Public API:
-        get_recent_messages(session_id, limit) -> List[dict]
+        get_recent_messages(session_id, user_id, limit) -> List[dict]
         save_message(user_id, message, reply, session_id) -> str
         get_message_count(session_id) -> int
     """
@@ -40,6 +40,7 @@ class SessionMemoryManager:
     def get_recent_messages(
         self,
         session_id: str,
+        user_id: str,
         limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """Fetch the last *limit* message exchanges for *session_id*.
@@ -51,12 +52,14 @@ class SessionMemoryManager:
         We return them as separate role-tagged entries so the LLM sees a proper
         chat-history format.
         """
+        if not session_id or not user_id:
+            return []
         limit = limit or self.exchange_limit
         try:
             # Fetch from MongoDB, newest first, then reverse for chronological order
             raw_docs = list(
                 chat_db.chat_collection.find(
-                    {"session_id": session_id}
+                    {"session_id": session_id, "user_id": user_id}
                 )
                 .sort("metadata.sequence_number", -1)
                 .limit(limit)
@@ -108,10 +111,12 @@ class SessionMemoryManager:
     # ------------------------------------------------------------------
     # Metadata helpers
     # ------------------------------------------------------------------
-    def get_message_count(self, session_id: str) -> int:
+    def get_message_count(self, session_id: str, user_id: str) -> int:
         """Return total number of exchanges stored for a session."""
         try:
-            return chat_db.chat_collection.count_documents({"session_id": session_id})
+            if not session_id or not user_id:
+                return 0
+            return chat_db.chat_collection.count_documents({"session_id": session_id, "user_id": user_id})
         except Exception as e:
             logger.error("SessionMemory: count failed for %s: %s", session_id, e)
             return 0
