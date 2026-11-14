@@ -10,7 +10,7 @@ interface SplitViewContextValue {
   isDragging: boolean;
   isMobileSplit: boolean;
   setIsDragging: (dragging: boolean) => void;
-  openSessionInPanel: (sessionId: string, dropZone: DropZone) => void;
+  openSessionInPanel: (sessionId: string, dropZone: DropZone, currentSessionId?: string | null) => void;
   closePanel: (position: PanelPosition) => void;
   expandPanel: (position: PanelPosition) => void;
   isSessionInAnyPanel: (sessionId: string) => boolean;
@@ -113,64 +113,54 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const openSessionInPanel = useCallback(
-    (sessionId: string, dropZone: DropZone) => {
-      // Check duplicate
-      if (isSessionInAnyPanel(sessionId)) {
-        toast({
-          title: 'Already open',
-          description: 'This session is already open in a panel.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
+    (sessionId: string, dropZone: DropZone, currentSessionId?: string | null) => {
       setLayout((prev) => {
         const positionFn = isMobile ? mobilePanelPosition : desktopPanelPosition;
 
         if (dropZone === 'center') {
-          // Replace current panel (primary)
+          // Replace current panel (primary) in single mode
+          const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
           const panels: PanelState[] =
             prev.panels.length === 0
-              ? [{ sessionId, position: isMobile ? 'top' : 'left' }]
+              ? [{ sessionId, position: primaryPos }]
               : prev.panels.map((p, i) =>
                   i === 0 ? { ...p, sessionId } : p
                 );
-          return { ...prev, panels };
+          return { mode: 'single', panels, panelSizes: [100] };
         }
 
-        // Split drop zone
+        // Split drop zone (left/right on desktop, top/bottom on mobile)
+        const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
+        const secondaryPos: PanelPosition = isMobile ? 'bottom' : 'right';
+        const isDropOnPrimary = dropZone === 'left' || dropZone === 'top';
+
         if (prev.mode === 'single') {
-          const existingSessionId = prev.panels[0]?.sessionId;
-          if (!existingSessionId) {
-            return {
-              mode: 'single',
-              panels: [{ sessionId, position: positionFn(dropZone) }],
-              panelSizes: [100],
-            };
+          // Identify the existing active session
+          const existingSessionId = prev.panels[0]?.sessionId || currentSessionId || null;
+
+          let firstPanelSession = isDropOnPrimary ? sessionId : existingSessionId;
+          let secondPanelSession = isDropOnPrimary ? existingSessionId : sessionId;
+
+          if (!firstPanelSession && !secondPanelSession) {
+            firstPanelSession = sessionId;
+            secondPanelSession = '';
+          } else if (firstPanelSession === secondPanelSession) {
+            // Dragged the same session to split: put on dropped side, leave other side ready
+            if (isDropOnPrimary) {
+              secondPanelSession = '';
+            } else {
+              firstPanelSession = '';
+            }
           }
 
-          // Create split
-          const primaryPos: PanelPosition = isMobile ? 'top' : 'left';
-          const secondaryPos: PanelPosition = isMobile ? 'bottom' : 'right';
-
-          const isDropOnPrimary = dropZone === 'left' || dropZone === 'top';
-
-          const firstPanel: PanelState = isDropOnPrimary
-            ? { sessionId, position: primaryPos }
-            : { sessionId: existingSessionId, position: primaryPos };
-          const secondPanel: PanelState = isDropOnPrimary
-            ? { sessionId: existingSessionId, position: secondaryPos }
-            : { sessionId, position: secondaryPos };
-
-          // Avoid same session in both
-          if (firstPanel.sessionId === secondPanel.sessionId) {
-            toast({
-              title: 'Already open',
-              description: 'This session is already open.',
-              variant: 'destructive',
-            });
-            return prev;
-          }
+          const firstPanel: PanelState = {
+            sessionId: firstPanelSession || '',
+            position: primaryPos,
+          };
+          const secondPanel: PanelState = {
+            sessionId: secondPanelSession || '',
+            position: secondaryPos,
+          };
 
           return {
             mode: 'split',
@@ -179,7 +169,7 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           };
         }
 
-        // Already in split mode → replace the panel at the drop position
+        // Already in split mode → replace the panel at the target drop position
         const targetPos = positionFn(dropZone);
         const panels = prev.panels.map((p) =>
           p.position === targetPos ? { ...p, sessionId } : p
@@ -187,7 +177,7 @@ export const SplitViewProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { ...prev, panels };
       });
     },
-    [isMobile, isSessionInAnyPanel, toast]
+    [isMobile]
   );
 
   const closePanel = useCallback((position: PanelPosition) => {

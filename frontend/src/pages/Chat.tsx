@@ -7,11 +7,17 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  useDraggable,
   DragStartEvent,
   DragEndEvent,
   closestCenter,
   rectIntersection,
+  pointerWithin,
+  CollisionDetection,
+  MeasuringStrategy,
 } from '@dnd-kit/core';
+import { Columns2, GripVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ChatLayout } from '@/components/ChatLayout';
 import { ChatPanel } from '@/components/ChatPanel';
 import { SplitViewDropZone } from '@/components/SplitViewDropZone';
@@ -34,6 +40,44 @@ import { KuroNav } from '@/experience/chat/KuroNav';
  * navigation. Name setup and the first-time intro moved to the Awakening, so
  * there is no modal, no intro overlay, and no loading screen here.
  */
+interface ChatDragHandleProps {
+  sessionId: string;
+  title: string | null;
+  onQuickSplit?: () => void;
+}
+
+const ChatDragHandle: React.FC<ChatDragHandleProps> = ({ sessionId, title, onQuickSplit }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `active-chat-${sessionId}`,
+    data: { sessionId, title: title || 'Conversation' },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => {
+        if (!isDragging && onQuickSplit) {
+          onQuickSplit();
+        }
+      }}
+      className={cn(
+        'group flex items-center gap-1.5 rounded-full border border-border/80 bg-background/90 px-2.5 py-1 text-[11px] font-medium shadow-sm transition-all select-none backdrop-blur-sm',
+        'hover:border-primary/50 hover:bg-secondary/80 hover:text-foreground text-muted-foreground',
+        'cursor-grab active:cursor-grabbing touch-none',
+        isDragging && 'opacity-40 ring-2 ring-primary/40'
+      )}
+      title="Drag to split screen (or tap to split)"
+      aria-label="Drag to split chat"
+    >
+      <Columns2 className="h-3.5 w-3.5 text-primary/80 group-hover:text-primary transition-colors" />
+      <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-wider">Split</span>
+      <GripVertical className="h-3 w-3 opacity-40 group-hover:opacity-80 transition-opacity" />
+    </div>
+  );
+};
+
 const ChatInner = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -160,13 +204,14 @@ const ChatInner = () => {
     if (data?.sessionId) {
       setDraggedSession({ sessionId: data.sessionId, title: data.title || 'Conversation' });
       splitView.setIsDragging(true);
-      setNavOpen(false);
+      // KuroNav is hidden via CSS while isDragging is true to ensure draggable nodes remain mounted in DOM
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     splitView.setIsDragging(false);
     setDraggedSession(null);
+    setNavOpen(false);
     const { active, over } = event;
     if (!over || !active.data.current?.sessionId) return;
     const dropped = active.data.current.sessionId as string;
@@ -180,13 +225,34 @@ const ChatInner = () => {
     };
     const zone = map[zoneId];
     if (!zone) return;
-    splitView.openSessionInPanel(dropped, zone);
-    if (zone === 'center' || zone === 'left' || zone === 'top') navigate(`/chat/${dropped}`);
+    splitView.openSessionInPanel(dropped, zone, primarySessionId);
+    if (zone === 'center' || zone === 'left' || zone === 'top') {
+      navigate(`/chat/${dropped}`);
+    }
   };
 
+  const handleDragCancel = () => {
+    splitView.setIsDragging(false);
+    setDraggedSession(null);
+    setNavOpen(false);
+  };
+
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    // 1. Pointer inside droppable container (most precise for user intent)
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+
+    // 2. Bounding rectangle intersection
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) return rectCollisions;
+
+    // 3. Fallback to closest center
+    return closestCenter(args);
+  }, []);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 8 } })
   );
 
   // --- Layout ---
@@ -241,30 +307,46 @@ const ChatInner = () => {
   );
 
   // Top strip: [Core][KURO][Menu] come from the environment/rail (left ~190px).
-  // The conversation title sits in the centre; nothing else.
+  // The conversation title sits in the centre; draggable split handle on the right.
   const topBar = (
-    <div className="flex h-full items-center">
-      <div className={isMobile ? 'w-[190px] flex-shrink-0' : 'w-[220px] flex-shrink-0'} />
-      <div className="flex min-w-0 flex-1 items-center justify-center px-4">
+    <div className="flex h-full items-center justify-between px-3 sm:px-4">
+      <div className={isMobile ? 'w-[140px] sm:w-[190px] flex-shrink-0' : 'w-[200px] flex-shrink-0'} />
+      <div className="flex min-w-0 flex-1 items-center justify-center px-2">
         {!isSplit && primaryTitle.id && primaryTitle.title && (
           <EditableTitle
             title={primaryTitle.title}
             onRename={(t) => primaryTitle.id && handleRenameSession(primaryTitle.id, t)}
             align="center"
-            className="max-w-[min(60vw,520px)]"
+            className="max-w-[min(50vw,480px)]"
           />
         )}
       </div>
-      <div className={isMobile ? 'w-4 flex-shrink-0' : 'w-[220px] flex-shrink-0'} />
+      <div className="flex items-center justify-end flex-shrink-0 min-w-[36px] sm:w-[200px]">
+        {!isSplit && primarySessionId && (
+          <ChatDragHandle
+            sessionId={primarySessionId}
+            title={primaryTitle.title}
+            onQuickSplit={() => {
+              splitView.openSessionInPanel(primarySessionId, isMobile ? 'top' : 'left', primarySessionId);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 
   return (
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
+        measuring={{
+          droppable: {
+            strategy: MeasuringStrategy.Always,
+          },
+        }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
       <ChatLayout
         topBar={topBar}

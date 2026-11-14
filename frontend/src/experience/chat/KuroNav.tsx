@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatSession } from '@/types';
+import { useSplitView } from '@/contexts/SplitViewContext';
 import { useExperience } from '../ExperienceContext';
 import { DUR, EASE } from '../motion';
 import type { ClerkApiRequestFn } from '@/hooks/use-chat-panel';
@@ -113,21 +114,21 @@ const SessionRow: React.FC<{
           >
             {session.title || 'Untitled'}
           </button>
-          <div className="flex items-center gap-3 opacity-0 transition-opacity [transition-duration:180ms] group-hover:opacity-100 focus-within:opacity-100">
-            <button type="button" className="k-quiet !text-[10px]" onClick={() => setMode('edit')}>
+          <div className="flex items-center gap-2 transition-opacity [transition-duration:180ms] opacity-80 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+            <button type="button" className="k-quiet !text-[10px] hidden sm:inline" onClick={() => setMode('edit')}>
               Rename
             </button>
-            <button type="button" className="k-quiet !text-[10px]" onClick={() => setMode('confirm')}>
+            <button type="button" className="k-quiet !text-[10px] hidden sm:inline" onClick={() => setMode('confirm')}>
               Delete
             </button>
             <span
               {...listeners}
               {...attributes}
-              className="cursor-grab touch-none text-muted-foreground/50 active:cursor-grabbing"
+              className="cursor-grab touch-none p-1 text-muted-foreground/70 hover:text-foreground active:text-primary active:cursor-grabbing"
               title="Drag into the conversation to open side by side"
               aria-label="Drag to open in split view"
             >
-              <GripVertical className="h-3.5 w-3.5" />
+              <GripVertical className="h-4 w-4" />
             </span>
           </div>
         </div>
@@ -380,6 +381,7 @@ const Settings: React.FC<{ userEmail?: string; onSignOut: () => void }> = ({ use
 
 export const KuroNav = memo<KuroNavProps>(function KuroNav(props) {
   const { navOpen, setNavOpen, reducedMotion, isMobile, profile } = useExperience();
+  const splitView = useSplitView();
   const [view, setView] = useState<NavView>('conversations');
 
   // Escape closes.
@@ -401,9 +403,12 @@ export const KuroNav = memo<KuroNavProps>(function KuroNav(props) {
         <React.Fragment key="nav">
           {/* Scrim: the conversation recedes, it does not disappear. */}
           <motion.div
-            className="fixed inset-x-0 bottom-0 top-[60px] z-[24] bg-background/45"
+            className={cn(
+              "fixed inset-x-0 bottom-0 top-[60px] z-[24] bg-background/45 transition-opacity duration-150",
+              splitView.isDragging && "opacity-0 pointer-events-none"
+            )}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: splitView.isDragging ? 0 : 1 }}
             exit={{ opacity: 0, transition: tExit }}
             transition={t}
             onClick={() => setNavOpen(false)}
@@ -414,11 +419,12 @@ export const KuroNav = memo<KuroNavProps>(function KuroNav(props) {
             // where they are — the panel hangs from the system, it doesn't
             // replace it.
             className={cn(
-              'fixed left-0 top-[60px] z-[25] flex h-[calc(100dvh-60px)] flex-col border-r border-border/60 bg-background/92 backdrop-blur-md',
-              isMobile ? 'w-full border-r-0' : 'w-[360px]'
+              'fixed left-0 top-[60px] z-[25] flex h-[calc(100dvh-60px)] flex-col border-r border-border/60 bg-background/92 backdrop-blur-md transition-opacity duration-150',
+              isMobile ? 'w-full border-r-0' : 'w-[360px]',
+              splitView.isDragging && 'opacity-0 pointer-events-none'
             )}
             initial={{ x: -18, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
+            animate={{ x: 0, opacity: splitView.isDragging ? 0 : 1 }}
             exit={{ x: -12, opacity: 0, transition: tExit }}
             transition={t}
             role="dialog"

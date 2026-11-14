@@ -20,14 +20,16 @@ const DropZoneArea: React.FC<DropZoneAreaProps> = ({ id, label, icon, className 
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-md border border-dashed transition-colors [transition-duration:180ms]',
-        'min-h-[180px] min-w-[180px]', // Ensure minimum hit area for reliable drop detection
-        isOver ? 'border-primary/70 bg-primary/[0.06]' : 'border-border',
+        'flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed transition-all [transition-duration:150ms]',
+        'min-h-[140px] min-w-[140px]',
+        isOver
+          ? 'border-primary bg-primary/[0.14] scale-[1.02] shadow-xl shadow-primary/10 ring-2 ring-primary/50'
+          : 'border-border/80 bg-background/70 hover:border-primary/50',
         className
       )}
     >
-      <div className={cn('transition-colors', isOver ? 'text-primary' : 'text-muted-foreground/70')}>{icon}</div>
-      <span className={cn('k-label !text-[10px]', isOver ? '!text-primary' : '!text-muted-foreground/70')}>{label}</span>
+      <div className={cn('transition-all duration-150', isOver ? 'text-primary scale-125' : 'text-muted-foreground/70')}>{icon}</div>
+      <span className={cn('k-label !text-[11px] font-semibold transition-colors', isOver ? '!text-primary font-bold' : '!text-muted-foreground/80')}>{label}</span>
     </div>
   );
 };
