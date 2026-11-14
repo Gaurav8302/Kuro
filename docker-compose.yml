@@ -1,0 +1,116 @@
+# Kuro AI - Docker Compose for Local Development
+
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - TESTING=0
+      - DISABLE_MEMORY_INIT=0
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGO_DB=chatbot_db
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - CLERK_JWT_ISSUER=${CLERK_JWT_ISSUER}
+      - CLERK_JWKS_URL=${CLERK_JWKS_URL}
+      - CLERK_JWT_AUDIENCE=${CLERK_JWT_AUDIENCE}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - FRONTEND_URL=http://localhost:3000
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
+      - METRICS_BEARER_TOKEN=${METRICS_BEARER_TOKEN}
+      - REDIS_URL=redis://redis:6379
+      - RATE_LIMIT_ENABLED=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../backend:/app/backend:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Frontend
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # MongoDB
+  mongo:
+    image: mongo:7-jammy
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=chatbot_db
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # LocalStack for AWS services (optional)
+  # localstack:
+  #   image: localstack/localstack:latest
+  #   ports:
+  #     - "4566:4566"
+  #   environment:
+  #     - SERVICES=s3,secretsmanager
+  #     - DEBUG=1
+  #   volumes:
+  #     - localstack_data:/var/lib/localstack
+
+volumes:
+  mongo_data:
+  redis_data:
+  # localstack_data:
+
+networks:
+  default:
+    name: kuro-network
