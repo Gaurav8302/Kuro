@@ -262,15 +262,21 @@ const ChatInner = () => {
 
   const mainContent = isSplit ? (
     <ResizablePanelGroup
+      key={`split-group-${numPanels}`}
       direction={isMobile ? 'vertical' : 'horizontal'}
       onLayout={(sizes: number[]) => splitView.updatePanelSizes(sizes)}
     >
       {layout.panels.map((panel, index) => {
         const defaultSize = layout.panelSizes?.[index] ?? (100 / numPanels);
         return (
-          <React.Fragment key={`${panel.position}-${index}`}>
+          <React.Fragment key={`${panel.position}-${panel.sessionId || index}`}>
             {index > 0 && <ResizableHandle className="bg-border/60" />}
-            <ResizablePanel defaultSize={defaultSize} minSize={15}>
+            <ResizablePanel
+              id={`panel-${index}-${panel.sessionId || index}`}
+              order={index}
+              defaultSize={defaultSize}
+              minSize={15}
+            >
               <ChatPanel
                 sessionId={panel.sessionId}
                 sessions={sessions}

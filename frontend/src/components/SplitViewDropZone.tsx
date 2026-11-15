@@ -121,19 +121,19 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
                 <>
                   <DropZoneArea
                     id="drop-top"
-                    label="Open on top (3-way)"
+                    label="Add on top (3 panels)"
                     icon={<PanelTop className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
                     id="drop-center"
-                    label="Open in middle (3-way)"
+                    label="Add in middle (3 panels)"
                     icon={<Columns3 className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
                     id="drop-bottom"
-                    label="Open on bottom (3-way)"
+                    label="Add on bottom (3 panels)"
                     icon={<PanelBottom className="w-6 h-6" />}
                     className="flex-1"
                   />
@@ -186,19 +186,19 @@ export const SplitViewDropZone: React.FC<SplitViewDropZoneProps> = ({
                 <>
                   <DropZoneArea
                     id="drop-left"
-                    label="Open on left (3-way)"
+                    label="Add on left (3 panels)"
                     icon={<PanelLeft className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
                     id="drop-center"
-                    label="Open in middle (3-way)"
+                    label="Add in middle (3 panels)"
                     icon={<Columns3 className="w-6 h-6" />}
                     className="flex-1"
                   />
                   <DropZoneArea
                     id="drop-right"
-                    label="Open on right (3-way)"
+                    label="Add on right (3 panels)"
                     icon={<PanelRight className="w-6 h-6" />}
                     className="flex-1"
                   />
