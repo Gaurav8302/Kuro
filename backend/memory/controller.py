@@ -1,4 +1,30 @@
 import json
+import re
+from typing import Dict, Any, List
+
+RECALL_PATTERNS = [
+    re.compile(r"\blast\s+time\b", re.IGNORECASE),
+    re.compile(r"\bprevious(ly|\s+session|\s+conversation)?\b", re.IGNORECASE),
+    re.compile(r"\bremember\b", re.IGNORECASE),
+    re.compile(r"\bwe\s+talked\s+about\b", re.IGNORECASE),
+    re.compile(r"\bdo\s+you\s+(know|remember|recall)\b", re.IGNORECASE),
+    re.compile(r"\brecall\b", re.IGNORECASE),
+    re.compile(r"\bearlier\b", re.IGNORECASE),
+    re.compile(r"\bpast\s+(conversation|session|chat)\b", re.IGNORECASE),
+    re.compile(r"\bbefore\s+we\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+did\s+(we|i|you)\s+(talk|discuss|say|mention)\b", re.IGNORECASE),
+    re.compile(r"\bi\s+(told|mentioned|said)\s+(you|that)\b", re.IGNORECASE),
+    re.compile(r"\byou\s+(said|told|mentioned)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+do\s+you\s+know\s+about\s+me\b", re.IGNORECASE),
+    re.compile(r"\bmy\s+(name|trip|plan|goal|project|job|work|stack|language|favorite|preference)\b", re.IGNORECASE),
+    re.compile(r"\bwho\s+am\s+i\b", re.IGNORECASE),
+    re.compile(r"\bcontinue\s+(where\s+we\s+left\s+off|our\s+work|from\s+before)\b", re.IGNORECASE),
+]
+
+DOC_PATTERNS = [
+    re.compile(r"\b(document|pdf|file|notes|doc|upload|uploaded|report)\b", re.IGNORECASE),
+]
+
 
 class MemoryController:
     def __init__(self, llm_client=None):
@@ -15,24 +41,51 @@ class MemoryController:
         }
         """
         default = {"use_memory": False, "types": [], "top_k": 0}
+        clean_input = (user_input or "").strip()
 
-        # If we have an LLM driven controller, we can formulate a prompt
-        if self.llm and user_input:
+        # 1. Fast deterministic check: Explicit memory recall triggers
+        if any(pat.search(clean_input) for pat in RECALL_PATTERNS):
+            types = ["fact", "preference", "event", "session_summary"]
+            if any(pat.search(clean_input) for pat in DOC_PATTERNS):
+                types.append("document_chunk")
+            return {"use_memory": True, "types": types, "top_k": 5}
+
+        # 2. Check intent signals from intent_data
+        intent = str(intent_data.get("intent", "general")).lower()
+        needs_memory = bool(intent_data.get("needs_memory", False))
+        raw_types = intent_data.get("memory_types", [])
+
+        if intent in ["personal", "project", "learning"] or needs_memory:
+            types = ["fact", "preference", "event", "session_summary"]
+            if raw_types:
+                for t in raw_types:
+                    ts = str(t).lower().strip()
+                    if ts.endswith("s"):
+                        ts = ts[:-1]
+                    if ts not in types:
+                        types.append(ts)
+            return {"use_memory": True, "types": types, "top_k": 5}
+
+        # 3. For casual/short chit-chat, skip retrieval to save latency
+        if intent == "casual" or len(clean_input.split()) <= 2:
+            return default
+
+        # 4. Optional fallback to LLM for complex queries if still undecided
+        if self.llm and clean_input and len(clean_input.split()) > 6:
             prompt = f"""
-            Analyze the user input and decide memory retrieval strategy.
-            User input: "{user_input}"
-            Detected intent: "{intent_data.get('intent', 'general')}"
-            
+            Analyze if this user input requires retrieving past long-term user memories.
+            User input: "{clean_input}"
+            Detected intent: "{intent}"
+
             Return JSON only:
             {{
                 "use_memory": true/false,
-                "types": ["facts", "preferences", "events"], 
-                "top_k": int (0-10)
+                "types": ["fact", "preference", "event", "session_summary"], 
+                "top_k": 5
             }}
             """
-            
             try:
-                response = await self.llm.generate(prompt) # Assuming generate logic exists in llm
+                response = await self.llm.generate(prompt)
                 text = response.strip()
                 if text.startswith("```json"): text = text.replace("```json", "", 1)
                 if text.startswith("```"): text = text.replace("```", "", 1)
@@ -43,28 +96,9 @@ class MemoryController:
                 if validated is not None:
                     return validated
             except Exception:
-                pass # Fallback to rule-based
+                pass
 
-        # Fallback to rule logic, taking the previous logic and enhancing it
-        if not intent_data.get("needs_memory"):
-            return default
-
-        intent = intent_data.get("intent", "general")
-
-        # dynamic rules
-        if intent in ["personal", "project", "learning"]:
-            return {"use_memory": True, "types": ["facts", "preferences", "events"], "top_k": 10}
-
-        if intent == "casual":
-            return default
-
-        types = intent_data.get("memory_types", [])
-        fallback = {
-            "use_memory": bool(types), 
-            "types": types, 
-            "top_k": 5
-        }
-        return self._validate_decision(fallback) or default
+        return default
 
     def _validate_decision(self, decision):
         if not isinstance(decision, dict):
@@ -86,6 +120,10 @@ class MemoryController:
                 normalized.append("preference")
             elif ts in ("event", "events"):
                 normalized.append("event")
+            elif ts in ("session_summary", "session_summaries", "summary", "summaries"):
+                normalized.append("session_summary")
+            elif ts in ("document_chunk", "document", "doc"):
+                normalized.append("document_chunk")
 
         try:
             top_k = int(decision.get("top_k", 0))
@@ -98,7 +136,7 @@ class MemoryController:
 
         normalized = list(dict.fromkeys(normalized))
         if not normalized:
-            return {"use_memory": False, "types": [], "top_k": 0}
+            normalized = ["fact", "preference", "session_summary"]
 
         return {
             "use_memory": True,

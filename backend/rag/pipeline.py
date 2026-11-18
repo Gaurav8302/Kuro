@@ -268,10 +268,14 @@ class DocumentChunker:
         chunk_size = self.config.CHUNK_SIZE
         overlap = self.config.CHUNK_OVERLAP
         
-        # Simple word-based chunking (can be replaced with token-based)
-        for i in range(0, len(words), chunk_size - overlap):
+        # Simple word-based chunking with small-document protection
+        step = max(1, chunk_size - overlap)
+        for i in range(0, len(words), step):
             chunk_words = words[i:i + chunk_size]
-            if len(chunk_words) < self.config.MIN_CHUNK_SIZE:
+            if not chunk_words:
+                break
+            # Only break for small tail if we already produced at least one chunk
+            if len(chunk_words) < self.config.MIN_CHUNK_SIZE and chunks:
                 break
             
             chunk_text = " ".join(chunk_words)
@@ -325,7 +329,24 @@ class DocumentProcessor:
     def __init__(self):
         self.validator = IngestionValidator()
         self.chunker = DocumentChunker()
-    
+
+    def ingest_document(
+        self,
+        file_content: bytes,
+        filename: str,
+        user_id: str,
+        mime_type: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Convenience alias for process_document."""
+        return self.process_document(
+            file_content=file_content,
+            filename=filename,
+            user_id=user_id,
+            mime_type=mime_type,
+            metadata=metadata,
+        )
+
     def process_document(
         self,
         file_content: bytes,
@@ -371,13 +392,39 @@ class DocumentProcessor:
         chunker = DocumentChunker()
         chunks = chunker.chunk_text(text, document_id, provenance)
         
-        # Generate embeddings and store
-        chunk_data = []
+        # Generate embeddings and store in Pinecone
+        vectors_to_upsert = []
         for chunk in chunks:
             chunk.embedding = embed_text(chunk.text, task_type="retrieval_document")
             chunk.embedding_model = "gemini-embedding-001"
             chunk.embedding_dim = 768
             chunk.provenance["user_id"] = user_id
+
+            meta = {
+                "id": chunk.chunk_id,
+                "document_id": document_id,
+                "chunk_id": chunk.chunk_id,
+                "text": chunk.text[:2000],
+                "content": chunk.text[:2000],
+                "user_id": user_id,
+                "user": user_id,
+                "type": "document_chunk",
+                "category": "document_chunk",
+                "filename": safe_filename,
+                "importance": 7.0,
+                "page_number": chunk.page_number or 1,
+            }
+            vectors_to_upsert.append((chunk.chunk_id, chunk.embedding, meta))
+
+        try:
+            from db.pinecone import _get_index
+            index = _get_index()
+            if index and vectors_to_upsert:
+                for i in range(0, len(vectors_to_upsert), 100):
+                    index.upsert(vectors=vectors_to_upsert[i : i + 100])
+                logger.info("Upserted %d document chunks to Pinecone for doc %s", len(vectors_to_upsert), document_id)
+        except Exception as e:
+            logger.error("Failed to upsert document chunks to Pinecone: %s", e)
         
         return {
             "document_id": document_id,

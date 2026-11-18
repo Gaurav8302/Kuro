@@ -71,11 +71,19 @@ class ChatManagerV3:
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
-        # 5. BUILD PROMPT
+        # 5. FETCH USER PROFILE & BUILD PROMPT
+        user_profile = None
+        try:
+            from memory.user_profile import get_user_profile
+            user_profile = get_user_profile(user_id)
+        except Exception as prof_err:
+            logger.debug("Could not load user profile for %s: %s", user_id, prof_err)
+
         prompt = self.prompt_builder.build(
             user_input=user_input,
             chat_history=chat_history,
             memories=retrieved_memories,
+            user_profile=user_profile,
         )
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)
@@ -132,6 +140,26 @@ class ChatManagerV3:
     # =====================================================
 
     async def _analyze_intent(self, user_input: str) -> Dict:
+        clean_text = (user_input or "").strip()
+        words = clean_text.split()
+
+        # Fast path 1: Explicit recall phrases -> immediate memory intent
+        from memory.controller import RECALL_PATTERNS
+        if any(pat.search(clean_text) for pat in RECALL_PATTERNS):
+            return {
+                "intent": "personal",
+                "needs_memory": True,
+                "memory_types": ["fact", "preference", "event", "session_summary"],
+            }
+
+        # Fast path 2: Short casual banter -> general intent, no memory needed
+        if len(words) <= 3 and any(w.lower() in {"hi", "hello", "hey", "sup", "yo", "morning", "thanks", "ok", "cool"} for w in words):
+            return {
+                "intent": "casual",
+                "needs_memory": False,
+                "memory_types": [],
+            }
+
         prompt = f"""
         Classify user intent.
 

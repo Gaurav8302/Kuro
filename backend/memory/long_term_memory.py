@@ -168,14 +168,19 @@ class LongTermMemory:
             self._ensure_clients()
             vec = self._embedding_fn(summary)
             meta = {
-                "text": summary[:2000],  # Pinecone metadata limit
+                "id": f"sess_summary_{session_id}_{uuid.uuid4().hex[:8]}",
+                "text": summary[:2000],
+                "content": summary[:2000],
                 "user_id": user_id,
+                "user": user_id,
                 "session_id": session_id,
                 "summary_type": "session_summary",
+                "type": "session_summary",
+                "category": "session_summary",
+                "importance": 7.0,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "user": user_id,  # compat with existing filter patterns
             }
-            vec_id = f"sess_summary_{session_id}_{uuid.uuid4().hex[:8]}"
+            vec_id = meta["id"]
             self._index.upsert([(vec_id, vec, meta)])
             logger.info(
                 "LongTermMemory: stored summary for session %s (%d chars)",
@@ -209,7 +214,7 @@ class LongTermMemory:
                 vector=query_vec,
                 top_k=top_k,
                 include_metadata=True,
-                filter={"user": user_id},
+                filter={"user_id": {"$eq": user_id}},
             )
             out = []
             for match in results.matches:

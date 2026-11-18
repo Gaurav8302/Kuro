@@ -98,13 +98,32 @@ def upsert_vector(vec_id, text, user_id, memory_type, importance):
     if not index:
         return
 
+    # Normalize memory type to string value
+    if hasattr(memory_type, "value"):
+        type_str = str(memory_type.value).lower().strip()
+    elif memory_type is not None:
+        type_str = str(memory_type).lower().strip()
+    else:
+        type_str = "fact"
+
+    # Normalize importance
+    imp_val = 5.0
+    if importance is not None:
+        try:
+            imp_val = float(importance)
+        except (ValueError, TypeError):
+            imp_val = 5.0
+
     vec = embed_text(text, task_type="retrieval_document")
     metadata = {
         "id": str(vec_id),
         "content": text,
+        "text": text,
         "user_id": user_id,
-        "type": memory_type,
-        "importance": float(importance) if importance is not None else 5.0,
+        "user": user_id,
+        "type": type_str,
+        "category": type_str,
+        "importance": imp_val,
         "embedding_model": EMBEDDING_MODEL,
         "embedding_dim": EMBEDDING_DIMENSION,
     }
@@ -126,7 +145,20 @@ def query_vectors(query, user_id, memory_types, top_k):
     vec = embed_text(query, task_type="retrieval_query")
     filter_dict = {"user_id": {"$eq": user_id}}
     if memory_types:
-        filter_dict["type"] = {"$in": list(memory_types)}
+        norm_types = set()
+        for t in memory_types:
+            if hasattr(t, "value"):
+                ts = str(t.value).lower().strip()
+            else:
+                ts = str(t).lower().strip()
+            norm_types.add(ts)
+            # Add singular and plural forms for robust filtering
+            if ts.endswith("s") and len(ts) > 1:
+                norm_types.add(ts[:-1])
+            else:
+                norm_types.add(ts + "s")
+        if "all" not in norm_types:
+            filter_dict["type"] = {"$in": list(norm_types)}
 
     try:
         results = index.query(
@@ -137,7 +169,7 @@ def query_vectors(query, user_id, memory_types, top_k):
         )
         return [
             {
-                "text": match.metadata.get("content", ""),
+                "text": match.metadata.get("content") or match.metadata.get("text", ""),
                 "score": float(getattr(match, "score", 0.0) or 0.0),
                 "metadata": dict(getattr(match, "metadata", {}) or {}),
             }

@@ -29,99 +29,140 @@ class MemoryUpdater:
         return self._llm
 
     async def process(self, user_id, user_input, assistant_response):
-        """Process a conversation turn and extract memories with provenance."""
-        extracted = await self.extract_memory(user_input, assistant_response)
+        """Process a conversation turn and extract memories with provenance in a single batch."""
+        extracted_items = await self.extract_memory_batch(user_input, assistant_response)
 
         type_map = {
-            "facts": MemoryType.FACT,
-            "preferences": MemoryType.PREFERENCE,
-            "events": MemoryType.EVENT,
             "fact": MemoryType.FACT,
             "preference": MemoryType.PREFERENCE,
             "event": MemoryType.EVENT,
+            "facts": MemoryType.FACT,
+            "preferences": MemoryType.PREFERENCE,
+            "events": MemoryType.EVENT,
         }
 
-        for mem_type_str, items in extracted.items():
-            normalized_type = type_map.get(str(mem_type_str).lower())
-            if not normalized_type:
+        for item in extracted_items:
+            content = (item.get("content") or "").strip()
+            if not content:
                 continue
-            for content in items:
-                if not isinstance(content, str) or not content.strip():
-                    continue
-                importance = await self.score_importance(content)
 
-                # Create memory record with full provenance
-                memory = MemoryRecord(
-                    user_id=user_id,
-                    memory_type=normalized_type,
-                    content=content.strip(),
-                    importance=importance,
-                    created_at=datetime.now(timezone.utc),
-                    updated_at=datetime.now(timezone.utc),
-                    provenance=MemoryProvenance(
-                        source=MemorySource.EXTRACTED_BY_LLM,
-                        extraction_model="mid",  # or actual model name
-                        extraction_timestamp=datetime.now(timezone.utc),
-                        confidence=0.7,  # Default confidence for LLM extraction
-                        tags=["auto_extracted"]
-                    ),
-                    embedding_model="gemini-embedding-001",
-                )
+            raw_type = str(item.get("type", "fact")).lower().strip()
+            normalized_type = type_map.get(raw_type, MemoryType.FACT)
 
-                # Validate before storing
-                errors = MemoryValidator.validate(memory)
-                if errors:
-                    logger.warning(f"Memory validation failed for user {user_id}: {errors}")
-                    continue
+            try:
+                importance = float(item.get("importance", 5.0))
+            except (ValueError, TypeError):
+                importance = 5.0
 
-                # Sanitize to remove any potential sensitive data
-                memory = MemoryValidator.sanitize(memory)
+            # Create memory record with full provenance
+            memory = MemoryRecord(
+                user_id=user_id,
+                memory_type=normalized_type,
+                content=content,
+                importance=importance,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                provenance=MemoryProvenance(
+                    source=MemorySource.EXTRACTED_BY_LLM,
+                    extraction_model="mid",
+                    extraction_timestamp=datetime.now(timezone.utc),
+                    confidence=0.8,
+                    tags=["auto_extracted"]
+                ),
+                embedding_model="gemini-embedding-001",
+            )
 
+            # Validate before storing
+            errors = MemoryValidator.validate(memory)
+            if errors:
+                logger.warning("Memory validation failed for user %s: %s", user_id, errors)
+                continue
+
+            # Sanitize to remove any potential sensitive data
+            memory = MemoryValidator.sanitize(memory)
+
+            try:
                 await self._upsert(memory)
+            except Exception as e:
+                logger.error("Failed to upsert extracted memory for user %s: %s", user_id, e)
 
-    async def extract_memory(self, user_input, response):
-        """Extract memory from conversation using LLM."""
-        prompt = f"""Extract memory from the following conversation.
+    async def extract_memory_batch(self, user_input: str, response: str) -> List[Dict[str, Any]]:
+        """Extract memory items in a single consolidated LLM call."""
+        words = (user_input or "").strip().split()
+        if len(words) <= 2 and any(w.lower() in {"hi", "hello", "hey", "thanks", "ok", "bye", "cool"} for w in words):
+            return []
 
-Return JSON:
-{{
-    "facts": ["..."],
-    "preferences": ["..."],
-    "events": ["..."]
-}}
+        prompt = f"""Extract notable long-term facts, user preferences, personal details, or ongoing projects from this conversation.
+Only extract lasting facts worth remembering across future sessions. Do NOT extract transient conversation or generic banter.
+
+Return a JSON list:
+[
+  {{
+    "type": "fact",  // "fact" | "preference" | "event"
+    "content": "...",
+    "importance": 7.0  // 1-10 scale
+  }}
+]
+
+If there are no lasting facts or preferences to extract, return: []
 
 Conversation:
 User: {user_input}
 Assistant: {response}"""
 
-        result = await self.llm.generate(prompt)
-
         try:
-            text = result.strip()
+            result = await self.llm.generate(prompt)
+            text = (result or "").strip()
             if text.startswith("```json"):
                 text = text.replace("```json", "", 1)
             if text.startswith("```"):
                 text = text.replace("```", "", 1)
             if text.endswith("```"):
                 text = text[:-3]
-            return json.loads(text.strip())
+
+            parsed = json.loads(text.strip())
+            if isinstance(parsed, list):
+                return parsed
+            elif isinstance(parsed, dict):
+                # Fallback if model returned dictionary with keys
+                items = []
+                for k, vals in parsed.items():
+                    k_norm = "preference" if "pref" in k else ("event" if "event" in k else "fact")
+                    if isinstance(vals, list):
+                        for v in vals:
+                            if isinstance(v, str) and v.strip():
+                                items.append({"content": v.strip(), "type": k_norm, "importance": 6.0})
+                            elif isinstance(v, dict) and v.get("content"):
+                                items.append(v)
+                return items
+            return []
         except Exception as e:
-            logger.warning(f"Failed to parse memory extraction: {e}")
-            return {"facts": [], "preferences": [], "events": []}
+            logger.warning("Failed to extract memory batch: %s", e)
+            return []
+
+    async def extract_memory(self, user_input, response):
+        """Backward-compatible extraction helper."""
+        batch = await self.extract_memory_batch(user_input, response)
+        out = {"facts": [], "preferences": [], "events": []}
+        for item in batch:
+            t = item.get("type", "fact").lower()
+            c = item.get("content", "")
+            if "pref" in t:
+                out["preferences"].append(c)
+            elif "event" in t:
+                out["events"].append(c)
+            else:
+                out["facts"].append(c)
+        return out
 
     async def score_importance(self, content):
-        prompt = f"""Rate importance (1-10) of the following memory fact:
-"{content}"
-Return ONLY the integer."""
-
-        result = await self.llm.generate(prompt)
-
-        try:
-            return float(result.strip())
-        except:
-            return 5.0
+        """Backward-compatible importance scorer."""
+        return 5.0
 
     async def resolve_conflict(self, old_content, new_content):
+        if old_content.strip().lower() == new_content.strip().lower():
+            return old_content
+
         prompt = f"""Resolve conflict between these two related memories. Keep the most up-to-date and accurate information. Combine them if they are both valid but slightly different aspects.
 
 Old: {old_content}
@@ -129,7 +170,10 @@ New: {new_content}
 
 Return ONLY the best unified version of the memory."""
 
-        return await self.llm.generate(prompt)
+        try:
+            return await self.llm.generate(prompt)
+        except Exception:
+            return new_content
 
     async def _upsert(self, memory: 'MemoryRecord'):
         """Upsert memory with conflict resolution and provenance tracking."""
@@ -211,6 +255,8 @@ Return ONLY the best unified version of the memory."""
             mongo_doc["provenance"] = memory.provenance.__dict__
             mongo_doc["status"] = memory.status.value
             mongo_doc["version"] = memory.version
+            mongo_doc["type"] = memory.memory_type.value
+            mongo_doc["memory_type"] = memory.memory_type.value
             
             inserted_id = insert_memory(mongo_doc)
             memory.memory_id = str(inserted_id)

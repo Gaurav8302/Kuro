@@ -99,6 +99,15 @@ def register_shutdown_handler(handler):
 
 def graceful_shutdown(signum=None, frame=None):
     """Handle graceful shutdown"""
+    if signum == "ATEXIT":
+        # Don't log to streams that may already be closed during python exit
+        try:
+            from database.db import get_database_connection
+            get_database_connection().close_connection()
+        except Exception:
+            pass
+        return
+
     logger.info(f"🛑 Graceful shutdown initiated (signal: {signum})")
     
     # Call all registered shutdown handlers
@@ -255,7 +264,47 @@ def _auto_summarize_previous_session(user_id: str):
     """Find the user's most recent session with messages and summarize it
     into Pinecone (long-term memory) if not already summarized.
     Runs in a background thread to avoid blocking the session creation response."""
-    logger.info("Auto-summarization disabled in unified memory mode for user %s", user_id)
+    import threading
+    from datetime import datetime, timezone
+    def _do_summarize():
+        try:
+            from memory.long_term_memory import long_term_memory
+            from memory.chat_database import get_chat_by_session, chat_db
+            sessions = chat_db.get_all_chats_by_user(user_id)
+            if not sessions:
+                return
+            latest_session_id = sessions[0].get("session_id")
+            if not latest_session_id:
+                return
+
+            session_meta = chat_db.session_titles.find_one({"session_id": latest_session_id, "user_id": user_id})
+            if session_meta and session_meta.get("summarized"):
+                return
+
+            raw_chats = get_chat_by_session(latest_session_id, user_id)
+            if len(raw_chats) < 2:
+                return
+
+            messages = []
+            for c in raw_chats:
+                if c.get("user"):
+                    messages.append({"role": "user", "content": c["user"]})
+                if c.get("assistant"):
+                    messages.append({"role": "assistant", "content": c["assistant"]})
+
+            summary = long_term_memory.summarize_session(user_id, latest_session_id, messages)
+            if summary:
+                chat_db.session_titles.update_one(
+                    {"session_id": latest_session_id, "user_id": user_id},
+                    {"$set": {"summarized": True, "summary": summary, "summarized_at": datetime.now(timezone.utc)}},
+                    upsert=True
+                )
+                logger.info("Auto-summarized session %s for user %s", latest_session_id, user_id)
+        except Exception as exc:
+            logger.warning("Auto-summarization thread encountered error: %s", exc)
+
+    thread = threading.Thread(target=_do_summarize, daemon=True)
+    thread.start()
 
 # Pydantic models for request/response validation
 class MemoryInput(BaseModel):
@@ -508,6 +557,54 @@ def retrieve_memories(payload: QueryInput, principal: AuthenticatedPrincipal = D
         logger.error(f"Error retrieving memories: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve memories: {str(e)}")
 
+# Document RAG endpoints
+class DocumentIngestInput(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1)
+    mime_type: Optional[str] = Field(default="text/plain")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+@app.post("/documents/ingest", tags=["RAG"])
+def ingest_document_endpoint(payload: DocumentIngestInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
+    """Ingest a text document into the RAG vector store with provenance tracking."""
+    try:
+        from rag.pipeline import DocumentProcessor
+        processor = DocumentProcessor()
+        file_bytes = payload.content.encode("utf-8")
+        result = processor.ingest_document(
+            file_content=file_bytes,
+            filename=payload.filename,
+            user_id=principal.user_id,
+            mime_type=payload.mime_type or "text/plain",
+            metadata=payload.metadata,
+        )
+        return {
+            "status": "success",
+            "document_id": result["document_id"],
+            "filename": result["filename"],
+            "chunk_count": result["chunk_count"],
+            "total_tokens": result["total_tokens"],
+        }
+    except Exception as e:
+        logger.error("Document ingestion error: %s", e)
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@app.post("/documents/search", tags=["RAG"])
+def search_documents_endpoint(payload: QueryInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
+    """Search ingested document chunks for the authenticated user."""
+    try:
+        from db.pinecone import query_vectors
+        results = query_vectors(
+            query=payload.query,
+            user_id=principal.user_id,
+            memory_types=["document_chunk"],
+            top_k=payload.top_k,
+        )
+        return {"query": payload.query, "results": results}
+    except Exception as e:
+        logger.error("Document search error: %s", e)
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 # Chat endpoints
 @app.post("/chat", tags=["Chat"], response_model=ChatResponse)
 async def chat_endpoint(chat_message: ChatInput, principal: AuthenticatedPrincipal = Depends(get_current_principal)):
@@ -582,7 +679,7 @@ async def chat_endpoint(chat_message: ChatInput, principal: AuthenticatedPrincip
         else:
             db_history = get_chat_by_session(effective_session_id, user_id)
             chat_history: list[dict[str, str]] = []
-            for turn in db_history[-20:]:
+            for turn in db_history[-30:]:
                 user_msg = str(turn.get("user", "") or turn.get("message", "") or "").strip()
                 assistant_msg = str(turn.get("assistant", "") or turn.get("reply", "") or "").strip()
                 if user_msg:
@@ -799,16 +896,50 @@ def summarize_session(session_id: str, user_id: Optional[str] = None, principal:
     Call this when a session is considered "closed" or when the user
     explicitly wants to archive their conversation context.
     """
+    from datetime import datetime, timezone
+    from memory.long_term_memory import long_term_memory
+    from memory.chat_database import get_chat_by_session, chat_db
+
     user_id = _assert_same_user(user_id, principal)
     if not chat_db.session_belongs_to_user(session_id, user_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    logger.info("Session summarization endpoint disabled in unified memory mode")
-    return {
-        "status": "disabled",
-        "reason": "Long-term session summarization disabled in unified memory mode",
-        "session_id": session_id,
-        "user_id": user_id,
-    }
+
+    raw_chats = get_chat_by_session(session_id, user_id)
+    if len(raw_chats) < 1:
+        return {
+            "status": "skipped",
+            "reason": "Session has no messages to summarize",
+            "session_id": session_id,
+            "user_id": user_id,
+        }
+
+    messages = []
+    for c in raw_chats:
+        if c.get("user"):
+            messages.append({"role": "user", "content": c["user"]})
+        if c.get("assistant"):
+            messages.append({"role": "assistant", "content": c["assistant"]})
+
+    summary = long_term_memory.summarize_session(user_id, session_id, messages)
+    if summary:
+        chat_db.session_titles.update_one(
+            {"session_id": session_id, "user_id": user_id},
+            {"$set": {"summarized": True, "summary": summary, "summarized_at": datetime.now(timezone.utc)}},
+            upsert=True
+        )
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "user_id": user_id,
+            "summary": summary,
+        }
+    else:
+        return {
+            "status": "skipped",
+            "reason": "Session too short to generate summary",
+            "session_id": session_id,
+            "user_id": user_id,
+        }
 
 # Enhanced Memory Management endpoints
 @app.get("/user/{user_id}/context", tags=["Memory"])

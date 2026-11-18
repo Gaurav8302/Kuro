@@ -14,16 +14,30 @@ def insert_memory(memory):
     if not isinstance(user_id, str) or not user_id.strip():
         raise ValueError("Memory owner is required")
     memory["created_at"] = datetime.utcnow()
-    # Ensure memory['content'] exists
+    
+    # Normalize type across schemas
+    raw_type = memory.get("memory_type") or memory.get("type") or "fact"
+    if hasattr(raw_type, "value"):
+        type_str = str(raw_type.value).lower().strip()
+    else:
+        type_str = str(raw_type).lower().strip()
+    memory["type"] = type_str
+    memory["memory_type"] = type_str
+
     inserted_id = memories_collection().insert_one(memory).inserted_id
-    # sync to pinecone
-    upsert_vector(
-        vec_id=str(inserted_id),
-        text=memory.get("content", ""),
-        user_id=memory.get("user_id"),
-        memory_type=memory.get("type"),
-        importance=memory.get("importance", 5)
-    )
+    
+    # Sync to pinecone safely
+    try:
+        upsert_vector(
+            vec_id=str(inserted_id),
+            text=memory.get("content", ""),
+            user_id=user_id,
+            memory_type=type_str,
+            importance=memory.get("importance", 5)
+        )
+    except Exception as e:
+        logger.error("Failed to sync new memory %s to Pinecone: %s", inserted_id, e)
+
     return inserted_id
 
 def find_similar_memory_semantic(content, user_id, memory_types=None, min_score=0.85):
@@ -56,6 +70,13 @@ def update_memory(memory_id, new_data, user_id):
     if not isinstance(user_id, str) or not user_id.strip():
         raise ValueError("Memory owner is required")
     new_data["updated_at"] = datetime.utcnow()
+
+    if "memory_type" in new_data or "type" in new_data:
+        raw_type = new_data.get("memory_type") or new_data.get("type") or "fact"
+        type_str = raw_type.value if hasattr(raw_type, "value") else str(raw_type).lower().strip()
+        new_data["type"] = type_str
+        new_data["memory_type"] = type_str
+
     obj_id = ObjectId(memory_id) if isinstance(memory_id, str) else memory_id
     memories_collection().update_one(
         {"_id": obj_id, "user_id": user_id},
@@ -65,13 +86,18 @@ def update_memory(memory_id, new_data, user_id):
     # query to get full data for pinecone upsert
     updated_doc = memories_collection().find_one({"_id": obj_id, "user_id": user_id})
     if updated_doc:
-        upsert_vector(
-            vec_id=str(updated_doc["_id"]),
-            text=updated_doc.get("content", ""),
-            user_id=updated_doc.get("user_id"),
-            memory_type=updated_doc.get("type"),
-            importance=updated_doc.get("importance", 5)
-        )
+        raw_type = updated_doc.get("memory_type") or updated_doc.get("type") or "fact"
+        type_str = raw_type.value if hasattr(raw_type, "value") else str(raw_type).lower().strip()
+        try:
+            upsert_vector(
+                vec_id=str(updated_doc["_id"]),
+                text=updated_doc.get("content", ""),
+                user_id=updated_doc.get("user_id"),
+                memory_type=type_str,
+                importance=updated_doc.get("importance", 5)
+            )
+        except Exception as e:
+            logger.error("Failed to sync updated memory %s to Pinecone: %s", memory_id, e)
 
 
 def reinforce_memories(memory_ids, user_id):
