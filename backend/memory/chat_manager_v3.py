@@ -73,17 +73,25 @@ class ChatManagerV3:
 
         # 5. FETCH USER PROFILE & BUILD PROMPT
         user_profile = None
+        core_facts = []
         try:
             from memory.user_profile import get_user_profile
             user_profile = get_user_profile(user_id)
         except Exception as prof_err:
             logger.debug("Could not load user profile for %s: %s", user_id, prof_err)
 
+        try:
+            from db.mongo import get_active_user_facts
+            core_facts = get_active_user_facts(user_id, limit=8)
+        except Exception as facts_err:
+            logger.debug("Could not load active facts for %s: %s", user_id, facts_err)
+
         prompt = self.prompt_builder.build(
             user_input=user_input,
             chat_history=chat_history,
             memories=retrieved_memories,
             user_profile=user_profile,
+            core_facts=core_facts,
         )
         style_intent = self._normalize_style_intent(intent_data, user_input)
         model_type = self._model_type_for_style_intent(style_intent)
@@ -158,6 +166,21 @@ class ChatManagerV3:
                 "intent": "casual",
                 "needs_memory": False,
                 "memory_types": [],
+            }
+
+        # Fast path 3: Context-rich natural queries -> immediate memory-enabled intent without LLM latency
+        query = clean_text.lower()
+        if any(w in query for w in {"code", "coding", "programming", "debug", "bug", "refactor", "function", "api", "script", "rust", "tokio", "redis", "queue"}):
+            return {
+                "intent": "code",
+                "needs_memory": True,
+                "memory_types": ["fact", "preference", "event"],
+            }
+        if any(w in query for w in {"trail", "trails", "park", "dog", "walk", "trip", "travel", "vacation", "run", "running", "marathon", "diet", "coffee", "tea", "drink", "book", "read", "camera", "lens", "hike"}):
+            return {
+                "intent": "personal",
+                "needs_memory": True,
+                "memory_types": ["fact", "preference", "event", "session_summary"],
             }
 
         prompt = f"""

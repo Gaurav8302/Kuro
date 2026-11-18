@@ -143,3 +143,34 @@ def delete_user_memories(user_id: str) -> int:
         except Exception as e:
             logger.warning("Failed to delete vectors for user %s: %s", user_id, e)
     return result.deleted_count
+
+
+def get_active_user_facts(user_id: str, limit: int = 8) -> list:
+    """Retrieve top active long-term facts and preferences for user working memory context."""
+    if not isinstance(user_id, str) or not user_id.strip():
+        return []
+    try:
+        cursor = memories_collection().find(
+            {
+                "user_id": user_id,
+                "$or": [
+                    {"status": "active"},
+                    {"status": {"$exists": False}},
+                ],
+            },
+            sort=[("importance", -1), ("updated_at", -1), ("created_at", -1)],
+            limit=limit,
+        )
+        facts = []
+        for doc in cursor:
+            content = doc.get("content") or doc.get("text")
+            if content and str(content).strip():
+                facts.append({
+                    "content": str(content).strip(),
+                    "type": doc.get("type") or doc.get("memory_type", "fact"),
+                    "importance": float(doc.get("importance", 5.0) or 5.0),
+                })
+        return facts
+    except Exception as e:
+        logger.warning("Failed to retrieve active user facts for %s: %s", user_id, e)
+        return []

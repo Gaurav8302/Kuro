@@ -9,9 +9,11 @@ class PromptBuilder:
         memories: Optional[List[Dict[str, Any]]] = None,
         user_profile: Optional[Dict[str, Any]] = None,
         session_summary: Optional[str] = None,
+        core_facts: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         memory_section = self._format_memories(memories)
         profile_section = self._format_profile(user_profile)
+        core_facts_section = self._format_core_facts(core_facts)
 
         # In-session history: keep last 20 messages (10 exchanges)
         recent_history = chat_history[-20:] if chat_history else []
@@ -48,6 +50,9 @@ class PromptBuilder:
         if profile_section != "None":
             prompt_parts.extend(["", "User Profile:", profile_section])
 
+        if core_facts_section:
+            prompt_parts.extend(["", "Known Core User Background & Preferences:", core_facts_section])
+
         if memory_section != "None":
             prompt_parts.extend(["", "Relevant Past Context & Long-Term Memory:", memory_section])
 
@@ -62,9 +67,11 @@ class PromptBuilder:
             f"User: {user_input}",
             "",
             "Instructions:",
-            "- Incorporate known context smoothly if relevant to the user's inquiry.",
+            "- Natural Grounding: Seamlessly apply known user background, projects, preferences, and past context whenever relevant.",
+            "- Do NOT announce memory retrieval robotically (never say 'According to my records', 'I remember you said', or 'As you mentioned earlier'). Simply speak as a perceptive, attentive collaborator who naturally knows their background.",
+            "- Tailor your answers directly to their specific setup (e.g., their tech stack, pet, gear, routine, travel plans) when the context calls for it.",
             "- Maintain continuity with previous turns.",
-            "- Answer directly and avoid unnecessary filler or preambles.",
+            "- Answer directly, with helpful and contextual depth, avoiding generic or repetitive preambles.",
         ])
 
         return "\n".join(prompt_parts)
@@ -80,6 +87,20 @@ class PromptBuilder:
             if k not in {"name", "_id", "user_id", "intro_shown"} and v:
                 lines.append(f"- {k}: {v}")
         return "\n".join(lines) if lines else "None"
+
+    def _format_core_facts(self, core_facts: Optional[List[Dict[str, Any]]]) -> str:
+        if not core_facts:
+            return ""
+        lines = []
+        for f in core_facts[:8]:
+            if isinstance(f, dict):
+                content = (f.get("content") or f.get("text") or "").strip()
+                mtype = str(f.get("type") or f.get("category") or "fact").capitalize()
+                if content:
+                    lines.append(f"- [{mtype}] {content}")
+            elif isinstance(f, str) and f.strip():
+                lines.append(f"- [Fact] {f.strip()}")
+        return "\n".join(lines) if lines else ""
 
     def _format_memories(self, memories: Optional[List[Dict[str, Any]]]) -> str:
         if not memories:

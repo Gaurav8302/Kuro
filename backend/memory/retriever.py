@@ -95,14 +95,31 @@ class MemoryRetriever:
                 pass
 
         # Fast, deterministic hybrid reranker (Cosine Similarity + Importance + Lexical Overlap)
-        query_words = set(query.lower().split())
+        import re
+        def _stem(w):
+            cw = re.sub(r"[^\w]", "", str(w).lower())
+            if cw.endswith("s") and len(cw) > 3:
+                return cw[:-1]
+            return cw
+
+        query_words = {_stem(w) for w in query.split() if len(w) > 2}
+
         def _score(m):
             sim = max(0.0, min(1.0, float(m.get("score", 0.0) or 0.0)))
             raw_imp = float(m.get("metadata", {}).get("importance", 5.0) or 5.0)
             norm_imp = (raw_imp / 10.0) if raw_imp > 1.0 else max(0.0, min(1.0, raw_imp))
-            text_words = set(m.get("text", "").lower().split())
+            text_words = {_stem(w) for w in m.get("text", "").split() if len(w) > 2}
             overlap = len(query_words & text_words) / max(len(query_words), 1) if query_words else 0.0
             return (sim * 0.70) + (norm_imp * 0.20) + (min(overlap, 1.0) * 0.10)
 
-        sorted_memories = sorted(memories, key=_score, reverse=True)
+        # Only retain candidates with semantic similarity or lexical relevance to avoid cluttering unrelated prompts
+        candidates = []
+        for m in memories:
+            sim = max(0.0, min(1.0, float(m.get("score", 0.0) or 0.0)))
+            text_words = {_stem(w) for w in m.get("text", "").split() if len(w) > 2}
+            overlap = len(query_words & text_words)
+            if overlap > 0 or sim >= 0.15:
+                candidates.append(m)
+
+        sorted_memories = sorted(candidates, key=_score, reverse=True)
         return sorted_memories[:top_k]

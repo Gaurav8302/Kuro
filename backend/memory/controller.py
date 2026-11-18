@@ -73,38 +73,16 @@ class MemoryController:
             return {"use_memory": True, "types": types, "top_k": 5}
 
         # 3. For casual/short chit-chat, skip retrieval to save latency
-        if intent == "casual" or len(clean_input.split()) <= 2:
+        words = clean_input.split()
+        casual_greetings = {"hi", "hello", "hey", "sup", "yo", "thanks", "thank", "ok", "okay", "cool", "bye", "goodbye", "gm", "gn"}
+        if intent == "casual" or (len(words) <= 2 and any(w.lower() in casual_greetings for w in words)):
             return default
 
-        # 4. Optional fallback to LLM for complex queries if still undecided
-        if self.llm and clean_input and len(clean_input.split()) > 6:
-            prompt = f"""
-            Analyze if this user input requires retrieving past long-term user memories.
-            User input: "{clean_input}"
-            Detected intent: "{intent}"
-
-            Return JSON only:
-            {{
-                "use_memory": true/false,
-                "types": ["fact", "preference", "event", "session_summary"], 
-                "top_k": 5
-            }}
-            """
-            try:
-                response = await self.llm.generate(prompt)
-                text = response.strip()
-                if text.startswith("```json"): text = text.replace("```json", "", 1)
-                if text.startswith("```"): text = text.replace("```", "", 1)
-                if text.endswith("```"): text = text[:-3]
-                
-                decision = json.loads(text.strip())
-                validated = self._validate_decision(decision)
-                if validated is not None:
-                    return validated
-            except Exception:
-                pass
-
-        return default
+        # 4. Transparent semantic probing for all substantive queries (ChatGPT style)
+        types = ["fact", "preference", "event", "session_summary"]
+        if any(pat.search(clean_input) for pat in DOC_PATTERNS):
+            types.append("document_chunk")
+        return {"use_memory": True, "types": types, "top_k": 4}
 
     def _validate_decision(self, decision):
         if not isinstance(decision, dict):
