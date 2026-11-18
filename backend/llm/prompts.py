@@ -10,6 +10,8 @@ class PromptBuilder:
         user_profile: Optional[Dict[str, Any]] = None,
         session_summary: Optional[str] = None,
         core_facts: Optional[List[Dict[str, Any]]] = None,
+        active_skill: Optional[Any] = None,
+        search_results: Optional[Dict[str, Any]] = None,
     ) -> str:
         memory_section = self._format_memories(memories)
         profile_section = self._format_profile(user_profile)
@@ -46,6 +48,18 @@ class PromptBuilder:
             "- Reference user context and past discussions naturally when relevant; do not repeat facts robotically.",
             "- If the user message is brief, keep your response direct and conversational.",
         ]
+
+        if active_skill:
+            skill_name = getattr(active_skill, "name", str(active_skill)).replace("_", " ").title()
+            skill_prompt = getattr(active_skill, "system_prompt", "")
+            if skill_prompt:
+                prompt_parts.extend(["", f"Active Skill Mode ({skill_name}):", skill_prompt])
+
+        if search_results and search_results.get("has_results"):
+            from tools.web_search import format_search_results_for_prompt
+            search_section = format_search_results_for_prompt(search_results)
+            if search_section:
+                prompt_parts.extend(["", search_section])
 
         if profile_section != "None":
             prompt_parts.extend(["", "User Profile:", profile_section])

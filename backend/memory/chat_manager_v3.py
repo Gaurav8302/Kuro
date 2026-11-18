@@ -29,6 +29,8 @@ class ChatManagerV3:
         session_id: str,
         user_input: str,
         chat_history: List[Dict[str, str]],
+        skill: str = "auto",
+        search_mode: bool = False,
     ) -> Dict[str, Any]:
         # 1. INTENT ANALYSIS (best-effort; do not fail the chat turn)
         try:
@@ -71,7 +73,33 @@ class ChatManagerV3:
         logger.debug("INTENT: %s", intent_data)
         logger.debug("MEMORIES: %s", retrieved_memories)
 
-        # 5. FETCH USER PROFILE & BUILD PROMPT
+        # 5. SKILL RESOLUTION & LIVE WEB SEARCH
+        active_skill = None
+        try:
+            from skills.skill_manager import skill_manager
+            active_skill = skill_manager.resolve_skill(skill, user_input)
+            if active_skill:
+                logger.info("Active skill resolved: %s (mode=%s)", active_skill.name, skill)
+        except Exception as skill_err:
+            logger.warning("Skill resolution failed: %s", skill_err)
+
+        search_results = None
+        suggest_search = False
+        try:
+            from tools.web_search import search_web, detect_search_need
+            needs_search = detect_search_need(user_input)
+            import re
+            explicit_search_cmd = bool(re.search(r"\b(search\s+(the\s+)?(web|internet|google)|look\s+up\s+online)\b", user_input, re.IGNORECASE))
+
+            if search_mode or explicit_search_cmd:
+                logger.info("Executing web search for query: '%s' (forced=%s)", user_input, search_mode)
+                search_results = await search_web(user_input, max_results=5)
+            elif needs_search:
+                suggest_search = True
+        except Exception as search_err:
+            logger.warning("Web search lookup failed: %s", search_err)
+
+        # 6. FETCH USER PROFILE & BUILD PROMPT
         user_profile = None
         core_facts = []
         try:
@@ -92,13 +120,15 @@ class ChatManagerV3:
             memories=retrieved_memories,
             user_profile=user_profile,
             core_facts=core_facts,
+            active_skill=active_skill,
+            search_results=search_results,
         )
-        style_intent = self._normalize_style_intent(intent_data, user_input)
+        style_intent = self._normalize_style_intent(intent_data, user_input, active_skill=active_skill)
         model_type = self._model_type_for_style_intent(style_intent)
         styled_prompt = self._apply_turn_style(prompt, user_input, intent_data)
         model_id = get_role_model(model_type)
 
-        # 6. GENERATE RESPONSE — provider failures must propagate
+        # 7. GENERATE RESPONSE — provider failures must propagate
         response = await self._generate_response(styled_prompt, model_type=model_type)
         response = self._normalize_response(response)
         response = self._polish_length(response, user_input)
@@ -125,7 +155,7 @@ class ChatManagerV3:
 
         self._store_response(user_id, response)
 
-        # 7. UPDATE MEMORY (ASYNC) — failures are logged, never persisted as chat
+        # 8. UPDATE MEMORY (ASYNC) — failures are logged, never persisted as chat
         task = asyncio.create_task(
             self.memory_updater.process(
                 user_id=user_id,
@@ -141,6 +171,10 @@ class ChatManagerV3:
             "model": model_id,
             "route_rule": f"v3_{model_type}",
             "session_id": session_id,
+            "active_skill": active_skill.id if active_skill else "auto",
+            "search_mode": search_mode,
+            "search_results": search_results,
+            "suggest_search": suggest_search,
         }
 
     # =====================================================
@@ -261,7 +295,21 @@ class ChatManagerV3:
 
         return f"{base_prompt}\n\n{style_hint}"
 
-    def _normalize_style_intent(self, intent_data: Dict[str, Any], user_input: str) -> str:
+    def _normalize_style_intent(
+        self,
+        intent_data: Dict[str, Any],
+        user_input: str,
+        active_skill: Optional[Any] = None,
+    ) -> str:
+        if active_skill:
+            skill_id = getattr(active_skill, "id", "")
+            if skill_id == "code":
+                return "code"
+            elif skill_id == "problem":
+                return "reasoning"
+            elif skill_id == "summarizing":
+                return "summarization"
+
         raw_intent = str(intent_data.get("intent", "") or "").lower()
         query = (user_input or "").lower()
 

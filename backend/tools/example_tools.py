@@ -340,16 +340,21 @@ register_tool(
 
 async def web_search(query: str, max_results: int = 5) -> Dict[str, Any]:
     """Search the web (external side effect - requires confirmation)."""
-    # This would call an actual search API
-    # For now, return mock results
-    return {
-        "query": query,
-        "results": [
-            {"title": f"Result for '{query}'", "url": "https://example.com/1", "snippet": "Sample result..."},
-            {"title": f"More about '{query}'", "url": "https://example.com/2", "snippet": "Another result..."},
-        ][:max_results],
-        "searched_at": datetime.utcnow().isoformat(),
-    }
+    try:
+        from tools.web_search import search_web as live_search_web
+        return await live_search_web(query=query, max_results=max_results)
+    except Exception as e:
+        logger.warning("Live web search failed, returning fallback format: %s", e)
+        return {
+            "query": query,
+            "provider": "fallback",
+            "results": [
+                {"title": f"Result for '{query}'", "url": "https://example.com/1", "snippet": "Sample result..."},
+                {"title": f"More about '{query}'", "url": "https://example.com/2", "snippet": "Another result..."},
+            ][:max_results],
+            "searched_at": datetime.utcnow().isoformat(),
+            "has_results": True,
+        }
 
 
 register_tool(

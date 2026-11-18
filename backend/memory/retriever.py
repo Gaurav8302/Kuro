@@ -118,7 +118,7 @@ class MemoryRetriever:
             sim = max(0.0, min(1.0, float(m.get("score", 0.0) or 0.0)))
             text_words = {_stem(w) for w in m.get("text", "").split() if len(w) > 2}
             overlap = len(query_words & text_words)
-            if overlap > 0 or sim >= 0.15:
+            if overlap > 0 or sim >= 0.30:
                 candidates.append(m)
 
         sorted_memories = sorted(candidates, key=_score, reverse=True)

@@ -1,15 +1,12 @@
-"""Lightweight Skill Injection System for Kuro AI.
+"""Enhanced Skill System for Kuro AI.
 
 Features:
-- JSON-based skill definitions with hot-reload
-- Comprehensive regex pattern matching
-- Adaptive priorities based on session usage (lightweight)
-- Contextual cooldowns and category exclusions
-- Explainable skill selection with reasoning
-- Advanced chaining control and conflict resolution
-
-Replaced heavy embedding-based matching with robust regex patterns
-for optimal performance on resource-constrained servers.
+- Structured JSON skill definitions with hot-reload
+- Robust regex pattern matching with word boundaries and negative exclusions
+- Direct alias resolution for frontend modes ('code', 'explain', 'creative', 'problem')
+- Safe scoring logic: priority boosts apply ONLY to active pattern/keyword matches
+- Explainable skill selection with debugging metadata
+- Global singleton instance with backward compatibility
 """
 
 from __future__ import annotations
@@ -21,16 +18,16 @@ import logging
 import os
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Set, Any
-from routing.regex_intent_detector import get_regex_intent_detector
-from routing.session_tracker import get_session_manager
 
 logger = logging.getLogger(__name__)
 
 SKILLS_FILE = Path(__file__).parent / "skills.json"
 
+
 class Skill:
     def __init__(self, raw: Dict):
-        self.name: str = raw.get("name")
+        self.id: str = raw.get("id") or raw.get("name", "unknown")
+        self.name: str = raw.get("name") or self.id
         self.description: str = raw.get("description", "")
         self.priority: int = raw.get("priority", 0)
         self.trigger_patterns: List[str] = raw.get("trigger_patterns", [])
@@ -41,33 +38,40 @@ class Skill:
         self.category: str = raw.get("category", "general")
         self.tags: List[str] = raw.get("tags", [])
         
-        # Enhanced features (regex-based instead of embedding-based)
+        # Enhanced features
         self.regex_examples: List[str] = raw.get("regex_examples") or raw.get("embedding_examples", [])
         self.conflict_categories: Set[str] = set(raw.get("conflict_categories", []))
         self.quality_threshold: float = raw.get("quality_threshold", 0.7)
-        self.intent_triggers: List[str] = raw.get("intent_triggers", [])  # Intent-based triggers
-        self.keywords: List[str] = raw.get("keywords", [])  # Simple keyword matching
+        self.intent_triggers: List[str] = raw.get("intent_triggers", [])
+        self.keywords: List[str] = raw.get("keywords", [])
         
         # Pre-compile regex patterns for performance
-        self._compiled_patterns = []
-        self._compiled_negative = []
-        self._compiled_examples = []
+        self._compiled_patterns: List[Tuple[str, re.Pattern]] = []
+        self._compiled_negative: List[Tuple[str, re.Pattern]] = []
+        self._compiled_examples: List[Tuple[str, re.Pattern]] = []
         self._compile_patterns()
     
     def _compile_patterns(self):
-        """Pre-compile all regex patterns for performance."""
+        """Pre-compile all regex patterns with word boundaries when needed."""
         try:
             for pattern in self.trigger_patterns:
-                self._compiled_patterns.append((pattern, re.compile(pattern, re.IGNORECASE)))
+                # If pattern is a plain phrase without regex anchors, enforce word boundaries
+                if not any(char in pattern for char in [r"\b", "^", "$", "(", ")", "[", "]", "*", "+"]):
+                    regex_str = r"\b" + re.escape(pattern.strip()) + r"\b"
+                else:
+                    regex_str = pattern
+                self._compiled_patterns.append((pattern, re.compile(regex_str, re.IGNORECASE)))
             
             for pattern in self.negative_patterns:
-                self._compiled_negative.append((pattern, re.compile(pattern, re.IGNORECASE)))
+                if not any(char in pattern for char in [r"\b", "^", "$", "(", ")", "[", "]"]):
+                    regex_str = r"\b" + re.escape(pattern.strip()) + r"\b"
+                else:
+                    regex_str = pattern
+                self._compiled_negative.append((pattern, re.compile(regex_str, re.IGNORECASE)))
             
             for example in self.regex_examples:
-                # Convert examples to flexible regex patterns
                 escaped = re.escape(example.lower())
-                # Allow some variation in word boundaries and optional words
-                flexible_pattern = escaped.replace('\\ ', '\\s+').replace('\\-', '[-\\s]*')
+                flexible_pattern = r"\b" + escaped.replace(r"\ ", r"\s+").replace(r"\-", r"[-\s]*") + r"\b"
                 self._compiled_examples.append((example, re.compile(flexible_pattern, re.IGNORECASE)))
         except re.error as e:
             logger.warning(f"Regex compilation error in skill {self.name}: {str(e)}")
@@ -82,19 +86,20 @@ class Skill:
         for raw_pat, comp in self._compiled_patterns:
             matches = comp.findall(text)
             if matches:
-                score += len(matches)  # Multiple matches boost score
-                reasons.append(f"+pattern:{raw_pat}(matches={len(matches)})")
+                match_count = len(matches)
+                score += match_count * 1.0
+                reasons.append(f"+pattern:{raw_pat}(matches={match_count})")
         
         # Negative patterns (exclusions)
         for raw_pat, comp in self._compiled_negative:
             if comp.search(lowered):
-                score -= 2.0  # Strong penalty for negative matches
+                score -= 2.0
                 reasons.append(f"-pattern:{raw_pat}")
         
         return score, reasons
     
     def match_examples(self, text: str) -> Tuple[float, List[str]]:
-        """Match against regex examples (lightweight alternative to embeddings)."""
+        """Match against example queries."""
         if not self.regex_examples:
             return 0.0, []
         
@@ -105,15 +110,12 @@ class Skill:
         
         for example, compiled_pattern in self._compiled_examples:
             if compiled_pattern.search(lowered):
-                # Simple scoring based on pattern match strength
                 score = 1.0
-                
-                # Bonus for exact keyword matches
                 example_words = set(example.lower().split())
                 text_words = set(lowered.split())
                 common_words = example_words.intersection(text_words)
                 if common_words:
-                    score += 0.5 * len(common_words) / len(example_words)
+                    score += 0.5 * len(common_words) / max(len(example_words), 1)
                 
                 if score > max_score:
                     max_score = score
@@ -125,7 +127,7 @@ class Skill:
         return max_score, reasons
     
     def match_keywords(self, text: str) -> Tuple[float, List[str]]:
-        """Simple keyword-based matching."""
+        """Keyword matching with safe word boundary checks."""
         if not self.keywords:
             return 0.0, []
         
@@ -134,7 +136,8 @@ class Skill:
         matched_keywords = []
         
         for keyword in self.keywords:
-            if keyword.lower() in lowered:
+            kw_pat = r"\b" + re.escape(keyword.lower()) + r"\b"
+            if re.search(kw_pat, lowered):
                 score += 0.5
                 matched_keywords.append(keyword)
         
@@ -146,39 +149,31 @@ class Skill:
         if not self.intent_triggers or not detected_intents:
             return 0.0, []
         
-        matched_intents = []
-        for intent_trigger in self.intent_triggers:
-            if intent_trigger in detected_intents:
-                matched_intents.append(intent_trigger)
-        
+        matched_intents = [it for it in self.intent_triggers if it in detected_intents]
         if matched_intents:
-            score = len(matched_intents) * 2.0  # Strong bonus for intent matches
+            score = len(matched_intents) * 2.0
             reasons = [f"intent_match:{','.join(matched_intents)}"]
             return score, reasons
         
         return 0.0, []
     
     def calculate_total_score(self, text: str, detected_intents: Optional[Set[str]] = None) -> Tuple[float, List[str]]:
-        """Calculate total skill relevance score using all matching methods."""
+        """Calculate skill relevance score based purely on active matches."""
         total_score = 0.0
         all_reasons = []
         
-        # Regex pattern matching
         regex_score, regex_reasons = self.match_regex(text)
         total_score += regex_score
         all_reasons.extend(regex_reasons)
         
-        # Example-based matching (regex alternative to embeddings)
         example_score, example_reasons = self.match_examples(text)
         total_score += example_score
         all_reasons.extend(example_reasons)
         
-        # Keyword matching
         keyword_score, keyword_reasons = self.match_keywords(text)
         total_score += keyword_score
         all_reasons.extend(keyword_reasons)
         
-        # Intent-based matching
         if detected_intents:
             intent_score, intent_reasons = self.match_intents(detected_intents)
             total_score += intent_score
@@ -186,12 +181,55 @@ class Skill:
         
         return total_score, all_reasons
 
+
 class SkillManager:
     def __init__(self):
         self.skills: List[Skill] = []
+        self._by_id: Dict[str, Skill] = {}
+        self._by_name: Dict[str, Skill] = {}
+        self._alias_map: Dict[str, str] = {
+            # Code aliases
+            "code": "code",
+            "coding": "code",
+            "developer": "code",
+            "debugging": "code",
+            "debug": "code",
+            "programming": "code",
+            # Explain aliases
+            "explain": "explain",
+            "explainer": "explain",
+            "teaching": "explain",
+            "teach": "explain",
+            "tutorial": "explain",
+            # Creative aliases
+            "creative": "creative",
+            "story": "creative",
+            "storytelling": "creative",
+            "brainstorming": "creative",
+            "brainstorm": "creative",
+            "writing": "creative",
+            # Problem aliases
+            "problem": "problem",
+            "problem_solver": "problem",
+            "math": "problem",
+            "math_solver": "problem",
+            "logic": "problem",
+            # Utility aliases
+            "creator": "creator_info",
+            "creator_info": "creator_info",
+            "summary": "summarizing",
+            "summarizing": "summarizing",
+            "summarize": "summarizing",
+            "translation": "translation",
+            "translate": "translation",
+            "fact_check": "fact_check",
+            "clarifier": "clarifier",
+            "casual": "casual_chat",
+            "farewell": "farewell_chat",
+            "rewrite": "rewrite_tone",
+        }
         self.last_reload = 0
-        self._skill_usage_history = {}  # Simple in-memory tracking
-        self._category_cooldowns = {}  # Category-based cooldowns
+        self._category_cooldowns: Dict[str, float] = {}
         self.load_skills()
     
     def load_skills(self):
@@ -203,92 +241,127 @@ class SkillManager:
         try:
             stat = SKILLS_FILE.stat()
             if stat.st_mtime <= self.last_reload:
-                return  # No changes since last reload
+                return
             
-            with open(SKILLS_FILE, 'r', encoding='utf-8') as f:
+            with open(SKILLS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
             
-            self.skills = []
-            # Handle both array format and object format
+            new_skills = []
             skill_list = data if isinstance(data, list) else data.get("skills", [])
             
+            by_id = {}
+            by_name = {}
             for skill_data in skill_list:
                 try:
                     skill = Skill(skill_data)
-                    self.skills.append(skill)
+                    new_skills.append(skill)
+                    by_id[skill.id.lower()] = skill
+                    by_name[skill.name.lower()] = skill
                 except Exception as e:
-                    logger.error(f"Failed to load skill {skill_data.get('name', 'unknown')}: {str(e)}")
+                    logger.error(f"Failed to load skill {skill_data.get('name', 'unknown')}: {e}")
             
+            self.skills = new_skills
+            self._by_id = by_id
+            self._by_name = by_name
             self.last_reload = stat.st_mtime
             logger.info(f"Loaded {len(self.skills)} skills from {SKILLS_FILE}")
             
         except Exception as e:
-            logger.error(f"Failed to load skills file: {str(e)}")
+            logger.error(f"Failed to load skills file: {e}")
     
-    def select_skills(self, text: str, detected_intents: Optional[Set[str]] = None, 
-                     session_id: Optional[str] = None, max_skills: int = 3) -> List[Tuple[Skill, float, List[str]]]:
-        """Select relevant skills based on regex patterns and intent matching."""
-        self.load_skills()  # Hot-reload check
+    def resolve_skill(self, skill_id_or_name: Optional[str], message: str) -> Optional[Skill]:
+        """Resolve skill for a turn.
         
-        if not self.skills:
+        - If skill_id_or_name is explicitly set (e.g. 'code', 'explain', 'creative', 'problem'),
+          returns the matching skill immediately.
+        - If 'auto', None, or empty, evaluates the user message for trigger patterns.
+          Returns top skill if confident, or None for general natural conversation.
+        """
+        self.load_skills()
+        
+        if skill_id_or_name and skill_id_or_name.lower().strip() not in {"auto", "default", "none", ""}:
+            clean_key = skill_id_or_name.lower().strip()
+            target_id = self._alias_map.get(clean_key, clean_key)
+            if target_id in self._by_id:
+                return self._by_id[target_id]
+            if target_id in self._by_name:
+                return self._by_name[target_id]
+            for s in self.skills:
+                if s.id.lower() == clean_key or s.name.lower() == clean_key:
+                    return s
+        
+        # Auto-detect from message content
+        matches = self.select_skills(message, max_skills=1)
+        if matches:
+            top_skill, score, _ = matches[0]
+            if score >= 1.0:
+                return top_skill
+        return None
+
+    def select_skills(
+        self,
+        text: str,
+        detected_intents: Optional[Set[str]] = None, 
+        session_id: Optional[str] = None,
+        max_skills: int = 3,
+    ) -> List[Tuple[Skill, float, List[str]]]:
+        """Select relevant skills based on regex patterns and intent matching."""
+        self.load_skills()
+        if not self.skills or not text or not text.strip():
             return []
         
         current_time = time.time()
         scored_skills = []
         
-        # Get session preferences for lightweight adaptation
-        session_mgr = get_session_manager()
-        preferred_skills = session_mgr.get_preferred_skills(session_id) if session_id else set()
+        preferred_skills = set()
+        try:
+            from routing.session_tracker import get_session_manager
+            session_mgr = get_session_manager()
+            preferred_skills = session_mgr.get_preferred_skills(session_id) if session_id else set()
+        except Exception:
+            pass
         
         for skill in self.skills:
             try:
-                # Check category cooldown
                 if self._is_category_on_cooldown(skill.category, current_time):
                     continue
                 
-                # Calculate skill relevance score
-                score, reasons = skill.calculate_total_score(text, detected_intents)
+                base_score, reasons = skill.calculate_total_score(text, detected_intents)
                 
-                # Session preference boost (lightweight)
-                if skill.name in preferred_skills:
-                    score += 1.0
-                    reasons.append("session_preference(+1.0)")
+                # CRITICAL FIX: Only apply priority & preference boosts if the skill matched!
+                # Zero-match skills should NEVER activate just because priority >= 7.
+                if base_score <= 0.0:
+                    continue
                 
-                # Priority adjustment
-                score += skill.priority * 0.1
-                if skill.priority > 0:
-                    reasons.append(f"priority_boost({skill.priority * 0.1:.1f})")
+                score = base_score
                 
-                # Only include skills that meet minimum threshold
+                if skill.name in preferred_skills or skill.id in preferred_skills:
+                    score += 0.5
+                    reasons.append("session_preference(+0.5)")
+                
+                priority_bonus = skill.priority * 0.1
+                score += priority_bonus
+                reasons.append(f"priority_boost({priority_bonus:.1f})")
+                
                 if score >= skill.quality_threshold:
                     scored_skills.append((skill, score, reasons))
                     
             except Exception as e:
-                logger.warning(f"Error scoring skill {skill.name}: {str(e)}")
+                logger.warning(f"Error scoring skill {skill.name}: {e}")
                 continue
         
-        # Sort by score and apply conflict resolution
         scored_skills.sort(key=lambda x: x[1], reverse=True)
         resolved_skills = self._resolve_conflicts(scored_skills)
-        
-        # Apply chaining rules and limits
         final_skills = self._apply_chaining_rules(resolved_skills, max_skills)
-        
-        # Update usage tracking
-        if session_id and final_skills:
-            for skill, _, _ in final_skills:
-                session_mgr.record_skill_usage(session_id, skill.name)
         
         return final_skills[:max_skills]
     
     def _is_category_on_cooldown(self, category: str, current_time: float) -> bool:
-        """Check if a skill category is on cooldown."""
         if category in self._category_cooldowns:
             return current_time < self._category_cooldowns[category]
         return False
     
     def _resolve_conflicts(self, scored_skills: List[Tuple[Skill, float, List[str]]]) -> List[Tuple[Skill, float, List[str]]]:
-        """Resolve category conflicts between skills."""
         if not scored_skills:
             return []
         
@@ -296,130 +369,104 @@ class SkillManager:
         used_categories = set()
         
         for skill, score, reasons in scored_skills:
-            # Check for category conflicts
             if skill.conflict_categories.intersection(used_categories):
                 reasons.append(f"conflict_skip(categories={skill.conflict_categories})")
                 continue
             
             resolved.append((skill, score, reasons))
             used_categories.add(skill.category)
-            
-            # Add conflict categories to prevent future conflicts
             used_categories.update(skill.conflict_categories)
         
         return resolved
     
     def _apply_chaining_rules(self, skills: List[Tuple[Skill, float, List[str]]], max_skills: int) -> List[Tuple[Skill, float, List[str]]]:
-        """Apply skill chaining rules and limits."""
         if not skills:
             return []
         
         final_skills = []
-        
         for skill, score, reasons in skills:
             if len(final_skills) >= max_skills:
                 break
-            
-            # Check if skill allows chaining
             if not skill.allow_chain and final_skills:
                 reasons.append("no_chain_skip")
                 continue
-            
             final_skills.append((skill, score, reasons))
         
         return final_skills
     
     def get_skill_prompts(self, skills: List[Tuple[Skill, float, List[str]]]) -> str:
-        """Generate combined system prompt from selected skills."""
         if not skills:
             return ""
-        
         prompts = []
         for skill, score, reasons in skills:
             if skill.system_prompt.strip():
-                prompts.append(f"# {skill.name.title()}\n{skill.system_prompt}")
-        
+                prompts.append(f"# Active Skill: {skill.name.title()}\n{skill.system_prompt}")
         return "\n\n".join(prompts)
     
     def get_explanation(self, skills: List[Tuple[Skill, float, List[str]]]) -> str:
-        """Generate explanation of skill selection."""
         if not skills:
             return "No skills selected"
-        
-        explanations = []
-        for skill, score, reasons in skills:
-            reason_str = ", ".join(reasons[:3])  # Limit for readability
-            explanations.append(f"{skill.name}(score={score:.1f}, {reason_str})")
-        
+        explanations = [f"{skill.name}(score={score:.1f})" for skill, score, _ in skills]
         return f"Selected skills: {'; '.join(explanations)}"
     
-    def build_injected_system_prompt(self, base_system: str, user_text: str, 
-                                   session_id: Optional[str] = None) -> Tuple[str, List[str], Dict[str, Any]]:
-        """Build enhanced system prompt with skill injection and metadata.
-        
-        Args:
-            base_system: Base system prompt
-            user_text: User message text
-            session_id: Session ID for adaptive behavior
-            
-        Returns:
-            Tuple of (enhanced_prompt, skill_names, metadata)
-        """
+    def build_injected_system_prompt(
+        self,
+        base_system: str,
+        user_text: str, 
+        session_id: Optional[str] = None,
+    ) -> Tuple[str, List[str], Dict[str, Any]]:
         start_time = time.time()
         
-        # Detect intents first
-        regex_detector = get_regex_intent_detector()
-        detected_intents, _ = regex_detector.detect_intents(user_text)
+        detected_intents = set()
+        try:
+            from routing.regex_intent_detector import get_regex_intent_detector
+            regex_detector = get_regex_intent_detector()
+            detected_intents, _ = regex_detector.detect_intents(user_text)
+        except Exception:
+            pass
         
-        # Select skills
         selected_skills = self.select_skills(user_text, detected_intents, session_id)
         
         if not selected_skills:
             return base_system, [], {
-                'selection_time_ms': (time.time() - start_time) * 1000,
-                'skills_evaluated': len(self.skills),
-                'skills_selected': 0,
-                'detected_intents': list(detected_intents)
+                "selection_time_ms": (time.time() - start_time) * 1000,
+                "skills_evaluated": len(self.skills),
+                "skills_selected": 0,
+                "detected_intents": list(detected_intents),
             }
         
-        # Build enhanced prompt
         skill_prompts = self.get_skill_prompts(selected_skills)
         enhanced_system = base_system
         if skill_prompts:
             enhanced_system += "\n\n" + skill_prompts
         
-        # Get skill names
         skill_names = [skill.name for skill, _, _ in selected_skills]
-        
-        # Build metadata
         metadata = {
-            'selection_time_ms': (time.time() - start_time) * 1000,
-            'skills_evaluated': len(self.skills),
-            'skills_selected': len(selected_skills),
-            'detected_intents': list(detected_intents),
-            'selection_details': [
+            "selection_time_ms": (time.time() - start_time) * 1000,
+            "skills_evaluated": len(self.skills),
+            "skills_selected": len(selected_skills),
+            "detected_intents": list(detected_intents),
+            "selection_details": [
                 {
-                    'name': skill.name,
-                    'category': skill.category,
-                    'priority': skill.priority,
-                    'score': score,
-                    'reasons': reasons[:3]  # Limit for readability
+                    "name": skill.name,
+                    "category": skill.category,
+                    "priority": skill.priority,
+                    "score": score,
+                    "reasons": reasons[:3],
                 }
                 for skill, score, reasons in selected_skills
-            ]
+            ],
         }
-        
         return enhanced_system, skill_names, metadata
 
-# Global skill manager instance
+
+# Global singleton
 _skill_manager = None
 
 def get_skill_manager() -> SkillManager:
-    """Get global skill manager instance (singleton)."""
     global _skill_manager
     if _skill_manager is None:
         _skill_manager = SkillManager()
     return _skill_manager
 
-# Global instance for backward compatibility
 skill_manager = get_skill_manager()

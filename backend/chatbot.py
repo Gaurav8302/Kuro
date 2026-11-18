@@ -692,6 +692,8 @@ async def chat_endpoint(chat_message: ChatInput, principal: AuthenticatedPrincip
                 session_id=effective_session_id,
                 user_input=chat_message.message,
                 chat_history=chat_history,
+                skill=chat_message.skill,
+                search_mode=chat_message.search_mode,
             )
             if isinstance(response_data, dict):
                 response_text = str(response_data.get("reply", ""))
@@ -752,13 +754,17 @@ async def chat_endpoint(chat_message: ChatInput, principal: AuthenticatedPrincip
         except Exception as save_err:
             logger.error("Failed to persist chat exchange: %s", save_err, exc_info=True)
 
+        suggest_search_flag = False
+        if isinstance(response_data, dict):
+            suggest_search_flag = bool(response_data.get("suggest_search", False))
+
         return ChatResponse(
             reply=response_text,
             model=model_used,
             route_rule=route_rule,
             latency_ms=latency_ms,
             intents=None,
-            suggest_search=False,
+            suggest_search=suggest_search_flag,
             session_id=effective_session_id,
         )
 

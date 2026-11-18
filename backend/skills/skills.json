@@ -1,174 +1,237 @@
 [
   {
-    "name": "creator_info",
-    "description": "Provide information about Kuro's creator Gaurav and his work",
-    "priority": 9,
+    "id": "code",
+    "name": "code_developer",
+    "description": "Expert software engineering, debugging, code review, architecture, and syntax guidance.",
+    "priority": 8,
+    "category": "technical",
+    "keywords": ["code", "debug", "error", "bug", "python", "javascript", "typescript", "react", "fastapi", "sql", "syntax", "refactor", "function", "class", "compiler", "exception", "traceback"],
     "trigger_patterns": [
-      "gaurav","creator","who created you","who made you","about your creator","tell me about gaurav","your maker","who built you"
+      "\\b(code|coding|debug|debugging|bug|error|exception|stack trace|traceback|syntax error|runtime error)\\b",
+      "\\b(refactor|refactoring|optimize code|pull request|git|docker|api endpoint|unit test)\\b",
+      "\\b(python|javascript|typescript|golang|rust|c\\+\\+|java|html|css|sql|nosql|bash|shell script)\\b",
+      "\\b(function|method|async|await|promise|regex|algorithm|data structure|pointer)\\b"
     ],
-    "keywords": ["gaurav", "creator", "developer", "made", "built", "created"],
-    "system_prompt": "You are in CREATOR INFO mode. Provide helpful, positive details about Gaurav that are grounded in the project and any explicit context already available. Do not invent biographical facts, personal interests, or credentials that are not directly supported. If something is only an inference from the project, label it clearly as an inference rather than a fact.",
-    "allow_chain": false,
-    "category": "identity",
-    "cooldown_seconds": 60
+    "regex_examples": [
+      "help me debug this error",
+      "write a python function to parse json",
+      "fix this syntax error in react",
+      "refactor this code for better performance",
+      "how do I handle async exceptions"
+    ],
+    "system_prompt": "You are in CODE DEVELOPER mode. Provide idiomatic, production-grade solutions. Structure: (1) Root Cause Analysis (briefly explain why the issue occurs), (2) Fixed & Complete Code Block with clean comments, (3) Key Technical Decisions & Edge Cases, (4) Verification/Testing tip.",
+    "allow_chain": true
   },
   {
-    "name": "casual_chat",
-    "description": "Handle greetings, small talk, and casual conversation politely but briefly.",
-    "priority": 8,
+    "id": "explain",
+    "name": "deep_explainer",
+    "description": "Intuitive, deep explanations breaking down complex concepts with mental models, analogies, and step-by-step clarity.",
+    "priority": 7,
+    "category": "educational",
+    "keywords": ["explain", "teach", "understand", "concept", "how does", "what is", "break down", "analogy", "intuition", "learn"],
     "trigger_patterns": [
-      "hey","hello","hi","what's up","how are you","good morning","good evening","greetings","sup","yo","hey kuro","hello kuro","hi kuro"
+      "\\b(explain|teach|how does|how do|what is|what are|help me understand|walk me through|demystify)\\b",
+      "\\b(break down|in simple terms|eli5|mental model|analogy|concept of|overview of)\\b"
     ],
-    "embedding_examples": [
+    "regex_examples": [
+      "explain how transformers work in AI",
+      "how does the internet work under the hood",
+      "break down quantum entanglement in simple terms",
+      "help me understand how database indexing works",
+      "what is the difference between concurrency and parallelism"
+    ],
+    "system_prompt": "You are in DEEP EXPLAINER mode. Deliver high-clarity conceptual teaching. Structure: (1) Core Intuition (1-2 sentences in plain language), (2) Concrete Analogy or Mental Model, (3) Step-by-Step Breakdown of how it works under the hood, (4) Common Pitfalls or Misconceptions.",
+    "allow_chain": true
+  },
+  {
+    "id": "creative",
+    "name": "creative_mind",
+    "description": "Brainstorming, imaginative storytelling, creative writing, novel ideation, and engaging narrative generation.",
+    "priority": 6,
+    "category": "creative",
+    "keywords": ["creative", "story", "brainstorm", "ideas", "narrative", "fiction", "write a story", "plot", "character", "pitch"],
+    "trigger_patterns": [
+      "\\b(story|write a story|narrative|tale|fiction|novel|screenplay|character|dialogue|plot)\\b",
+      "\\b(brainstorm|brainstorming|creative ideas|creative writing|pitch|tagline|worldbuilding)\\b"
+    ],
+    "regex_examples": [
+      "write a sci-fi story about a rogue AI",
+      "brainstorm 5 unique startup ideas for sustainable energy",
+      "create a compelling character background for a detective",
+      "help me write an opening hook for my novel",
+      "brainstorm catchy names for an anime companion app"
+    ],
+    "system_prompt": "You are in CREATIVE MIND mode. Bring vivid imagery, originality, and compelling narrative tension. For stories: focus on strong opening hooks, visceral sensory details, and meaningful stakes. For brainstorming: provide distinct, imaginative, and non-obvious angles.",
+    "allow_chain": true
+  },
+  {
+    "id": "problem",
+    "name": "problem_solver",
+    "description": "Rigorous analytical problem-solving, mathematics, algorithmic reasoning, and logic.",
+    "priority": 7,
+    "category": "analytical",
+    "keywords": ["solve", "problem", "math", "calculate", "equation", "logic", "probability", "statistics", "calculus", "algebra", "puzzle"],
+    "trigger_patterns": [
+      "\\b(solve|solution|calculate|math|algebra|calculus|geometry|statistics|probability|integral|derivative)\\b",
+      "\\b(equation|formula|matrix|proof|logic puzzle|riddle|algorithmic complexity|big o)\\b"
+    ],
+    "regex_examples": [
+      "solve this equation for x: 3x^2 + 5x - 2 = 0",
+      "calculate the conditional probability of disease given positive test",
+      "how do I solve this dynamic programming problem",
+      "find the time complexity of this recursive algorithm",
+      "solve this logic puzzle"
+    ],
+    "system_prompt": "You are in PROBLEM SOLVER mode. Apply step-by-step analytical reasoning. Structure: (1) Problem Formulation & Key Constraints, (2) Step-by-Step Mathematical/Logical Derivation, (3) Final Answer clearly boxed or highlighted, (4) Sanity check or edge case verification.",
+    "allow_chain": true
+  },
+  {
+    "id": "creator_info",
+    "name": "creator_info",
+    "description": "Provide factual information about Kuro's creator Gaurav and project origins.",
+    "priority": 9,
+    "category": "identity",
+    "keywords": ["gaurav", "creator", "developer", "made you", "built you", "created you", "who made", "who built"],
+    "trigger_patterns": [
+      "\\b(gaurav|creator|who created you|who made you|about your creator|tell me about gaurav|your maker|who built you)\\b"
+    ],
+    "regex_examples": [
+      "who created you",
+      "who is your maker",
+      "tell me about gaurav",
+      "who built kuro ai"
+    ],
+    "system_prompt": "You are in CREATOR INFO mode. Kuro was created and architected by Gaurav as an intelligent, empathetic, context-aware companion and assistant. Provide grounded, respectful details about Gaurav and Kuro's mission without inventing unsupported personal trivia.",
+    "allow_chain": false
+  },
+  {
+    "id": "fact_check",
+    "name": "fact_check",
+    "description": "Verify or clarify factual claims with grounded, reliable information and nuance.",
+    "priority": 6,
+    "category": "analytical",
+    "keywords": ["fact check", "is it true", "verify", "confirm", "accurate", "source", "evidence", "true or false"],
+    "trigger_patterns": [
+      "\\b(is it true that|fact check|verify if|confirm whether|is it accurate|true or false|did .* really happen)\\b"
+    ],
+    "regex_examples": [
+      "is it true that bananas are berries",
+      "fact check this claim about the moon landing",
+      "verify whether python is older than java",
+      "is it true that honey never spoils"
+    ],
+    "system_prompt": "You are in FACT CHECK mode. Provide: (1) Direct Verdict (True, False, Partially True, or Nuanced), (2) Verified Facts & Evidence, (3) Important Context/Nuances, (4) Degrees of certainty.",
+    "allow_chain": true
+  },
+  {
+    "id": "summarizing",
+    "name": "summarizing",
+    "description": "Structured executive summaries and synthesis for documents and long text.",
+    "priority": 6,
+    "category": "synthesis",
+    "keywords": ["summarize", "summary", "tl;dr", "key points", "main points", "condense", "executive summary"],
+    "trigger_patterns": [
+      "\\b(summarize|summary|tl;dr|tldr|key takeaways|executive summary|condense this|bullet point summary)\\b"
+    ],
+    "regex_examples": [
+      "summarize this article for me",
+      "give me a tl;dr of this document",
+      "what are the main takeaways from this text"
+    ],
+    "system_prompt": "You are in SUMMARIZATION mode. Provide: (1) Executive Summary (2-3 sentences capturing the core conclusion), (2) Key Takeaways (bulleted, action-oriented), (3) Critical Supporting Data or Context.",
+    "allow_chain": true
+  },
+  {
+    "id": "translation",
+    "name": "translation",
+    "description": "Accurate, culturally nuanced translation across languages.",
+    "priority": 6,
+    "category": "linguistic",
+    "keywords": ["translate", "translation", "in spanish", "in french", "in japanese", "in german", "in hindi"],
+    "trigger_patterns": [
+      "\\b(translate|translation|how do you say .* in|in spanish|in french|in german|in japanese|in hindi|in italian)\\b"
+    ],
+    "regex_examples": [
+      "translate this paragraph into Spanish",
+      "how do you say good morning in Japanese",
+      "translate to French preserving professional tone"
+    ],
+    "system_prompt": "You are in TRANSLATION mode. Provide an accurate, natural-sounding translation preserving tone, idioms, and context. If applicable, note subtle cultural nuances or formal vs. informal distinctions.",
+    "allow_chain": true
+  },
+  {
+    "id": "casual_chat",
+    "name": "casual_chat",
+    "description": "Handle greetings and small talk warmly and concisely.",
+    "priority": 5,
+    "category": "social",
+    "keywords": ["hello", "hey", "hi", "how are you", "good morning", "good evening", "sup", "yo"],
+    "trigger_patterns": [
+      "^\\s*(hey|hello|hi|what's up|how are you|good morning|good evening|greetings|sup|yo)(\\s+kuro)?\\s*(!|\\?|\\.|$)",
+      "\\b(how's it going|how are things|nice to meet you|glad to see you)\\b"
+    ],
+    "regex_examples": [
+      "hey kuro",
       "hello there",
       "good morning",
-      "how's it going",
-      "nice to meet you",
-      "greetings and salutations",
-      "hey kuro",
-      "hello kuro"
+      "how are you doing today"
     ],
-    "system_prompt": "You are in CASUAL CHAT mode. Be warm, friendly, and brief. If the user's name is available in the context, you may greet them by name when it feels natural, especially on the first greeting. Then offer to help with something specific. Keep responses conversational but not overly chatty.",
-    "allow_chain": true,
-    "category": "social",
-    "cooldown_seconds": 30
+    "system_prompt": "You are in CASUAL CHAT mode. Be warm, personable, and brief. Greet the user naturally, acknowledge how they are doing, and invite them to share what they are working on or need help with.",
+    "allow_chain": false
   },
   {
+    "id": "farewell_chat",
     "name": "farewell_chat",
-    "description": "Handle farewells, goodbyes, and leaving messages with personalized responses.",
-    "priority": 8,
+    "description": "Polite, warm goodbyes and sign-offs.",
+    "priority": 5,
+    "category": "social",
+    "keywords": ["bye", "goodbye", "farewell", "see you", "take care", "good night"],
     "trigger_patterns": [
-      "bye","goodbye","good bye","farewell","see you","see ya","ciao","adieu","take care","good night","later","peace out","ttyl","catch you later","until next time"
+      "^\\s*(bye|goodbye|farewell|see you|see ya|take care|good night|catch you later|talk to you later)\\s*(!|\\.|$)"
     ],
-    "keywords": ["bye", "goodbye", "farewell", "see you", "take care", "good night", "later"],
-    "embedding_examples": [
+    "regex_examples": [
       "goodbye kuro",
       "bye for now",
       "see you later",
-      "take care kuro",
-      "good night",
-      "farewell my friend"
+      "good night"
     ],
-    "system_prompt": "You are in FAREWELL mode. Be warm, appreciative, and memorable. If the user's name is available in the context, you may use it when it feels natural, but do not force it every time. Express gratitude for the conversation and leave them with a positive, encouraging message.",
-    "allow_chain": false,
-    "category": "social",
-    "cooldown_seconds": 30
+    "system_prompt": "You are in FAREWELL mode. Offer a warm, encouraging sign-off wishing them a productive day or relaxing night.",
+    "allow_chain": false
   },
   {
-    "name": "fact_check",
-    "description": "Verify or clarify factual queries with reliable information.",
-    "priority": 7,
-    "trigger_patterns": [
-      "is it true","fact check","verify","confirm","accurate","source","evidence","really","actually happened","true or false"
-    ],
-    "system_prompt": "You are in FACT CHECK mode. Provide: (1) Clear answer (True/False/Partially True/Unclear), (2) Key supporting evidence, (3) Important context or nuances, (4) Confidence level and limitations of your knowledge.",
-    "allow_chain": true
-  },
-  {
+    "id": "clarifier",
     "name": "clarifier",
-    "description": "Ask clarifying questions when input is vague or ambiguous.",
-    "priority": 7,
-    "trigger_patterns": [
-      "help","unclear","confused","not sure","what do you mean","explain","vague","ambiguous","can you","could you"
-    ],
-    "system_prompt": "You are in CLARIFIER mode. When the request is vague: (1) Acknowledge what you understand, (2) Ask the smallest number of specific clarifying questions needed, usually one or two, (3) Offer an example only if it helps disambiguate, (4) Suggest how the user can be more specific if needed.",
-    "allow_chain": true
-  },
-  {
-    "name": "debugging",
-    "description": "Diagnose and fix copy-pasted errors, stack traces, and code issues.",
-    "priority": 6,
-    "trigger_patterns": [
-      "error","exception","stack trace","traceback","bug","crash","not working","broken","fails","debug"
-    ],
-    "embedding_examples": [
-      "debug this Python error",
-      "fix this stack trace",
-      "help with this exception",
-      "troubleshoot this code issue",
-      "why is my code not working"
-    ],
-    "system_prompt": "You are in DEBUGGING mode for copy-pasted errors. Output: (1) Error Analysis (what it means), (2) Most Likely Causes (ranked), (3) Fix Steps, (4) Prevention Tips. Focus only on the pasted error, not full project analysis.",
-    "allow_chain": true,
-    "category": "analytical",
-    "conflict_categories": ["creative"]
-  },
-  {
-    "name": "math_solver",
-    "description": "Solve mathematical problems with step-by-step reasoning.",
-    "priority": 6,
-    "trigger_patterns": [
-      "solve","equation","calculate","math","algebra","calculus","geometry","statistics","probability","integral","derivative"
-    ],
-    "embedding_examples": [
-      "solve this math problem",
-      "calculate the answer step by step",
-      "help me with this equation",
-      "work through this mathematical problem",
-      "explain the solution process"
-    ],
-    "system_prompt": "You are in MATH mode. Provide: (1) Problem restatement, (2) Step-by-step solution with clear reasoning, (3) Final answer highlighted, (4) Method explanation. Show all work clearly.",
-    "allow_chain": true,
-    "category": "analytical"
-  },
-  {
-    "name": "summarizing",
-    "description": "Structured summarization optimized for long pasted text and articles.",
+    "description": "Ask targeted clarifying questions when requests are too vague or ambiguous.",
     "priority": 5,
+    "category": "conversational",
+    "keywords": ["help me decide", "not sure what", "confused", "which is better"],
     "trigger_patterns": [
-      "summarize","summary","tl;dr","key points","main points","condense","overview","brief"
+      "\\b(i am confused|not sure which|help me decide between|can you clarify)\\b"
     ],
-    "system_prompt": "You are in SUMMARIZATION mode for pasted text. Output: (1) Executive Summary (2-3 sentences), (2) Key Points (bulleted), (3) Important Details, (4) Conclusions/Takeaways. Optimize for long articles and documents.",
+    "regex_examples": [
+      "i am confused about what to pick",
+      "not sure which database to choose",
+      "help me decide between postgres and mongodb"
+    ],
+    "system_prompt": "You are in CLARIFIER mode. Formulate 1-2 sharp, clarifying questions to pinpoint constraints (scale, use case, budget, preferences) before proposing solutions.",
     "allow_chain": true
   },
   {
-    "name": "teaching",
-    "description": "Explain concepts clearly with examples and comprehension checks.",
-    "priority": 5,
-    "trigger_patterns": [
-      "explain","teach","how does","what is","help me understand","walk me through","show me","demonstrate"
-    ],
-    "system_prompt": "You are in TEACHING mode. Structure: (1) Simple definition, (2) Step-by-step breakdown, (3) Concrete example, (4) Analogy if helpful, (5) Quick comprehension check question.",
-    "allow_chain": true
-  },
-  {
-    "name": "translation",
-    "description": "Translate text between languages while preserving tone and meaning.",
-    "priority": 5,
-    "trigger_patterns": [
-      "translate","translation","in spanish","in french","in german","in japanese","in chinese","in hindi","english to","spanish to"
-    ],
-    "system_prompt": "You are in TRANSLATION mode. Provide accurate translation preserving tone, style, and cultural context. Include brief notes on cultural nuances if relevant.",
-    "allow_chain": true
-  },
-  {
-    "name": "brainstorming",
-    "description": "Generate creative ideas and alternatives for various topics.",
-    "priority": 4,
-    "trigger_patterns": [
-      "ideas","brainstorm","suggestions","alternatives","options","creative","think of","come up with"
-    ],
-    "system_prompt": "You are in BRAINSTORMING mode. Generate diverse, practical ideas organized by category. Provide 4-6 strong options per category with brief rationales.",
-    "allow_chain": true
-  },
-  {
-    "name": "storytelling",
-    "description": "Create engaging narratives, stories, and creative content.",
-    "priority": 4,
-    "trigger_patterns": [
-      "story","write a story","narrative","tale","fiction","creative writing","character","plot"
-    ],
-    "system_prompt": "You are in STORYTELLING mode. Create engaging narratives with: (1) Strong opening hook, (2) Clear character motivation, (3) Rising tension, (4) Satisfying resolution. Keep it appropriate and engaging.",
-    "allow_chain": true
-  },
-  {
+    "id": "rewrite_tone",
     "name": "rewrite_tone",
-    "description": "Rewrite text with different tone, style, or clarity improvements.",
-    "priority": 4,
+    "description": "Rewrite or polish text to adjust tone, clarity, and professionalism.",
+    "priority": 5,
+    "category": "writing",
+    "keywords": ["rewrite", "rephrase", "polish", "tone", "make it sound", "professional", "concise"],
     "trigger_patterns": [
-      "rewrite","rephrase","improve","make it","tone","style","formal","casual","professional","friendly"
+      "\\b(rewrite this|rephrase this|polish this|make it sound more|improve the tone of|make it concise)\\b"
     ],
-    "system_prompt": "You are in REWRITE mode. Provide: (1) Improved version with requested tone/style, (2) Key changes made, (3) Alternative version if beneficial. Preserve core meaning.",
+    "regex_examples": [
+      "rewrite this email to sound more professional",
+      "rephrase this paragraph to be more punchy and concise",
+      "polish my message to my team"
+    ],
+    "system_prompt": "You are in REWRITE mode. Provide: (1) Polished, high-impact version of the text, (2) Brief summary of changes made, (3) An alternative version if tone variation is helpful.",
     "allow_chain": true
   }
 ]
