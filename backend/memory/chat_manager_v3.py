@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import logging
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Optional
 
 from memory.controller import MemoryController
 from memory.retriever import MemoryRetriever
