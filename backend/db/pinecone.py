@@ -18,6 +18,8 @@ from config.embeddings import (
     DEFAULT_PINECONE_INDEX,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL,
+    get_embedding_dimension,
+    set_embedding_dimension,
     normalize_embedding,
     validate_embedding_dimension,
 )
@@ -52,14 +54,14 @@ def _get_index():
             _index_dimension = getattr(desc, "dimension", None)
             if _index_dimension is None and isinstance(desc, dict):
                 _index_dimension = desc.get("dimension")
-            if _index_dimension and int(_index_dimension) != EMBEDDING_DIMENSION:
-                raise ValueError(
-                    f"Pinecone index '{index_name}' dimension is {_index_dimension}, "
-                    f"but Kuro embeddings use {EMBEDDING_DIMENSION}. "
-                    f"Recreate the index or set KURO_EMBEDDING_DIMENSION accordingly."
+            if _index_dimension:
+                idx_dim = int(_index_dimension)
+                set_embedding_dimension(idx_dim)
+                logger.info(
+                    "Connected to Pinecone index '%s' (auto-detected dimension: %d)",
+                    index_name,
+                    idx_dim,
                 )
-        except ValueError:
-            raise
         except Exception as exc:
             logger.warning("Could not verify Pinecone index dimension: %s", exc)
     return _index
@@ -71,18 +73,37 @@ def embed_text(text: str, *, task_type: str = "retrieval_document") -> List[floa
         raise ValueError("Cannot embed empty text")
 
     _configure_genai()
-    result = genai.embed_content(
-        model=EMBEDDING_MODEL,
-        content=text,
-        task_type=task_type,
-        output_dimensionality=EMBEDDING_DIMENSION,
-    )
-    vec = list(result["embedding"])
-    validate_embedding_dimension(vec, context="Gemini embed_content")
-    # gemini-embedding-001 requires manual L2 norm for non-3072 dims
-    if EMBEDDING_DIMENSION != 3072:
-        vec = normalize_embedding(vec)
-        validate_embedding_dimension(vec, context="normalized embedding")
+    target_dim = get_embedding_dimension()
+
+    try:
+        result = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content=text,
+            task_type=task_type,
+            output_dimensionality=target_dim,
+        )
+        vec = list(result["embedding"])
+    except Exception as e:
+        logger.debug(
+            "Direct output_dimensionality=%d failed (%s); embedding and slicing to target_dim",
+            target_dim,
+            e,
+        )
+        result = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content=text,
+            task_type=task_type,
+        )
+        vec = list(result["embedding"])[:target_dim]
+
+    if len(vec) > target_dim:
+        vec = vec[:target_dim]
+    elif len(vec) < target_dim:
+        vec.extend([0.0] * (target_dim - len(vec)))
+
+    # Cosine metric requires unit vector
+    vec = normalize_embedding(vec)
+    validate_embedding_dimension(vec, context="normalized embedding", expected_dim=target_dim)
     return vec
 
 
@@ -114,6 +135,7 @@ def upsert_vector(vec_id, text, user_id, memory_type, importance):
         except (ValueError, TypeError):
             imp_val = 5.0
 
+    target_dim = get_embedding_dimension()
     vec = embed_text(text, task_type="retrieval_document")
     metadata = {
         "id": str(vec_id),
@@ -125,7 +147,7 @@ def upsert_vector(vec_id, text, user_id, memory_type, importance):
         "category": type_str,
         "importance": imp_val,
         "embedding_model": EMBEDDING_MODEL,
-        "embedding_dim": EMBEDDING_DIMENSION,
+        "embedding_dim": target_dim,
     }
 
     try:

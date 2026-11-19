@@ -317,3 +317,34 @@ def test_api_document_ingest_and_search_endpoints():
         assert len(data_search["results"]) == 1
         assert data_search["results"][0]["text"] == "Chunk from architecture guide"
 
+
+def test_auto_adaptation_to_pinecone_index_dimension():
+    from config.embeddings import get_embedding_dimension, set_embedding_dimension, validate_embedding_dimension
+    import db.pinecone as pc_module
+
+    # 1. Test manual/detected switch to 384
+    set_embedding_dimension(384)
+    assert get_embedding_dimension() == 384
+    vec_384 = [0.05] * 384
+    assert len(validate_embedding_dimension(vec_384)) == 384
+
+    # 2. Test switch back to 768
+    set_embedding_dimension(768)
+    assert get_embedding_dimension() == 768
+    vec_768 = [0.05] * 768
+    assert len(validate_embedding_dimension(vec_768)) == 768
+
+    # 3. Test auto-detection in _get_index
+    mock_pc_client = MagicMock()
+    mock_desc = MagicMock()
+    mock_desc.dimension = 384
+    mock_pc_client.describe_index.return_value = mock_desc
+    mock_pc_client.Index.return_value = MagicMock()
+
+    pc_module._index = None
+    with patch("db.pinecone.Pinecone", return_value=mock_pc_client), \
+         patch.dict("os.environ", {"PINECONE_API_KEY": "mock_key", "PINECONE_INDEX_NAME": "test-384"}):
+        idx = pc_module._get_index()
+        assert idx is not None
+        assert get_embedding_dimension() == 384
+

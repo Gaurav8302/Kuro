@@ -97,6 +97,16 @@ class LongTermMemory:
         pc = Pinecone(api_key=pc_api_key)
         index_name = os.getenv("PINECONE_INDEX_NAME", DEFAULT_PINECONE_INDEX)
         self._index = pc.Index(index_name)
+        try:
+            desc = pc.describe_index(index_name)
+            dim = getattr(desc, "dimension", None)
+            if dim is None and isinstance(desc, dict):
+                dim = desc.get("dimension")
+            if dim:
+                from config.embeddings import set_embedding_dimension
+                set_embedding_dimension(int(dim))
+        except Exception as e:
+            logger.debug("Could not auto-detect Pinecone index dimension in LongTermMemory: %s", e)
         logger.info(
             "LongTermMemory: Pinecone index '%s' connected (embedding=%s)",
             index_name,
